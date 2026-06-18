@@ -1,0 +1,71 @@
+package com.marathon.controller;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.marathon.dto.PageResponseDTO;
+import com.marathon.dto.usuario.UsuarioCambiarPasswordDTO;
+import com.marathon.dto.usuario.UsuarioRequestDTO;
+import com.marathon.dto.usuario.UsuarioResponseDTO;
+import com.marathon.dto.usuario.UsuarioUpdateDTO;
+import com.marathon.service.UsuarioService;
+
+import jakarta.validation.Valid;
+
+@RestController
+@RequestMapping("/api/usuarios")
+public class UsuarioController {
+
+    private final UsuarioService usuarioService;
+
+    public UsuarioController(UsuarioService usuarioService) {
+        this.usuarioService = usuarioService;
+    }
+
+    @GetMapping
+    public ResponseEntity<PageResponseDTO<UsuarioResponseDTO>> listar(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String nombre,
+            @RequestParam(required = false) String estado) {
+        return ResponseEntity.ok(usuarioService.listar(page, size, nombre, estado));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<UsuarioResponseDTO> obtener(@PathVariable Integer id) {
+        return ResponseEntity.ok(usuarioService.obtener(id));
+    }
+
+    @PostMapping
+    public ResponseEntity<UsuarioResponseDTO> crear(@Valid @RequestBody UsuarioRequestDTO dto) {
+        return new ResponseEntity<>(usuarioService.crear(dto), HttpStatus.CREATED);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<UsuarioResponseDTO> actualizar(@PathVariable Integer id,
+                                                          @Valid @RequestBody UsuarioUpdateDTO dto) {
+        return ResponseEntity.ok(usuarioService.actualizar(id, dto));
+    }
+
+    @PutMapping("/{id}/password")
+    public ResponseEntity<Void> cambiarPassword(@PathVariable Integer id,
+                                                 @Valid @RequestBody UsuarioCambiarPasswordDTO dto) {
+        usuarioService.cambiarPassword(id, dto);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
+        usuarioService.eliminar(id);
+        return ResponseEntity.noContent().build();
+    }
+}

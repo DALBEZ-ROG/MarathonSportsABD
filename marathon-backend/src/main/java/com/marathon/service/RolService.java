@@ -1,0 +1,138 @@
+package com.marathon.service;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.marathon.dto.permiso.PermisoResponseDTO;
+import com.marathon.dto.rol.RolRequestDTO;
+import com.marathon.dto.rol.RolResponseDTO;
+import com.marathon.exception.ResourceNotFoundException;
+import com.marathon.exception.ValidationException;
+import com.marathon.model.Permiso;
+import com.marathon.model.Rol;
+import com.marathon.model.RolPermiso;
+import com.marathon.repository.PermisoRepository;
+import com.marathon.repository.RolPermisoRepository;
+import com.marathon.repository.RolRepository;
+import com.marathon.repository.UsuarioRolRepository;
+
+@Service
+public class RolService {
+
+    private final RolRepository rolRepository;
+    private final PermisoRepository permisoRepository;
+    private final RolPermisoRepository rolPermisoRepository;
+    private final UsuarioRolRepository usuarioRolRepository;
+    private final PermisoService permisoService;
+
+    public RolService(RolRepository rolRepository, PermisoRepository permisoRepository,
+                      RolPermisoRepository rolPermisoRepository, UsuarioRolRepository usuarioRolRepository,
+                      PermisoService permisoService) {
+        this.rolRepository = rolRepository;
+        this.permisoRepository = permisoRepository;
+        this.rolPermisoRepository = rolPermisoRepository;
+        this.usuarioRolRepository = usuarioRolRepository;
+        this.permisoService = permisoService;
+    }
+
+    public List<RolResponseDTO> listarTodos() {
+        return rolRepository.findAll().stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    public RolResponseDTO obtener(Integer id) {
+        Rol rol = rolRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Rol", id));
+        return toDTO(rol);
+    }
+
+    @Transactional
+    public RolResponseDTO crear(RolRequestDTO dto) {
+        Optional<Rol> existente = rolRepository.findByNombre(dto.getNombre());
+        if (existente.isPresent()) {
+            throw new ValidationException("Ya existe un rol con ese nombre");
+        }
+
+        Rol rol = new Rol();
+        rol.setNombre(dto.getNombre());
+        rol.setDescripcion(dto.getDescripcion());
+        rol = rolRepository.save(rol);
+
+        if (dto.getIdPermisos() != null) {
+            for (Integer idPermiso : dto.getIdPermisos()) {
+                Permiso permiso = permisoRepository.findById(idPermiso)
+                        .orElseThrow(() -> new ResourceNotFoundException("Permiso", idPermiso));
+                rolPermisoRepository.save(new RolPermiso(rol, permiso));
+            }
+        }
+
+        return toDTO(rol);
+    }
+
+    @Transactional
+    public RolResponseDTO actualizar(Integer id, RolRequestDTO dto) {
+        Rol rol = rolRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Rol", id));
+
+        Optional<Rol> existente = rolRepository.findByNombre(dto.getNombre());
+        if (existente.isPresent() && !existente.get().getIdRol().equals(id)) {
+            throw new ValidationException("Ya existe un rol con ese nombre");
+        }
+
+        rol.setNombre(dto.getNombre());
+        rol.setDescripcion(dto.getDescripcion());
+        rolRepository.save(rol);
+
+        // Reasignar permisos
+        List<RolPermiso> actuales = rolPermisoRepository.findByRolIdRol(id);
+        rolPermisoRepository.deleteAll(actuales);
+
+        if (dto.getIdPermisos() != null) {
+            for (Integer idPermiso : dto.getIdPermisos()) {
+                Permiso permiso = permisoRepository.findById(idPermiso)
+                        .orElseThrow(() -> new ResourceNotFoundException("Permiso", idPermiso));
+                rolPermisoRepository.save(new RolPermiso(rol, permiso));
+            }
+        }
+
+        return toDTO(rol);
+    }
+
+    @Transactional
+    public void eliminar(Integer id) {
+        Rol rol = rolRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Rol", id));
+
+        long usuarios = usuarioRolRepository.findByUsuarioIdUsuario(0).size(); // dummy
+        // Check real: si hay registros en usuario_rol con este rol
+        if (!usuarioRolRepository.findAll().stream()
+                .filter(ur -> ur.getRol().getIdRol().equals(id)).collect(Collectors.toList()).isEmpty()) {
+            throw new ValidationException("No se puede eliminar: el rol tiene usuarios asignados");
+        }
+
+        List<RolPermiso> permisos = rolPermisoRepository.findByRolIdRol(id);
+        rolPermisoRepository.deleteAll(permisos);
+        rolRepository.delete(rol);
+    }
+
+    public RolResponseDTO toDTO(Rol rol) {
+        RolResponseDTO dto = new RolResponseDTO();
+        dto.setIdRol(rol.getIdRol());
+        dto.setNombre(rol.getNombre());
+        dto.setDescripcion(rol.getDescripcion());
+        dto.setCreatedAt(rol.getCreatedAt());
+
+        List<RolPermiso> rolPermisos = rolPermisoRepository.findByRolIdRol(rol.getIdRol());
+        List<PermisoResponseDTO> permisos = rolPermisos.stream()
+                .map(rp -> permisoService.toDTO(rp.getPermiso()))
+                .collect(Collectors.toList());
+        dto.setPermisos(permisos);
+
+        return dto;
+    }
+}

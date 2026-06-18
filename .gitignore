@@ -1,0 +1,21 @@
+# Compiled
+marathon-backend/target/
+marathon-frontend/dist/
+marathon-frontend/node_modules/
+marathon-frontend/.angular/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Environment files with secrets
+.env
+marathon-backend/src/main/resources/application-local.properties
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log

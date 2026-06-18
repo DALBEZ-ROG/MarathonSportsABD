@@ -1,0 +1,68 @@
+# Sistema de Gestión de Pedidos — Marathon Sports
+
+## Misión
+Plataforma web interna para gestionar el ciclo completo de pedidos e-commerce: recepción, picking, empaque y despacho.
+
+## Objetivos
+- Automatizar la gestión de pedidos desde la recepción hasta el despacho
+- Controlar inventario en tiempo real con trazabilidad completa
+- Proveer dashboards operativos por rol
+- Garantizar integridad de datos con validaciones en BD y aplicación
+
+## Roles del Sistema
+1. **Administrador** — Acceso total: usuarios, productos, inventario, reportes, configuración
+2. **Supervisor E-Commerce** — Gestión de pedidos, asignación de picking, reportes operativos
+3. **Operador de Bodega** — Inventario, movimientos de stock, comprobantes internos
+4. **Operador de Pedidos** — Picking, empaque, actualización de estados de pedido
+
+## Fases del Proyecto
+
+### Bloque 1: Infraestructura
+| Fase | Nombre | Estado |
+|------|--------|--------|
+| 1 | Infraestructura Base (Spring Boot + Angular + Docker) | ✅ Completada |
+| 2 | Autenticación JWT + Roles | ✅ Completada |
+| 3 | CRUD Maestros (Ciudad, Categoría, Unidad Medida, Proveedor) | ✅ Completada |
+
+### Bloque 2: Núcleo de Negocio
+| Fase | Nombre | Estado |
+|------|--------|--------|
+| 4 | Gestión de Usuarios + Roles + Permisos | ✅ Completada |
+| 5 | Gestión de Bodegas | ✅ Completada |
+| 6 | Gestión de Productos + Proveedores | ✅ Completada |
+| 7 | Gestión de Inventario + Movimientos | ✅ Completada |
+| 8 | Gestión de Clientes | ✅ Completada |
+
+### Bloque 3: Pedidos y Operaciones
+| Fase | Nombre | Estado |
+|------|--------|--------|
+| 9 | Crear Pedido + Detalle | ✅ Completada |
+| 10 | Listado y Filtrado de Pedidos | ✅ Completada |
+| 11 | Flujo de Estados de Pedido | ✅ Completada |
+| 12 | Comprobantes Internos | ✅ Completada |
+| 13 | Historial de Inventario | ⏳ Pendiente |
+
+### Bloque 4: Operaciones Avanzadas
+| Fase | Nombre | Estado |
+|------|--------|--------|
+| 14 | Módulo de Picking | ⏳ Pendiente |
+| 15 | Módulo de Empaque y Despacho | ⏳ Pendiente |
+| 16 | Dashboard Operativo | ⏳ Pendiente |
+| 17 | Reportes y Exportación | ⏳ Pendiente |
+
+### Bloque 5: Calidad y Entrega
+| Fase | Nombre | Estado |
+|------|--------|--------|
+| 18 | Testing E2E + Validaciones | ⏳ Pendiente |
+| 19 | Optimización + Documentación API | ⏳ Pendiente |
+| 20 | Despliegue Final + Demo | ⏳ Pendiente |
+
+## Reglas de Negocio Críticas
+
+1. **pedido.total es calculado por trigger** — NUNCA escribir este campo desde la aplicación. El trigger `trg_actualizar_total_pedido` calcula el total automáticamente al insertar/actualizar/eliminar detalles.
+
+2. **detalle_pedido.subtotal es GENERATED** — NUNCA insertar ni actualizar este campo. Es una columna generada: `cantidad * precio_unitario`.
+
+3. **usuario.password llega hasheado (min 60 chars)** — La base de datos NO hashea contraseñas. La aplicación DEBE enviar el password ya hasheado con BCrypt antes del INSERT/UPDATE.
+
+4. **Para movimientos de stock** — Antes de hacer UPDATE a inventario, ejecutar: `SET app.current_user_id = '<id_usuario>'` para que el trigger de historial registre quién hizo el cambio.
