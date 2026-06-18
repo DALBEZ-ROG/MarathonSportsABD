@@ -1,7 +1,6 @@
 package com.marathon.service;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -14,7 +13,6 @@ import com.marathon.dto.PageResponseDTO;
 import com.marathon.dto.cliente.ClienteRequestDTO;
 import com.marathon.dto.cliente.ClienteResponseDTO;
 import com.marathon.exception.ResourceNotFoundException;
-import com.marathon.exception.ValidationException;
 import com.marathon.model.Ciudad;
 import com.marathon.model.Cliente;
 import com.marathon.repository.CiudadRepository;
@@ -72,12 +70,6 @@ public class ClienteService {
 
     @Transactional
     public ClienteResponseDTO crear(ClienteRequestDTO dto) {
-        // Validar cédula única
-        Optional<Cliente> existente = clienteRepository.findByCedulaIgnoreCase(dto.getCedula());
-        if (existente.isPresent()) {
-            throw new ValidationException("Ya existe un cliente con la cédula: " + dto.getCedula());
-        }
-
         Cliente cliente = new Cliente();
         mapearDatos(cliente, dto);
         if (cliente.getEstado() == null || cliente.getEstado().isEmpty()) {
@@ -93,14 +85,6 @@ public class ClienteService {
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente", id));
 
-        // Validar cédula única si cambió
-        if (!cliente.getCedula().equalsIgnoreCase(dto.getCedula())) {
-            Optional<Cliente> existente = clienteRepository.findByCedulaIgnoreCase(dto.getCedula());
-            if (existente.isPresent()) {
-                throw new ValidationException("Ya existe un cliente con la cédula: " + dto.getCedula());
-            }
-        }
-
         mapearDatos(cliente, dto);
         cliente = clienteRepository.save(cliente);
         return toDTO(cliente);
@@ -111,11 +95,8 @@ public class ClienteService {
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente", id));
 
-        // Verificar si tiene pedidos activos
-        long pedidosActivos = pedidoRepository.countByEstado("pendiente");
         Page<com.marathon.model.Pedido> pedidosCliente = pedidoRepository.findByClienteIdCliente(id, PageRequest.of(0, 1));
         if (pedidosCliente.getTotalElements() > 0) {
-            // Eliminación lógica
             cliente.setEstado("inactivo");
             clienteRepository.save(cliente);
         } else {
@@ -126,8 +107,7 @@ public class ClienteService {
     private void mapearDatos(Cliente cliente, ClienteRequestDTO dto) {
         cliente.setNombre(dto.getNombre());
         cliente.setApellido(dto.getApellido());
-        cliente.setCedula(dto.getCedula());
-        cliente.setEmail(dto.getEmail());
+        cliente.setCorreo(dto.getEmail());
         cliente.setTelefono(dto.getTelefono());
         cliente.setDireccion(dto.getDireccion());
         if (dto.getEstado() != null && !dto.getEstado().isEmpty()) {
@@ -138,8 +118,6 @@ public class ClienteService {
             Ciudad ciudad = ciudadRepository.findById(dto.getIdCiudad())
                     .orElseThrow(() -> new ResourceNotFoundException("Ciudad", dto.getIdCiudad()));
             cliente.setCiudad(ciudad);
-        } else {
-            cliente.setCiudad(null);
         }
     }
 
@@ -148,8 +126,7 @@ public class ClienteService {
         dto.setIdCliente(cliente.getIdCliente());
         dto.setNombre(cliente.getNombre());
         dto.setApellido(cliente.getApellido());
-        dto.setCedula(cliente.getCedula());
-        dto.setEmail(cliente.getEmail());
+        dto.setEmail(cliente.getCorreo());
         dto.setTelefono(cliente.getTelefono());
         dto.setDireccion(cliente.getDireccion());
         dto.setEstado(cliente.getEstado());

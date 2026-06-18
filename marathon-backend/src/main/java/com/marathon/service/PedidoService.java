@@ -1,5 +1,6 @@
 package com.marathon.service;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -96,7 +97,6 @@ public class PedidoService {
         Pedido pedido = pedidoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido", id));
         PedidoResponseDTO dto = toDTO(pedido);
-        // Cargar detalles
         List<DetallePedido> detalles = detallePedidoRepository.findByPedidoIdPedido(id);
         dto.setDetalles(detalles.stream().map(this::toDetalleDTO).collect(Collectors.toList()));
         return dto;
@@ -104,7 +104,6 @@ public class PedidoService {
 
     @Transactional
     public PedidoResponseDTO crear(PedidoRequestDTO dto, Integer idUsuarioActual) {
-        // Validar cliente existe y está activo
         Cliente cliente = clienteRepository.findById(dto.getIdCliente())
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente", dto.getIdCliente()));
         if (!"activo".equals(cliente.getEstado())) {
@@ -114,15 +113,13 @@ public class PedidoService {
         Usuario usuario = usuarioRepository.findById(idUsuarioActual)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario", idUsuarioActual));
 
-        // Crear pedido SIN total (trigger lo calcula)
         Pedido pedido = new Pedido();
         pedido.setCliente(cliente);
         pedido.setUsuario(usuario);
         pedido.setEstado("pendiente");
-        pedido.setObservaciones(dto.getObservaciones());
+        pedido.setDescuento(dto.getDescuento() != null ? dto.getDescuento() : BigDecimal.ZERO);
         pedido = pedidoRepository.save(pedido);
 
-        // Crear detalles SIN subtotal (columna GENERATED)
         for (DetallePedidoItemDTO item : dto.getDetalles()) {
             Producto producto = productoRepository.findById(item.getIdProducto())
                     .orElseThrow(() -> new ResourceNotFoundException("Producto", item.getIdProducto()));
@@ -132,11 +129,9 @@ public class PedidoService {
             detalle.setProducto(producto);
             detalle.setCantidad(item.getCantidad());
             detalle.setPrecioUnitario(item.getPrecioUnitario());
-            // NO setear subtotal — es GENERATED
             detallePedidoRepository.save(detalle);
         }
 
-        // CRÍTICO: Recargar pedido para obtener el total calculado por trigger
         entityManager.flush();
         entityManager.clear();
         pedido = pedidoRepository.findById(pedido.getIdPedido()).orElseThrow();
@@ -155,14 +150,9 @@ public class PedidoService {
         String estadoActual = pedido.getEstado();
         String nuevoEstado = dto.getEstado();
 
-        // Validar transiciones permitidas
         validarTransicion(estadoActual, nuevoEstado);
 
         pedido.setEstado(nuevoEstado);
-        if (dto.getObservacion() != null && !dto.getObservacion().isEmpty()) {
-            String obs = pedido.getObservaciones() != null ? pedido.getObservaciones() + " | " : "";
-            pedido.setObservaciones(obs + dto.getObservacion());
-        }
         pedido = pedidoRepository.save(pedido);
 
         return toDTO(pedido);
@@ -198,11 +188,9 @@ public class PedidoService {
     private PedidoResponseDTO toDTO(Pedido pedido) {
         PedidoResponseDTO dto = new PedidoResponseDTO();
         dto.setIdPedido(pedido.getIdPedido());
-        dto.setNumeroPedido(pedido.getNumeroPedido());
         dto.setFechaPedido(pedido.getFechaPedido());
         dto.setTotal(pedido.getTotal());
         dto.setEstado(pedido.getEstado());
-        dto.setObservaciones(pedido.getObservaciones());
         if (pedido.getCliente() != null) {
             dto.setIdCliente(pedido.getCliente().getIdCliente());
             dto.setClienteNombre(pedido.getCliente().getNombre() + " " + pedido.getCliente().getApellido());

@@ -19,7 +19,7 @@ public class Ciudad {
     @Column(name = "nombre", nullable = false)
     private String nombre;
 
-    @Column(name = "estado")
+    @Column(name = "estado", nullable = false)
     private String estado;
 
     public Ciudad() {}

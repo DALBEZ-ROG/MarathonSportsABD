@@ -51,7 +51,6 @@ public class Usuario implements UserDetails {
 
     public Usuario() {}
 
-    // UserDetails implementation — usa correo como username
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return authorities;
@@ -68,7 +67,7 @@ public class Usuario implements UserDetails {
 
     @Override
     public String getUsername() {
-        return correo; // Usamos correo como identificador de login
+        return correo;
     }
 
     @Override
@@ -85,7 +84,6 @@ public class Usuario implements UserDetails {
         return "activo".equals(estado);
     }
 
-    // Getters and Setters
     public Integer getIdUsuario() { return idUsuario; }
     public void setIdUsuario(Integer idUsuario) { this.idUsuario = idUsuario; }
 
@@ -104,5 +102,6 @@ public class Usuario implements UserDetails {
     public void setEstado(String estado) { this.estado = estado; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
+
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

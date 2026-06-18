@@ -8,5 +8,5 @@ import com.marathon.model.HistorialInventario;
 
 public interface HistorialInventarioRepository extends JpaRepository<HistorialInventario, Integer> {
 
-    List<HistorialInventario> findByInventarioIdInventarioOrderByFechaCambioDesc(Integer idInventario);
+    List<HistorialInventario> findByInventarioIdInventarioOrderByFechaDesc(Integer idInventario);
 }

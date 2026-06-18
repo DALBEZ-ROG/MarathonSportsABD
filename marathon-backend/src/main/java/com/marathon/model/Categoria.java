@@ -1,5 +1,7 @@
 package com.marathon.model;
 
+import java.time.LocalDateTime;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -16,11 +18,14 @@ public class Categoria {
     @Column(name = "id_categoria")
     private Integer idCategoria;
 
-    @Column(name = "nombre", nullable = false, unique = true)
+    @Column(name = "nombre", nullable = false)
     private String nombre;
 
     @Column(name = "descripcion")
     private String descripcion;
+
+    @Column(name = "created_at", insertable = false, updatable = false)
+    private LocalDateTime createdAt;
 
     public Categoria() {}
 
@@ -32,4 +37,6 @@ public class Categoria {
 
     public String getDescripcion() { return descripcion; }
     public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
 }

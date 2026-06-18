@@ -104,33 +104,32 @@ public class InventarioService {
                     Inventario nuevo = new Inventario();
                     nuevo.setProducto(producto);
                     nuevo.setBodega(bodega);
-                    nuevo.setCantidad(0);
+                    nuevo.setStockActual(0);
+                    nuevo.setStockMinimo(0);
                     return inventarioRepository.save(nuevo);
                 });
 
-        int stockAnterior = inv.getCantidad();
-
         switch (dto.getTipoMovimiento()) {
             case "entrada":
-                inv.setCantidad(inv.getCantidad() + dto.getCantidad());
+                inv.setStockActual(inv.getStockActual() + dto.getCantidad());
                 break;
             case "salida":
-                if (inv.getCantidad() < dto.getCantidad()) {
-                    throw new ValidationException("Stock insuficiente. Disponible: " + inv.getCantidad());
+                if (inv.getStockActual() < dto.getCantidad()) {
+                    throw new ValidationException("Stock insuficiente. Disponible: " + inv.getStockActual());
                 }
-                inv.setCantidad(inv.getCantidad() - dto.getCantidad());
+                inv.setStockActual(inv.getStockActual() - dto.getCantidad());
                 break;
             case "ajuste":
-                inv.setCantidad(dto.getCantidad());
+                inv.setStockActual(dto.getCantidad());
                 break;
             case "traslado":
                 if (dto.getIdBodegaDestino() == null) {
                     throw new ValidationException("La bodega destino es requerida para traslados");
                 }
-                if (inv.getCantidad() < dto.getCantidad()) {
-                    throw new ValidationException("Stock insuficiente. Disponible: " + inv.getCantidad());
+                if (inv.getStockActual() < dto.getCantidad()) {
+                    throw new ValidationException("Stock insuficiente. Disponible: " + inv.getStockActual());
                 }
-                inv.setCantidad(inv.getCantidad() - dto.getCantidad());
+                inv.setStockActual(inv.getStockActual() - dto.getCantidad());
 
                 Bodega bodegaDestino = bodegaRepository.findById(dto.getIdBodegaDestino())
                         .orElseThrow(() -> new ResourceNotFoundException("Bodega destino", dto.getIdBodegaDestino()));
@@ -141,28 +140,26 @@ public class InventarioService {
                             Inventario nuevoDestino = new Inventario();
                             nuevoDestino.setProducto(producto);
                             nuevoDestino.setBodega(bodegaDestino);
-                            nuevoDestino.setCantidad(0);
+                            nuevoDestino.setStockActual(0);
+                            nuevoDestino.setStockMinimo(0);
                             return inventarioRepository.save(nuevoDestino);
                         });
 
                 entityManager.createNativeQuery("SET LOCAL app.current_user_id = '" + idUsuarioActual + "'")
                         .executeUpdate();
-                destino.setCantidad(destino.getCantidad() + dto.getCantidad());
+                destino.setStockActual(destino.getStockActual() + dto.getCantidad());
                 inventarioRepository.save(destino);
                 break;
             default:
                 throw new ValidationException("Tipo de movimiento no válido: " + dto.getTipoMovimiento());
         }
 
-        // SET LOCAL before saving origin inventory
         entityManager.createNativeQuery("SET LOCAL app.current_user_id = '" + idUsuarioActual + "'")
                 .executeUpdate();
         inventarioRepository.save(inv);
 
-        // Save movimiento record
         MovimientoInventario mov = new MovimientoInventario();
-        mov.setProducto(producto);
-        mov.setBodega(bodega);
+        mov.setInventario(inv);
         mov.setTipoMovimiento(dto.getTipoMovimiento());
         mov.setCantidad(dto.getCantidad());
         mov.setUsuario(usuario);
@@ -174,7 +171,7 @@ public class InventarioService {
     public PageResponseDTO<MovimientoResponseDTO> listarMovimientos(Integer idProducto, Integer idBodega, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<MovimientoInventario> result = movimientoRepository
-                .findByProductoIdProductoAndBodegaIdBodega(idProducto, idBodega, pageable);
+                .findByInventarioProductoIdProductoAndInventarioBodegaIdBodega(idProducto, idBodega, pageable);
 
         List<MovimientoResponseDTO> content = result.getContent().stream()
                 .map(this::toMovimientoDTO)
@@ -185,7 +182,7 @@ public class InventarioService {
     }
 
     public List<HistorialResponseDTO> listarHistorial(Integer idInventario) {
-        return historialRepository.findByInventarioIdInventarioOrderByFechaCambioDesc(idInventario).stream()
+        return historialRepository.findByInventarioIdInventarioOrderByFechaDesc(idInventario).stream()
                 .map(this::toHistorialDTO)
                 .collect(Collectors.toList());
     }
@@ -193,8 +190,8 @@ public class InventarioService {
     private InventarioResponseDTO toInventarioDTO(Inventario inv) {
         InventarioResponseDTO dto = new InventarioResponseDTO();
         dto.setIdInventario(inv.getIdInventario());
-        dto.setCantidad(inv.getCantidad());
-        dto.setUpdatedAt(inv.getUpdatedAt());
+        dto.setCantidad(inv.getStockActual());
+        dto.setUpdatedAt(inv.getFechaActualizacion());
         if (inv.getProducto() != null) {
             dto.setProductoId(inv.getProducto().getIdProducto());
             dto.setProductoNombre(inv.getProducto().getNombre());
@@ -212,13 +209,13 @@ public class InventarioService {
         dto.setTipoMovimiento(mov.getTipoMovimiento());
         dto.setCantidad(mov.getCantidad());
         dto.setFecha(mov.getFecha());
-        if (mov.getProducto() != null) {
-            dto.setIdProducto(mov.getProducto().getIdProducto());
-            dto.setProductoNombre(mov.getProducto().getNombre());
+        if (mov.getInventario() != null && mov.getInventario().getProducto() != null) {
+            dto.setIdProducto(mov.getInventario().getProducto().getIdProducto());
+            dto.setProductoNombre(mov.getInventario().getProducto().getNombre());
         }
-        if (mov.getBodega() != null) {
-            dto.setIdBodega(mov.getBodega().getIdBodega());
-            dto.setBodegaNombre(mov.getBodega().getNombre());
+        if (mov.getInventario() != null && mov.getInventario().getBodega() != null) {
+            dto.setIdBodega(mov.getInventario().getBodega().getIdBodega());
+            dto.setBodegaNombre(mov.getInventario().getBodega().getNombre());
         }
         if (mov.getUsuario() != null) {
             dto.setIdUsuario(mov.getUsuario().getIdUsuario());
@@ -230,10 +227,10 @@ public class InventarioService {
     private HistorialResponseDTO toHistorialDTO(HistorialInventario h) {
         HistorialResponseDTO dto = new HistorialResponseDTO();
         dto.setIdHistorial(h.getIdHistorial());
-        dto.setCantidadAnterior(h.getCantidadAnterior());
-        dto.setCantidadNueva(h.getCantidadNueva());
-        dto.setFechaCambio(h.getFechaCambio());
-        dto.setTipoOperacion(h.getTipoOperacion());
+        dto.setCantidadAnterior(h.getStockAnterior());
+        dto.setCantidadNueva(h.getStockNuevo());
+        dto.setFechaCambio(h.getFecha());
+        dto.setTipoOperacion(h.getMotivo());
         return dto;
     }
 }

@@ -2,7 +2,6 @@ package com.marathon.service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -16,7 +15,6 @@ import com.marathon.dto.producto.ProductoRequestDTO;
 import com.marathon.dto.producto.ProductoResponseDTO;
 import com.marathon.dto.producto.ProductoResponseDTO.ProveedorSimpleDTO;
 import com.marathon.exception.ResourceNotFoundException;
-import com.marathon.exception.ValidationException;
 import com.marathon.model.Categoria;
 import com.marathon.model.Producto;
 import com.marathon.model.ProductoProveedor;
@@ -92,7 +90,7 @@ public class ProductoService {
                 .map(pp -> new ProveedorSimpleDTO(
                         pp.getProveedor().getIdProveedor(),
                         pp.getProveedor().getNombre(),
-                        pp.getProveedor().getRuc()))
+                        pp.getProveedor().getContacto()))
                 .collect(Collectors.toList());
         dto.setProveedores(proveedores);
         return dto;
@@ -100,11 +98,6 @@ public class ProductoService {
 
     @Transactional
     public ProductoResponseDTO crear(ProductoRequestDTO reqDTO) {
-        Optional<Producto> existente = productoRepository.findByCodigoIgnoreCase(reqDTO.getCodigo());
-        if (existente.isPresent()) {
-            throw new ValidationException("Ya existe un producto con el código: " + reqDTO.getCodigo());
-        }
-
         Producto producto = new Producto();
         mapFromDTO(producto, reqDTO);
         producto.setEstado(reqDTO.getEstado() != null ? reqDTO.getEstado() : "activo");
@@ -119,11 +112,6 @@ public class ProductoService {
     public ProductoResponseDTO actualizar(Integer id, ProductoRequestDTO reqDTO) {
         Producto producto = productoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto", id));
-
-        Optional<Producto> existente = productoRepository.findByCodigoIgnoreCase(reqDTO.getCodigo());
-        if (existente.isPresent() && !existente.get().getIdProducto().equals(id)) {
-            throw new ValidationException("Ya existe un producto con el código: " + reqDTO.getCodigo());
-        }
 
         mapFromDTO(producto, reqDTO);
         if (reqDTO.getEstado() != null) {
@@ -145,12 +133,9 @@ public class ProductoService {
     }
 
     private void mapFromDTO(Producto producto, ProductoRequestDTO dto) {
-        producto.setCodigo(dto.getCodigo());
         producto.setNombre(dto.getNombre());
         producto.setDescripcion(dto.getDescripcion());
-        producto.setPrecioCompra(dto.getPrecioCompra());
-        producto.setPrecioVenta(dto.getPrecioVenta());
-        producto.setStockMinimo(dto.getStockMinimo() != null ? dto.getStockMinimo() : 0);
+        producto.setPrecio(dto.getPrecioVenta());
 
         Categoria categoria = categoriaRepository.findById(dto.getIdCategoria())
                 .orElseThrow(() -> new ResourceNotFoundException("Categoría", dto.getIdCategoria()));
@@ -171,6 +156,8 @@ public class ProductoService {
             ProductoProveedor pp = new ProductoProveedor();
             pp.setProducto(producto);
             pp.setProveedor(proveedor);
+            pp.setEsProveedorPrincipal(false);
+            pp.setEstado("activo");
             relaciones.add(pp);
         }
         productoProveedorRepository.saveAll(relaciones);
@@ -179,12 +166,10 @@ public class ProductoService {
     private ProductoResponseDTO toDTO(Producto producto) {
         ProductoResponseDTO dto = new ProductoResponseDTO();
         dto.setIdProducto(producto.getIdProducto());
-        dto.setCodigo(producto.getCodigo());
         dto.setNombre(producto.getNombre());
         dto.setDescripcion(producto.getDescripcion());
-        dto.setPrecioCompra(producto.getPrecioCompra());
-        dto.setPrecioVenta(producto.getPrecioVenta());
-        dto.setStockMinimo(producto.getStockMinimo());
+        dto.setPrecioVenta(producto.getPrecio());
+        dto.setPrecioCompra(producto.getPrecio());
         dto.setEstado(producto.getEstado());
         dto.setCreatedAt(producto.getCreatedAt());
 
@@ -193,7 +178,7 @@ public class ProductoService {
             dto.setCategoriaNombre(producto.getCategoria().getNombre());
         }
         if (producto.getUnidadMedida() != null) {
-            dto.setIdUnidadMedida(producto.getUnidadMedida().getIdUnidad());
+            dto.setIdUnidadMedida(producto.getUnidadMedida().getIdUnidadMedida());
             dto.setUnidadMedidaNombre(producto.getUnidadMedida().getNombre());
         }
         return dto;

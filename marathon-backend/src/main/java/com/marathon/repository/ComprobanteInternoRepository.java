@@ -1,16 +1,14 @@
 package com.marathon.repository;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.marathon.model.ComprobanteInterno;
 
 public interface ComprobanteInternoRepository extends JpaRepository<ComprobanteInterno, Integer> {
 
-    Page<ComprobanteInterno> findByEstado(String estado, Pageable pageable);
+    Optional<ComprobanteInterno> findByPedidoIdPedido(Integer idPedido);
 
-    Page<ComprobanteInterno> findByTipo(String tipo, Pageable pageable);
-
-    Page<ComprobanteInterno> findByTipoAndEstado(String tipo, String estado, Pageable pageable);
+    Optional<ComprobanteInterno> findByNumeroComprobante(String numeroComprobante);
 }

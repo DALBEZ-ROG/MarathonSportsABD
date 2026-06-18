@@ -19,9 +19,9 @@ public interface InventarioRepository extends JpaRepository<Inventario, Integer>
 
     Optional<Inventario> findByProductoIdProductoAndBodegaIdBodega(Integer idProducto, Integer idBodega);
 
-    @Query("SELECT i FROM Inventario i WHERE i.cantidad <= :umbral")
+    @Query("SELECT i FROM Inventario i WHERE i.stockActual <= :umbral")
     List<Inventario> findStockBajo(@Param("umbral") int umbral);
 
-    @Query("SELECT i FROM Inventario i WHERE i.bodega.idBodega = :idBodega AND i.cantidad <= :umbral")
+    @Query("SELECT i FROM Inventario i WHERE i.bodega.idBodega = :idBodega AND i.stockActual <= :umbral")
     List<Inventario> findStockBajoByBodega(@Param("idBodega") Integer idBodega, @Param("umbral") int umbral);
 }

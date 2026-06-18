@@ -72,12 +72,12 @@ public class UnidadMedidaService {
                 .orElseThrow(() -> new ResourceNotFoundException("Unidad de medida", id));
 
         Optional<UnidadMedida> porNombre = unidadMedidaRepository.findByNombreIgnoreCase(dto.getNombre());
-        if (porNombre.isPresent() && !porNombre.get().getIdUnidad().equals(id)) {
+        if (porNombre.isPresent() && !porNombre.get().getIdUnidadMedida().equals(id)) {
             throw new ValidationException("Ya existe una unidad de medida con ese nombre");
         }
 
         Optional<UnidadMedida> porAbrev = unidadMedidaRepository.findByAbreviaturaIgnoreCase(dto.getAbreviatura());
-        if (porAbrev.isPresent() && !porAbrev.get().getIdUnidad().equals(id)) {
+        if (porAbrev.isPresent() && !porAbrev.get().getIdUnidadMedida().equals(id)) {
             throw new ValidationException("Ya existe una unidad de medida con esa abreviatura");
         }
 
@@ -89,11 +89,10 @@ public class UnidadMedidaService {
     public void eliminar(Integer id) {
         UnidadMedida um = unidadMedidaRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Unidad de medida", id));
-        // Eliminación física
         unidadMedidaRepository.delete(um);
     }
 
     private UnidadMedidaResponseDTO toDTO(UnidadMedida um) {
-        return new UnidadMedidaResponseDTO(um.getIdUnidad(), um.getNombre(), um.getAbreviatura());
+        return new UnidadMedidaResponseDTO(um.getIdUnidadMedida(), um.getNombre(), um.getAbreviatura());
     }
 }

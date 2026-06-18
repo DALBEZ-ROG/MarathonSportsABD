@@ -1,5 +1,7 @@
 package com.marathon.model;
 
+import java.time.LocalDateTime;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -13,23 +15,28 @@ public class UnidadMedida {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_unidad")
-    private Integer idUnidad;
+    @Column(name = "id_unidad_medida")
+    private Integer idUnidadMedida;
 
-    @Column(name = "nombre", nullable = false, unique = true)
+    @Column(name = "nombre", nullable = false)
     private String nombre;
 
     @Column(name = "abreviatura", nullable = false)
     private String abreviatura;
 
+    @Column(name = "created_at", insertable = false, updatable = false)
+    private LocalDateTime createdAt;
+
     public UnidadMedida() {}
 
-    public Integer getIdUnidad() { return idUnidad; }
-    public void setIdUnidad(Integer idUnidad) { this.idUnidad = idUnidad; }
+    public Integer getIdUnidadMedida() { return idUnidadMedida; }
+    public void setIdUnidadMedida(Integer idUnidadMedida) { this.idUnidadMedida = idUnidadMedida; }
 
     public String getNombre() { return nombre; }
     public void setNombre(String nombre) { this.nombre = nombre; }
 
     public String getAbreviatura() { return abreviatura; }
     public void setAbreviatura(String abreviatura) { this.abreviatura = abreviatura; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
 }

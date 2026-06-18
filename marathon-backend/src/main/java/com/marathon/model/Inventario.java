@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -20,19 +21,22 @@ public class Inventario {
     @Column(name = "id_inventario")
     private Integer idInventario;
 
-    @ManyToOne
-    @JoinColumn(name = "id_producto")
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "id_producto", nullable = false)
     private Producto producto;
 
-    @ManyToOne
-    @JoinColumn(name = "id_bodega")
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "id_bodega", nullable = false)
     private Bodega bodega;
 
-    @Column(name = "cantidad", nullable = false)
-    private Integer cantidad;
+    @Column(name = "stock_actual", nullable = false)
+    private Integer stockActual;
 
-    @Column(name = "updated_at", insertable = false, updatable = false)
-    private LocalDateTime updatedAt;
+    @Column(name = "stock_minimo", nullable = false)
+    private Integer stockMinimo;
+
+    @Column(name = "fecha_actualizacion", insertable = false, updatable = false)
+    private LocalDateTime fechaActualizacion;
 
     public Inventario() {}
 
@@ -45,9 +49,11 @@ public class Inventario {
     public Bodega getBodega() { return bodega; }
     public void setBodega(Bodega bodega) { this.bodega = bodega; }
 
-    public Integer getCantidad() { return cantidad; }
-    public void setCantidad(Integer cantidad) { this.cantidad = cantidad; }
+    public Integer getStockActual() { return stockActual; }
+    public void setStockActual(Integer stockActual) { this.stockActual = stockActual; }
 
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public Integer getStockMinimo() { return stockMinimo; }
+    public void setStockMinimo(Integer stockMinimo) { this.stockMinimo = stockMinimo; }
+
+    public LocalDateTime getFechaActualizacion() { return fechaActualizacion; }
 }

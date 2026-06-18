@@ -8,7 +8,8 @@ import com.marathon.model.MovimientoInventario;
 
 public interface MovimientoInventarioRepository extends JpaRepository<MovimientoInventario, Integer> {
 
-    Page<MovimientoInventario> findByProductoIdProductoAndBodegaIdBodega(Integer idProducto, Integer idBodega, Pageable pageable);
+    Page<MovimientoInventario> findByInventarioProductoIdProductoAndInventarioBodegaIdBodega(
+            Integer idProducto, Integer idBodega, Pageable pageable);
 
     Page<MovimientoInventario> findByTipoMovimiento(String tipoMovimiento, Pageable pageable);
 }

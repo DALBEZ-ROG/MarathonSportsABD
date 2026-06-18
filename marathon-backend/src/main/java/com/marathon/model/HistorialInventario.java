@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -20,24 +21,24 @@ public class HistorialInventario {
     @Column(name = "id_historial")
     private Integer idHistorial;
 
-    @ManyToOne
-    @JoinColumn(name = "id_inventario")
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "id_inventario", nullable = false)
     private Inventario inventario;
-
-    @Column(name = "cantidad_anterior")
-    private Integer cantidadAnterior;
-
-    @Column(name = "cantidad_nueva")
-    private Integer cantidadNueva;
 
     @Column(name = "id_usuario")
     private Integer idUsuario;
 
-    @Column(name = "fecha_cambio", insertable = false, updatable = false)
-    private LocalDateTime fechaCambio;
+    @Column(name = "stock_anterior", nullable = false)
+    private Integer stockAnterior;
 
-    @Column(name = "tipo_operacion")
-    private String tipoOperacion;
+    @Column(name = "stock_nuevo", nullable = false)
+    private Integer stockNuevo;
+
+    @Column(name = "motivo", nullable = false)
+    private String motivo;
+
+    @Column(name = "fecha", insertable = false, updatable = false)
+    private LocalDateTime fecha;
 
     public HistorialInventario() {}
 
@@ -47,18 +48,17 @@ public class HistorialInventario {
     public Inventario getInventario() { return inventario; }
     public void setInventario(Inventario inventario) { this.inventario = inventario; }
 
-    public Integer getCantidadAnterior() { return cantidadAnterior; }
-    public void setCantidadAnterior(Integer cantidadAnterior) { this.cantidadAnterior = cantidadAnterior; }
-
-    public Integer getCantidadNueva() { return cantidadNueva; }
-    public void setCantidadNueva(Integer cantidadNueva) { this.cantidadNueva = cantidadNueva; }
-
     public Integer getIdUsuario() { return idUsuario; }
     public void setIdUsuario(Integer idUsuario) { this.idUsuario = idUsuario; }
 
-    public LocalDateTime getFechaCambio() { return fechaCambio; }
-    public void setFechaCambio(LocalDateTime fechaCambio) { this.fechaCambio = fechaCambio; }
+    public Integer getStockAnterior() { return stockAnterior; }
+    public void setStockAnterior(Integer stockAnterior) { this.stockAnterior = stockAnterior; }
 
-    public String getTipoOperacion() { return tipoOperacion; }
-    public void setTipoOperacion(String tipoOperacion) { this.tipoOperacion = tipoOperacion; }
+    public Integer getStockNuevo() { return stockNuevo; }
+    public void setStockNuevo(Integer stockNuevo) { this.stockNuevo = stockNuevo; }
+
+    public String getMotivo() { return motivo; }
+    public void setMotivo(String motivo) { this.motivo = motivo; }
+
+    public LocalDateTime getFecha() { return fecha; }
 }

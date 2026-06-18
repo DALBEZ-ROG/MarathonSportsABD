@@ -17,6 +17,4 @@ public interface ProveedorRepository extends JpaRepository<Proveedor, Integer> {
     Page<Proveedor> findByNombreContainingIgnoreCaseAndEstado(String nombre, String estado, Pageable pageable);
 
     Optional<Proveedor> findByNombreIgnoreCase(String nombre);
-
-    Optional<Proveedor> findByRuc(String ruc);
 }

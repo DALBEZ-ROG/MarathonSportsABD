@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -21,45 +22,39 @@ public class Producto {
     @Column(name = "id_producto")
     private Integer idProducto;
 
-    @Column(name = "codigo", nullable = false, unique = true)
-    private String codigo;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "id_categoria", nullable = false)
+    private Categoria categoria;
 
     @Column(name = "nombre", nullable = false)
     private String nombre;
 
-    @Column(name = "descripcion")
+    @Column(name = "descripcion", columnDefinition = "text")
     private String descripcion;
 
-    @Column(name = "precio_compra", nullable = false)
-    private BigDecimal precioCompra;
+    @Column(name = "precio", nullable = false)
+    private BigDecimal precio;
 
-    @Column(name = "precio_venta", nullable = false)
-    private BigDecimal precioVenta;
-
-    @ManyToOne
-    @JoinColumn(name = "id_categoria")
-    private Categoria categoria;
-
-    @ManyToOne
-    @JoinColumn(name = "id_unidad")
-    private UnidadMedida unidadMedida;
-
-    @Column(name = "stock_minimo")
-    private Integer stockMinimo;
-
-    @Column(name = "estado")
+    @Column(name = "estado", nullable = false)
     private String estado;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "id_unidad_medida", nullable = false)
+    private UnidadMedida unidadMedida;
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "updated_at", insertable = false, updatable = false)
+    private LocalDateTime updatedAt;
 
     public Producto() {}
 
     public Integer getIdProducto() { return idProducto; }
     public void setIdProducto(Integer idProducto) { this.idProducto = idProducto; }
 
-    public String getCodigo() { return codigo; }
-    public void setCodigo(String codigo) { this.codigo = codigo; }
+    public Categoria getCategoria() { return categoria; }
+    public void setCategoria(Categoria categoria) { this.categoria = categoria; }
 
     public String getNombre() { return nombre; }
     public void setNombre(String nombre) { this.nombre = nombre; }
@@ -67,24 +62,16 @@ public class Producto {
     public String getDescripcion() { return descripcion; }
     public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
 
-    public BigDecimal getPrecioCompra() { return precioCompra; }
-    public void setPrecioCompra(BigDecimal precioCompra) { this.precioCompra = precioCompra; }
-
-    public BigDecimal getPrecioVenta() { return precioVenta; }
-    public void setPrecioVenta(BigDecimal precioVenta) { this.precioVenta = precioVenta; }
-
-    public Categoria getCategoria() { return categoria; }
-    public void setCategoria(Categoria categoria) { this.categoria = categoria; }
-
-    public UnidadMedida getUnidadMedida() { return unidadMedida; }
-    public void setUnidadMedida(UnidadMedida unidadMedida) { this.unidadMedida = unidadMedida; }
-
-    public Integer getStockMinimo() { return stockMinimo; }
-    public void setStockMinimo(Integer stockMinimo) { this.stockMinimo = stockMinimo; }
+    public BigDecimal getPrecio() { return precio; }
+    public void setPrecio(BigDecimal precio) { this.precio = precio; }
 
     public String getEstado() { return estado; }
     public void setEstado(String estado) { this.estado = estado; }
 
+    public UnidadMedida getUnidadMedida() { return unidadMedida; }
+    public void setUnidadMedida(UnidadMedida unidadMedida) { this.unidadMedida = unidadMedida; }
+
     public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

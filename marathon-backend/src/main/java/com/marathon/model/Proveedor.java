@@ -7,8 +7,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
@@ -23,27 +21,26 @@ public class Proveedor {
     @Column(name = "nombre", nullable = false)
     private String nombre;
 
-    @Column(name = "ruc", unique = true)
-    private String ruc;
+    @Column(name = "contacto")
+    private String contacto;
 
-    @Column(name = "direccion")
-    private String direccion;
+    @Column(name = "correo")
+    private String correo;
 
     @Column(name = "telefono")
     private String telefono;
 
-    @Column(name = "email")
-    private String email;
+    @Column(name = "direccion")
+    private String direccion;
 
-    @ManyToOne
-    @JoinColumn(name = "id_ciudad")
-    private Ciudad ciudad;
-
-    @Column(name = "estado")
+    @Column(name = "estado", nullable = false)
     private String estado;
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "updated_at", insertable = false, updatable = false)
+    private LocalDateTime updatedAt;
 
     public Proveedor() {}
 
@@ -53,24 +50,22 @@ public class Proveedor {
     public String getNombre() { return nombre; }
     public void setNombre(String nombre) { this.nombre = nombre; }
 
-    public String getRuc() { return ruc; }
-    public void setRuc(String ruc) { this.ruc = ruc; }
+    public String getContacto() { return contacto; }
+    public void setContacto(String contacto) { this.contacto = contacto; }
 
-    public String getDireccion() { return direccion; }
-    public void setDireccion(String direccion) { this.direccion = direccion; }
+    public String getCorreo() { return correo; }
+    public void setCorreo(String correo) { this.correo = correo; }
 
     public String getTelefono() { return telefono; }
     public void setTelefono(String telefono) { this.telefono = telefono; }
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
-
-    public Ciudad getCiudad() { return ciudad; }
-    public void setCiudad(Ciudad ciudad) { this.ciudad = ciudad; }
+    public String getDireccion() { return direccion; }
+    public void setDireccion(String direccion) { this.direccion = direccion; }
 
     public String getEstado() { return estado; }
     public void setEstado(String estado) { this.estado = estado; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

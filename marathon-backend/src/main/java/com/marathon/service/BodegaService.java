@@ -90,14 +90,11 @@ public class BodegaService {
     private void mapFromDTO(Bodega bodega, BodegaRequestDTO dto) {
         bodega.setNombre(dto.getNombre());
         bodega.setDireccion(dto.getDireccion());
-        bodega.setResponsable(dto.getResponsable());
 
         if (dto.getIdCiudad() != null) {
             Ciudad ciudad = ciudadRepository.findById(dto.getIdCiudad())
                     .orElseThrow(() -> new ResourceNotFoundException("Ciudad", dto.getIdCiudad()));
             bodega.setCiudad(ciudad);
-        } else {
-            bodega.setCiudad(null);
         }
     }
 
@@ -106,7 +103,6 @@ public class BodegaService {
         dto.setIdBodega(bodega.getIdBodega());
         dto.setNombre(bodega.getNombre());
         dto.setDireccion(bodega.getDireccion());
-        dto.setResponsable(bodega.getResponsable());
         dto.setEstado(bodega.getEstado());
         dto.setCreatedAt(bodega.getCreatedAt());
         if (bodega.getCiudad() != null) {
