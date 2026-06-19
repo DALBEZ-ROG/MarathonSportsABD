@@ -93,8 +93,26 @@ public class PedidoService {
                 result.getTotalPages(), result.getNumber(), result.getSize());
     }
 
-    public PedidoResponseDTO obtener(Integer id) {
-        Pedido pedido = pedidoRepository.findById(id)
+    public PageResponseDTO<PedidoResponseDTO> listarEspeciales(int page, int size, String tipoEspecial) {
+        Pageable pageable = PageRequest.of(page, size,
+                Sort.by(Sort.Order.asc("fechaLimiteEntrega").nullsLast()));
+        Page<Pedido> result;
+
+        if (tipoEspecial != null && !tipoEspecial.isEmpty()) {
+            result = pedidoRepository.findByEsPedidoEspecialTrueAndTipoEspecial(tipoEspecial, pageable);
+        } else {
+            result = pedidoRepository.findByEsPedidoEspecialTrue(pageable);
+        }
+
+        List<PedidoResponseDTO> content = result.getContent().stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+
+        return new PageResponseDTO<>(content, result.getTotalElements(),
+                result.getTotalPages(), result.getNumber(), result.getSize());
+    }
+
+    public PedidoResponseDTO obtener(Integer id) {        Pedido pedido = pedidoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido", id));
         PedidoResponseDTO dto = toDTO(pedido);
         List<DetallePedido> detalles = detallePedidoRepository.findByPedidoIdPedido(id);
@@ -118,6 +136,16 @@ public class PedidoService {
         pedido.setUsuario(usuario);
         pedido.setEstado("pendiente");
         pedido.setDescuento(dto.getDescuento() != null ? dto.getDescuento() : BigDecimal.ZERO);
+
+        boolean esEspecial = Boolean.TRUE.equals(dto.getEsPedidoEspecial());
+        if (esEspecial && (dto.getTipoEspecial() == null || dto.getTipoEspecial().trim().isEmpty())) {
+            throw new ValidationException("Debe especificar el tipo de pedido especial");
+        }
+        pedido.setEsPedidoEspecial(esEspecial);
+        pedido.setTipoEspecial(esEspecial ? dto.getTipoEspecial() : null);
+        pedido.setNotaEspecial(esEspecial ? dto.getNotaEspecial() : null);
+        pedido.setFechaLimiteEntrega(esEspecial ? dto.getFechaLimiteEntrega() : null);
+
         pedido = pedidoRepository.save(pedido);
 
         for (DetallePedidoItemDTO item : dto.getDetalles()) {
@@ -199,6 +227,14 @@ public class PedidoService {
             dto.setIdUsuario(pedido.getUsuario().getIdUsuario());
             dto.setUsuarioNombre(pedido.getUsuario().getNombre() + " " + pedido.getUsuario().getApellido());
         }
+        dto.setEsPedidoEspecial(pedido.getEsPedidoEspecial());
+        dto.setTipoEspecial(pedido.getTipoEspecial());
+        dto.setNotaEspecial(pedido.getNotaEspecial());
+        dto.setFechaLimiteEntrega(pedido.getFechaLimiteEntrega());
+        dto.setNumeroHu(pedido.getNumeroHu());
+        dto.setTransportista(pedido.getTransportista());
+        dto.setRegionDestino(pedido.getRegionDestino());
+        dto.setFechaEmpaque(pedido.getFechaEmpaque());
         return dto;
     }
 

@@ -54,6 +54,36 @@ interface DetalleLinea {
       </div>
 
       <div class="form-section">
+        <h3>Pedido Especial</h3>
+        <label class="toggle-row">
+          <input type="checkbox" [(ngModel)]="esPedidoEspecial" name="esPedidoEspecial" (change)="onToggleEspecial()"/>
+          <span>¿Es un pedido especial?</span>
+        </label>
+
+        <div class="especial-fields" *ngIf="esPedidoEspecial">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Tipo de pedido especial *</label>
+              <select [(ngModel)]="tipoEspecial" name="tipoEspecial" class="full-width">
+                <option value="">-- Seleccione --</option>
+                <option value="personalizado">Personalizado</option>
+                <option value="regalo">Regalo</option>
+                <option value="corporativo">Corporativo</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Fecha límite de entrega</label>
+              <input type="datetime-local" [(ngModel)]="fechaLimiteEntrega" name="fechaLimiteEntrega" class="full-width"/>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Nota especial</label>
+            <textarea [(ngModel)]="notaEspecial" name="notaEspecial" rows="3" placeholder="Detalles del pedido especial..." class="full-width"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
         <h3>Agregar Productos</h3>
         <div class="product-search">
           <div class="form-group flex-2">
@@ -138,6 +168,10 @@ interface DetalleLinea {
     .btn-cancel{padding:.6rem 1.2rem;border:1px solid #ddd;border-radius:4px;background:#fff;cursor:pointer}
     .btn-save{padding:.6rem 1.5rem;border:none;border-radius:4px;background:#2d5a27;color:#fff;cursor:pointer;font-weight:600}
     .btn-save:disabled{opacity:.6}
+    .toggle-row{display:flex;align-items:center;gap:.5rem;font-size:.9rem;font-weight:600;cursor:pointer}
+    .toggle-row input{width:auto}
+    .especial-fields{margin-top:1rem;padding-top:1rem;border-top:1px dashed #ddd}
+    .especial-fields textarea{padding:.6rem;border:1px solid #ddd;border-radius:4px;font-size:.9rem;resize:vertical;font-family:inherit}
   `]
 })
 export class PedidoNuevoComponent implements OnInit {
@@ -151,6 +185,11 @@ export class PedidoNuevoComponent implements OnInit {
   precioAgregar = 0;
   formError = '';
   saving = false;
+
+  esPedidoEspecial = false;
+  tipoEspecial = '';
+  notaEspecial = '';
+  fechaLimiteEntrega = '';
 
   constructor(private http: HttpClient, private router: Router, private crud: CrudService) {}
 
@@ -199,15 +238,28 @@ export class PedidoNuevoComponent implements OnInit {
     this.detalles.splice(index, 1);
   }
 
+  onToggleEspecial() {
+    if (!this.esPedidoEspecial) {
+      this.tipoEspecial = '';
+      this.notaEspecial = '';
+      this.fechaLimiteEntrega = '';
+    }
+  }
+
   crearPedido() {
     if (!this.idCliente) { this.formError = 'Seleccione un cliente'; return; }
     if (this.detalles.length === 0) { this.formError = 'Agregue al menos un producto'; return; }
+    if (this.esPedidoEspecial && !this.tipoEspecial) { this.formError = 'Seleccione el tipo de pedido especial'; return; }
     this.formError = '';
     this.saving = true;
 
     const body = {
       idCliente: this.idCliente,
       observaciones: this.observaciones || null,
+      esPedidoEspecial: this.esPedidoEspecial,
+      tipoEspecial: this.esPedidoEspecial ? this.tipoEspecial : null,
+      notaEspecial: this.esPedidoEspecial ? (this.notaEspecial || null) : null,
+      fechaLimiteEntrega: this.esPedidoEspecial && this.fechaLimiteEntrega ? this.fechaLimiteEntrega : null,
       detalles: this.detalles.map(d => ({
         idProducto: d.idProducto,
         cantidad: d.cantidad,

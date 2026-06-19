@@ -26,7 +26,13 @@ export const routes: Routes = [
   { path: 'clientes', loadComponent: () => import('./modules/clientes/clientes.component').then(m => m.ClientesComponent), canActivate: [authGuard] },
   { path: 'pedidos', loadComponent: () => import('./modules/pedidos/pedidos.component').then(m => m.PedidosComponent), canActivate: [authGuard] },
   { path: 'pedidos/nuevo', loadComponent: () => import('./modules/pedidos/pedido-nuevo/pedido-nuevo.component').then(m => m.PedidoNuevoComponent), canActivate: [authGuard] },
+  { path: 'pedidos/especiales', loadComponent: () => import('./modules/pedidos/pedidos-especiales/pedidos-especiales.component').then(m => m.PedidosEspecialesComponent), canActivate: [authGuard] },
   { path: 'pedidos/:id', loadComponent: () => import('./modules/pedidos/pedido-detalle/pedido-detalle.component').then(m => m.PedidoDetalleComponent), canActivate: [authGuard] },
+  { path: 'comprobantes', loadComponent: () => import('./modules/comprobantes/comprobantes-lista/comprobantes-lista.component').then(m => m.ComprobantesListaComponent), canActivate: [authGuard] },
+  { path: 'picking', loadComponent: () => import('./modules/picking/picking-lista/picking-lista.component').then(m => m.PickingListaComponent), canActivate: [authGuard] },
+  { path: 'picking/:idPedido', loadComponent: () => import('./modules/picking/picking-ejecucion/picking-ejecucion.component').then(m => m.PickingEjecucionComponent), canActivate: [authGuard] },
+  { path: 'empaque', loadComponent: () => import('./modules/empaque/empaque-lista/empaque-lista.component').then(m => m.EmpaqueListaComponent), canActivate: [authGuard] },
+  { path: 'despachos', loadComponent: () => import('./modules/empaque/despacho-lista/despacho-lista.component').then(m => m.DespachoListaComponent), canActivate: [authGuard] },
   { path: '', redirectTo: 'login', pathMatch: 'full' },
   { path: '**', redirectTo: 'login' }
 ];

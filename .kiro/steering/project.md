@@ -40,13 +40,15 @@ Plataforma web interna para gestionar el ciclo completo de pedidos e-commerce: r
 | 10 | Listado y Filtrado de Pedidos | ✅ Completada |
 | 11 | Flujo de Estados de Pedido | ✅ Completada |
 | 12 | Comprobantes Internos | ✅ Completada |
+| 12.1 | Pedidos Especiales (personalizado/regalo/corporativo) | ✅ Completada |
 | 13 | Historial de Inventario | ⏳ Pendiente |
+| 13.1 | Comprobantes Internos + PDF descargable | ✅ Completada |
 
 ### Bloque 4: Operaciones Avanzadas
 | Fase | Nombre | Estado |
 |------|--------|--------|
-| 14 | Módulo de Picking | ⏳ Pendiente |
-| 15 | Módulo de Empaque y Despacho | ⏳ Pendiente |
+| 14 | Módulo de Picking | ✅ Completada |
+| 15 | Módulo de Empaque y Despacho | ✅ Completada |
 | 16 | Dashboard Operativo | ⏳ Pendiente |
 | 17 | Reportes y Exportación | ⏳ Pendiente |
 

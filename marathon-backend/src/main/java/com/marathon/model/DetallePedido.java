@@ -38,6 +38,12 @@ public class DetallePedido {
     @Column(name = "subtotal", insertable = false, updatable = false)
     private BigDecimal subtotal;
 
+    @Column(name = "picking_completado", nullable = false)
+    private Boolean pickingCompletado = false;
+
+    @Column(name = "cantidad_recogida", nullable = false)
+    private Integer cantidadRecogida = 0;
+
     public DetallePedido() {}
 
     public Integer getIdDetalle() { return idDetalle; }
@@ -56,4 +62,10 @@ public class DetallePedido {
     public void setPrecioUnitario(BigDecimal precioUnitario) { this.precioUnitario = precioUnitario; }
 
     public BigDecimal getSubtotal() { return subtotal; }
+
+    public Boolean getPickingCompletado() { return pickingCompletado; }
+    public void setPickingCompletado(Boolean pickingCompletado) { this.pickingCompletado = pickingCompletado; }
+
+    public Integer getCantidadRecogida() { return cantidadRecogida; }
+    public void setCantidadRecogida(Integer cantidadRecogida) { this.cantidadRecogida = cantidadRecogida; }
 }

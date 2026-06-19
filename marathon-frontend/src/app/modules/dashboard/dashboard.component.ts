@@ -1,6 +1,8 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
@@ -36,6 +38,21 @@ import { AuthService } from '../../core/services/auth.service';
         <a routerLink="/pedidos" class="module-card">
           <span class="module-icon">🛒</span><h3>Pedidos</h3><p>Gestión de pedidos</p>
         </a>
+        <a routerLink="/pedidos/especiales" class="module-card">
+          <span class="module-icon">⭐</span><h3>Pedidos Especiales</h3><p>{{ pedidosEspeciales }} pedidos especiales activos</p>
+        </a>
+        <a routerLink="/comprobantes" class="module-card">
+          <span class="module-icon">🧾</span><h3>Comprobantes</h3><p>Comprobantes internos y PDF</p>
+        </a>
+        <a routerLink="/picking" class="module-card" *ngIf="isAdmin || isOperadorBodega">
+          <span class="module-icon">📥</span><h3>Picking</h3><p>{{ pedidosPicking }} pedidos por preparar</p>
+        </a>
+        <a routerLink="/empaque" class="module-card" *ngIf="isAdmin || isOperadorBodega">
+          <span class="module-icon">📦</span><h3>Empaque</h3><p>Empaque y confirmación de envíos</p>
+        </a>
+        <a routerLink="/despachos" class="module-card" *ngIf="isAdmin || isOperadorBodega || isSupervisor">
+          <span class="module-icon">🚚</span><h3>Despachos</h3><p>Pedidos enviados y entregados</p>
+        </a>
         <a routerLink="/usuarios" class="module-card" *ngIf="isAdmin">
           <span class="module-icon">👥</span><h3>Usuarios</h3><p>Gestión de usuarios del sistema</p>
         </a>
@@ -63,9 +80,19 @@ import { AuthService } from '../../core/services/auth.service';
   `]
 })
 export class DashboardComponent {
-  userName = ''; userRol = ''; isAdmin = false; isOperadorBodega = false; isOperadorPedidos = false;
-  constructor(private authService: AuthService) {
+  userName = ''; userRol = ''; isAdmin = false; isOperadorBodega = false; isOperadorPedidos = false; isSupervisor = false;
+  pedidosEspeciales = 0;
+  pedidosPicking = 0;
+  constructor(private authService: AuthService, private http: HttpClient) {
     const user = this.authService.getCurrentUser();
-    if (user) { this.userName = `${user.nombre} ${user.apellido}`; this.userRol = user.rol; this.isAdmin = this.authService.hasRol('Administrador'); this.isOperadorBodega = this.authService.hasRol('Operador de Bodega'); this.isOperadorPedidos = this.authService.hasRol('Operador de Pedidos'); }
+    if (user) { this.userName = `${user.nombre} ${user.apellido}`; this.userRol = user.rol; this.isAdmin = this.authService.hasRol('Administrador'); this.isOperadorBodega = this.authService.hasRol('Operador de Bodega'); this.isOperadorPedidos = this.authService.hasRol('Operador de Pedidos'); this.isSupervisor = this.authService.hasRol('Supervisor E-Commerce'); }
+    this.http.get<{ totalElements: number }>(`${environment.apiUrl}/pedidos/especiales?page=0&size=1`).subscribe({
+      next: res => { this.pedidosEspeciales = res.totalElements; }
+    });
+    if (this.isAdmin || this.isOperadorBodega) {
+      this.http.get<{ totalElements: number }>(`${environment.apiUrl}/picking/pedidos?page=0&size=1`).subscribe({
+        next: res => { this.pedidosPicking = res.totalElements; }
+      });
+    }
   }
 }

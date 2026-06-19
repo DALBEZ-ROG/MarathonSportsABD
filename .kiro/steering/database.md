@@ -114,14 +114,22 @@
 | Columna | Tipo | Notas |
 |---------|------|-------|
 | id_pedido | SERIAL PK | |
-| numero_pedido | VARCHAR(20) NOT NULL UNIQUE | Generado por trigger |
 | id_cliente | INT FK → cliente | |
 | id_usuario | INT FK → usuario | Quien registra |
 | fecha_pedido | TIMESTAMP DEFAULT NOW() | |
-| estado | VARCHAR(30) DEFAULT 'pendiente' | pendiente/en_proceso/picking/empacado/despachado/cancelado |
 | total | NUMERIC(12,2) DEFAULT 0 | **CALCULADO POR TRIGGER** — no escribir |
-| observaciones | TEXT | |
+| descuento | NUMERIC(12,2) DEFAULT 0 | |
+| estado | VARCHAR DEFAULT 'pendiente' | pendiente/procesado/enviado/entregado/anulado |
 | created_at | TIMESTAMP DEFAULT NOW() | |
+| updated_at | TIMESTAMP NULL | |
+| es_pedido_especial | BOOLEAN NOT NULL DEFAULT false | Fase 12.1 |
+| tipo_especial | VARCHAR(50) NULL | CHECK: personalizado/regalo/corporativo |
+| nota_especial | TEXT NULL | Fase 12.1 |
+| fecha_limite_entrega | TIMESTAMP NULL | Fase 12.1 |
+| numero_hu | VARCHAR(50) NULL | Fase 15 — unidad de handling |
+| transportista | VARCHAR(100) NULL | Fase 15 |
+| region_destino | VARCHAR(100) NULL | Fase 15 |
+| fecha_empaque | TIMESTAMP NULL | Fase 15 |
 
 ### inventario
 | Columna | Tipo | Notas |
@@ -158,6 +166,8 @@
 | cantidad | INT NOT NULL CHECK(>0) | |
 | precio_unitario | NUMERIC(10,2) NOT NULL | |
 | subtotal | NUMERIC(12,2) GENERATED ALWAYS AS (cantidad * precio_unitario) | **NUNCA insertar/actualizar** |
+| picking_completado | BOOLEAN NOT NULL DEFAULT false | Fase 14 — picking |
+| cantidad_recogida | INTEGER NOT NULL DEFAULT 0 | Fase 14 — CHECK >= 0 |
 
 ### comprobante_interno
 | Columna | Tipo | Notas |

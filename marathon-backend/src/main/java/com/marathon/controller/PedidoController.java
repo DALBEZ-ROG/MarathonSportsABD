@@ -41,6 +41,14 @@ public class PedidoController {
         return ResponseEntity.ok(pedidoService.listar(page, size, estado, fechaDesde, fechaHasta));
     }
 
+    @GetMapping("/especiales")
+    public ResponseEntity<PageResponseDTO<PedidoResponseDTO>> listarEspeciales(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String tipoEspecial) {
+        return ResponseEntity.ok(pedidoService.listarEspeciales(page, size, tipoEspecial));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<PedidoResponseDTO> obtener(@PathVariable Integer id) {
         return ResponseEntity.ok(pedidoService.obtener(id));

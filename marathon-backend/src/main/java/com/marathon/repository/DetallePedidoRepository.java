@@ -10,5 +10,11 @@ public interface DetallePedidoRepository extends JpaRepository<DetallePedido, In
 
     List<DetallePedido> findByPedidoIdPedido(Integer idPedido);
 
+    List<DetallePedido> findByPedidoIdPedidoOrderByIdDetalleAsc(Integer idPedido);
+
+    Long countByPedidoIdPedidoAndPickingCompletadoTrue(Integer idPedido);
+
+    Long countByPedidoIdPedido(Integer idPedido);
+
     void deleteByPedidoIdPedido(Integer idPedido);
 }

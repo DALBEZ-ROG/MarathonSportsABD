@@ -55,7 +55,8 @@ public class SecurityConfig {
                     "/api/bodegas", "/api/bodegas/**",
                     "/api/inventario", "/api/inventario/**",
                     "/api/clientes", "/api/clientes/**",
-                    "/api/pedidos", "/api/pedidos/**"
+                    "/api/pedidos", "/api/pedidos/**",
+                    "/api/comprobantes", "/api/comprobantes/**"
                 ).authenticated()
                 .requestMatchers(org.springframework.http.HttpMethod.POST,
                     "/api/ciudades", "/api/categorias", "/api/unidades-medida",
@@ -82,6 +83,9 @@ public class SecurityConfig {
                 .requestMatchers(org.springframework.http.HttpMethod.POST,
                     "/api/inventario/movimiento"
                 ).hasAnyRole("ADMINISTRADOR", "OPERADOR_BODEGA")
+                .requestMatchers(org.springframework.http.HttpMethod.POST,
+                    "/api/comprobantes/*/anular"
+                ).hasRole("ADMINISTRADOR")
                 .requestMatchers(org.springframework.http.HttpMethod.PUT,
                     "/api/ciudades/**", "/api/categorias/**", "/api/unidades-medida/**",
                     "/api/proveedores/**", "/api/productos/**",
@@ -94,6 +98,14 @@ public class SecurityConfig {
                 ).hasRole("ADMINISTRADOR")
                 .requestMatchers(org.springframework.http.HttpMethod.PUT,
                     "/api/usuarios/*/password"
+                ).authenticated()
+                .requestMatchers("/api/picking/**")
+                    .hasAnyRole("ADMINISTRADOR", "OPERADOR_BODEGA")
+                .requestMatchers(org.springframework.http.HttpMethod.POST,
+                    "/api/empaque/pedidos/*/confirmar"
+                ).hasAnyRole("ADMINISTRADOR", "OPERADOR_BODEGA")
+                .requestMatchers(org.springframework.http.HttpMethod.GET,
+                    "/api/empaque/pedidos", "/api/empaque/**"
                 ).authenticated()
                 .requestMatchers("/api/usuarios/**", "/api/roles/**", "/api/permisos/**")
                     .hasRole("ADMINISTRADOR")

@@ -48,6 +48,30 @@ public class Pedido {
     @Column(name = "updated_at", insertable = false, updatable = false)
     private LocalDateTime updatedAt;
 
+    @Column(name = "es_pedido_especial", nullable = false)
+    private Boolean esPedidoEspecial = false;
+
+    @Column(name = "tipo_especial")
+    private String tipoEspecial;
+
+    @Column(name = "nota_especial")
+    private String notaEspecial;
+
+    @Column(name = "fecha_limite_entrega")
+    private LocalDateTime fechaLimiteEntrega;
+
+    @Column(name = "numero_hu")
+    private String numeroHu;
+
+    @Column(name = "transportista")
+    private String transportista;
+
+    @Column(name = "region_destino")
+    private String regionDestino;
+
+    @Column(name = "fecha_empaque")
+    private LocalDateTime fechaEmpaque;
+
     public Pedido() {}
 
     public Integer getIdPedido() { return idPedido; }
@@ -72,4 +96,28 @@ public class Pedido {
     public LocalDateTime getCreatedAt() { return createdAt; }
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
+
+    public Boolean getEsPedidoEspecial() { return esPedidoEspecial; }
+    public void setEsPedidoEspecial(Boolean esPedidoEspecial) { this.esPedidoEspecial = esPedidoEspecial; }
+
+    public String getTipoEspecial() { return tipoEspecial; }
+    public void setTipoEspecial(String tipoEspecial) { this.tipoEspecial = tipoEspecial; }
+
+    public String getNotaEspecial() { return notaEspecial; }
+    public void setNotaEspecial(String notaEspecial) { this.notaEspecial = notaEspecial; }
+
+    public LocalDateTime getFechaLimiteEntrega() { return fechaLimiteEntrega; }
+    public void setFechaLimiteEntrega(LocalDateTime fechaLimiteEntrega) { this.fechaLimiteEntrega = fechaLimiteEntrega; }
+
+    public String getNumeroHu() { return numeroHu; }
+    public void setNumeroHu(String numeroHu) { this.numeroHu = numeroHu; }
+
+    public String getTransportista() { return transportista; }
+    public void setTransportista(String transportista) { this.transportista = transportista; }
+
+    public String getRegionDestino() { return regionDestino; }
+    public void setRegionDestino(String regionDestino) { this.regionDestino = regionDestino; }
+
+    public LocalDateTime getFechaEmpaque() { return fechaEmpaque; }
+    public void setFechaEmpaque(LocalDateTime fechaEmpaque) { this.fechaEmpaque = fechaEmpaque; }
 }

@@ -4,6 +4,16 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
+import { AuthService } from '../../../core/services/auth.service';
+
+interface Comprobante {
+  idComprobante: number;
+  numeroComprobante: string;
+  fechaEmision: string;
+  total: number;
+  estado: string;
+  idPedido: number;
+}
 
 interface DetallePedido {
   idDetalle: number;
@@ -24,6 +34,14 @@ interface PedidoDetalle {
   clienteNombre: string;
   usuarioNombre: string;
   detalles: DetallePedido[];
+  esPedidoEspecial: boolean;
+  tipoEspecial: string;
+  notaEspecial: string;
+  fechaLimiteEntrega: string;
+  numeroHu: string;
+  transportista: string;
+  regionDestino: string;
+  fechaEmpaque: string;
 }
 
 @Component({
@@ -64,6 +82,31 @@ interface PedidoDetalle {
         <span>{{pedido.observaciones}}</span>
       </div>
 
+      <!-- Pedido Especial -->
+      <div class="section especial-section" *ngIf="pedido.esPedidoEspecial">
+        <div class="especial-header">
+          <span class="especial-badge" [ngStyle]="{'background': badgeColor(pedido.tipoEspecial)}">PEDIDO ESPECIAL</span>
+          <span class="tipo-text">{{tipoLabel(pedido.tipoEspecial)}}</span>
+        </div>
+
+        <div class="alerta-urgente" *ngIf="esUrgente()">⚠️ Entrega urgente</div>
+
+        <div class="info-grid">
+          <div class="info-card">
+            <label>Tipo</label>
+            <span>{{tipoLabel(pedido.tipoEspecial)}}</span>
+          </div>
+          <div class="info-card" *ngIf="pedido.fechaLimiteEntrega">
+            <label>Fecha límite de entrega</label>
+            <span>{{pedido.fechaLimiteEntrega | date:'dd/MM/yyyy HH:mm'}}</span>
+          </div>
+        </div>
+        <div class="info-card full" *ngIf="pedido.notaEspecial">
+          <label>Nota especial</label>
+          <span>{{pedido.notaEspecial}}</span>
+        </div>
+      </div>
+
       <div class="section">
         <h3>Detalle de Productos</h3>
         <table class="detail-table">
@@ -79,6 +122,62 @@ interface PedidoDetalle {
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Información de despacho -->
+      <div class="section" *ngIf="pedido.numeroHu">
+        <h3>Información de despacho</h3>
+        <div class="info-grid">
+          <div class="info-card">
+            <label>HU</label>
+            <span>{{pedido.numeroHu}}</span>
+          </div>
+          <div class="info-card">
+            <label>Transportista</label>
+            <span>{{pedido.transportista}}</span>
+          </div>
+          <div class="info-card">
+            <label>Región destino</label>
+            <span>{{pedido.regionDestino}}</span>
+          </div>
+          <div class="info-card">
+            <label>Fecha empaque</label>
+            <span>{{pedido.fechaEmpaque | date:'dd/MM/yyyy HH:mm'}}</span>
+          </div>
+        </div>
+        <button class="btn-entregado" *ngIf="pedido.estado === 'enviado' && puedeDespachar" (click)="marcarEntregado()">
+          Marcar como entregado
+        </button>
+      </div>
+
+      <!-- Comprobante Interno -->
+      <div class="section">
+        <h3>Comprobante Interno</h3>
+        <div *ngIf="comprobante" class="comprobante-info">
+          <div class="info-grid">
+            <div class="info-card">
+              <label>Número de comprobante</label>
+              <span>{{comprobante.numeroComprobante}}</span>
+            </div>
+            <div class="info-card">
+              <label>Total</label>
+              <span class="total">\${{comprobante.total | number:'1.2-2'}}</span>
+            </div>
+          </div>
+          <button class="btn-pdf" (click)="descargarPDF(comprobante.idComprobante, comprobante.numeroComprobante)" [disabled]="descargando">
+            {{ descargando ? 'Generando...' : 'Descargar PDF' }}
+          </button>
+        </div>
+
+        <div *ngIf="!comprobante">
+          <p class="sin-comprobante" *ngIf="pedido.estado !== 'procesado'">Este pedido aún no tiene comprobante.</p>
+          <ng-container *ngIf="pedido.estado === 'procesado'">
+            <p class="sin-comprobante">Este pedido aún no tiene comprobante generado.</p>
+            <button class="btn-generar" *ngIf="isAdmin" (click)="generarComprobante()" [disabled]="generando">
+              {{ generando ? 'Generando...' : 'Generar comprobante' }}
+            </button>
+          </ng-container>
+        </div>
       </div>
 
       <!-- Cambiar Estado -->
@@ -131,19 +230,43 @@ interface PedidoDetalle {
     .toast{position:fixed;bottom:2rem;right:2rem;background:#2d5a27;color:#fff;padding:.8rem 1.5rem;border-radius:6px;z-index:9999;animation:fadeIn .3s}
     .toast.error{background:#c00}
     @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    .especial-section{border:1px solid #eee}
+    .especial-header{display:flex;align-items:center;gap:.8rem;margin-bottom:1rem}
+    .especial-badge{color:#fff;padding:.3rem .9rem;border-radius:12px;font-size:.75rem;font-weight:700;letter-spacing:.5px}
+    .tipo-text{font-weight:600;text-transform:capitalize;color:#333}
+    .alerta-urgente{background:#ffebee;color:#c62828;border:1px solid #c62828;padding:.6rem 1rem;border-radius:6px;font-weight:700;margin-bottom:1rem}
+    .comprobante-info .info-grid{margin-bottom:1rem}
+    .sin-comprobante{color:#666;font-size:.9rem;margin-bottom:1rem}
+    .btn-pdf{background:#2d5a27;color:#fff;border:none;padding:.5rem 1.2rem;border-radius:4px;cursor:pointer;font-weight:600;font-size:.85rem}
+    .btn-pdf:hover{background:#1e3d1a}
+    .btn-pdf:disabled{opacity:.6;cursor:not-allowed}
+    .btn-generar{background:#1565c0;color:#fff;border:none;padding:.5rem 1.2rem;border-radius:4px;cursor:pointer;font-weight:600;font-size:.85rem}
+    .btn-generar:hover{opacity:.85}
+    .btn-generar:disabled{opacity:.6;cursor:not-allowed}
+    .btn-entregado{background:#2e7d32;color:#fff;border:none;padding:.6rem 1.2rem;border-radius:4px;cursor:pointer;font-weight:600;font-size:.85rem;margin-top:1rem}
+    .btn-entregado:hover{opacity:.88}
   `]
 })
 export class PedidoDetalleComponent implements OnInit {
   pedido: PedidoDetalle | null = null;
+  comprobante: Comprobante | null = null;
+  descargando = false;
+  generando = false;
+  isAdmin = false;
+  puedeDespachar = false;
   toast = '';
   toastError = false;
 
-  constructor(private route: ActivatedRoute, private router: Router, private http: HttpClient) {}
+  constructor(private route: ActivatedRoute, private router: Router, private http: HttpClient, private authService: AuthService) {
+    this.isAdmin = this.authService.hasRol('Administrador');
+    this.puedeDespachar = this.authService.hasRol('Administrador') || this.authService.hasRol('Operador de Bodega');
+  }
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.cargarPedido(+id);
+      this.cargarComprobante(+id);
     }
   }
 
@@ -151,6 +274,38 @@ export class PedidoDetalleComponent implements OnInit {
     this.http.get<PedidoDetalle>(`${environment.apiUrl}/pedidos/${id}`).subscribe({
       next: res => { this.pedido = res; },
       error: () => { this.mostrarToast('Error al cargar el pedido', true); }
+    });
+  }
+
+  cargarComprobante(idPedido: number) {
+    this.http.get<Comprobante>(`${environment.apiUrl}/comprobantes/pedido/${idPedido}`).subscribe({
+      next: res => { this.comprobante = res; },
+      error: () => { this.comprobante = null; }
+    });
+  }
+
+  descargarPDF(id: number, numero: string) {
+    this.descargando = true;
+    this.http.get(`${environment.apiUrl}/comprobantes/${id}/pdf`, { responseType: 'blob' }).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `comprobante-${numero}.pdf`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        this.descargando = false;
+      },
+      error: () => { this.descargando = false; this.mostrarToast('Error al descargar el PDF', true); }
+    });
+  }
+
+  generarComprobante() {
+    if (!this.pedido) return;
+    this.generando = true;
+    this.http.post<Comprobante>(`${environment.apiUrl}/comprobantes/pedido/${this.pedido.idPedido}/generar`, {}).subscribe({
+      next: res => { this.comprobante = res; this.generando = false; this.mostrarToast('Comprobante generado correctamente'); },
+      error: (err) => { this.generando = false; this.mostrarToast(err.error?.message || 'Error al generar el comprobante', true); }
     });
   }
 
@@ -171,6 +326,43 @@ export class PedidoDetalleComponent implements OnInit {
   }
 
   volver() { this.router.navigate(['/pedidos']); }
+
+  marcarEntregado() {
+    if (!this.pedido) return;
+    this.http.put<PedidoDetalle>(`${environment.apiUrl}/pedidos/${this.pedido.idPedido}/estado`, { estado: 'entregado' }).subscribe({
+      next: res => {
+        this.pedido!.estado = res.estado;
+        this.mostrarToast('Pedido marcado como entregado');
+      },
+      error: (err) => { this.mostrarToast(err.error?.message || 'Error al marcar como entregado', true); }
+    });
+  }
+
+  badgeColor(tipo: string): string {
+    switch (tipo) {
+      case 'personalizado': return '#9c27b0';
+      case 'regalo': return '#e91e63';
+      case 'corporativo': return '#1a237e';
+      default: return '#607d8b';
+    }
+  }
+
+  tipoLabel(tipo: string): string {
+    switch (tipo) {
+      case 'personalizado': return 'Personalizado';
+      case 'regalo': return 'Regalo';
+      case 'corporativo': return 'Corporativo';
+      default: return tipo || '';
+    }
+  }
+
+  esUrgente(): boolean {
+    if (!this.pedido || !this.pedido.fechaLimiteEntrega) return false;
+    const limite = new Date(this.pedido.fechaLimiteEntrega).getTime();
+    const ahora = Date.now();
+    const diff = limite - ahora;
+    return diff >= 0 && diff <= 24 * 60 * 60 * 1000;
+  }
 
   mostrarToast(msg: string, error = false) {
     this.toast = msg; this.toastError = error;

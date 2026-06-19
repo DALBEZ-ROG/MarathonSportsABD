@@ -17,6 +17,14 @@ public class PedidoResponseDTO {
     private Integer idUsuario;
     private String usuarioNombre;
     private List<DetallePedidoResponseDTO> detalles;
+    private Boolean esPedidoEspecial;
+    private String tipoEspecial;
+    private String notaEspecial;
+    private LocalDateTime fechaLimiteEntrega;
+    private String numeroHu;
+    private String transportista;
+    private String regionDestino;
+    private LocalDateTime fechaEmpaque;
 
     public PedidoResponseDTO() {}
 
@@ -52,4 +60,28 @@ public class PedidoResponseDTO {
 
     public List<DetallePedidoResponseDTO> getDetalles() { return detalles; }
     public void setDetalles(List<DetallePedidoResponseDTO> detalles) { this.detalles = detalles; }
+
+    public Boolean getEsPedidoEspecial() { return esPedidoEspecial; }
+    public void setEsPedidoEspecial(Boolean esPedidoEspecial) { this.esPedidoEspecial = esPedidoEspecial; }
+
+    public String getTipoEspecial() { return tipoEspecial; }
+    public void setTipoEspecial(String tipoEspecial) { this.tipoEspecial = tipoEspecial; }
+
+    public String getNotaEspecial() { return notaEspecial; }
+    public void setNotaEspecial(String notaEspecial) { this.notaEspecial = notaEspecial; }
+
+    public LocalDateTime getFechaLimiteEntrega() { return fechaLimiteEntrega; }
+    public void setFechaLimiteEntrega(LocalDateTime fechaLimiteEntrega) { this.fechaLimiteEntrega = fechaLimiteEntrega; }
+
+    public String getNumeroHu() { return numeroHu; }
+    public void setNumeroHu(String numeroHu) { this.numeroHu = numeroHu; }
+
+    public String getTransportista() { return transportista; }
+    public void setTransportista(String transportista) { this.transportista = transportista; }
+
+    public String getRegionDestino() { return regionDestino; }
+    public void setRegionDestino(String regionDestino) { this.regionDestino = regionDestino; }
+
+    public LocalDateTime getFechaEmpaque() { return fechaEmpaque; }
+    public void setFechaEmpaque(LocalDateTime fechaEmpaque) { this.fechaEmpaque = fechaEmpaque; }
 }

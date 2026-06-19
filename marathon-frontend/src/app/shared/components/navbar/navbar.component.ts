@@ -20,6 +20,11 @@ import { AuthService } from '../../../core/services/auth.service';
         <a routerLink="/inventario" routerLinkActive="active" *ngIf="isAdmin || isOperadorBodega">Inventario</a>
         <a routerLink="/clientes" routerLinkActive="active" *ngIf="isAdmin || isOperadorPedidos">Clientes</a>
         <a routerLink="/pedidos" routerLinkActive="active">Pedidos</a>
+        <a routerLink="/pedidos/especiales" routerLinkActive="active">Pedidos Especiales</a>
+        <a routerLink="/comprobantes" routerLinkActive="active">Comprobantes</a>
+        <a routerLink="/picking" routerLinkActive="active" *ngIf="isAdmin || isOperadorBodega">Picking</a>
+        <a routerLink="/empaque" routerLinkActive="active" *ngIf="isAdmin || isOperadorBodega">Empaque</a>
+        <a routerLink="/despachos" routerLinkActive="active" *ngIf="isAdmin || isOperadorBodega || isSupervisor">Despachos</a>
         <a routerLink="/usuarios" routerLinkActive="active" *ngIf="isAdmin">Usuarios</a>
         <a routerLink="/roles" routerLinkActive="active" *ngIf="isAdmin">Roles</a>
         <a routerLink="/perfil" routerLinkActive="active">Mi Perfil</a>
@@ -54,6 +59,7 @@ export class NavbarComponent {
   isAdmin = false;
   isOperadorBodega = false;
   isOperadorPedidos = false;
+  isSupervisor = false;
   userName = '';
   menuOpen = false;
 
@@ -64,6 +70,7 @@ export class NavbarComponent {
       this.isAdmin = this.authService.hasRol('Administrador');
       this.isOperadorBodega = this.authService.hasRol('Operador de Bodega');
       this.isOperadorPedidos = this.authService.hasRol('Operador de Pedidos');
+      this.isSupervisor = this.authService.hasRol('Supervisor E-Commerce');
     }
   }
 
