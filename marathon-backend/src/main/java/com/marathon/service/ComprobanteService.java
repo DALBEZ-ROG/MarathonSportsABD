@@ -33,17 +33,20 @@ public class ComprobanteService {
     private final DetallePedidoRepository detallePedidoRepository;
     private final UsuarioRepository usuarioRepository;
     private final PdfService pdfService;
+    private final LogService logService;
 
     public ComprobanteService(ComprobanteInternoRepository comprobanteRepository,
                               PedidoRepository pedidoRepository,
                               DetallePedidoRepository detallePedidoRepository,
                               UsuarioRepository usuarioRepository,
-                              PdfService pdfService) {
+                              PdfService pdfService,
+                              LogService logService) {
         this.comprobanteRepository = comprobanteRepository;
         this.pedidoRepository = pedidoRepository;
         this.detallePedidoRepository = detallePedidoRepository;
         this.usuarioRepository = usuarioRepository;
         this.pdfService = pdfService;
+        this.logService = logService;
     }
 
     @Transactional
@@ -67,6 +70,8 @@ public class ComprobanteService {
         comprobante.setEstado("emitido");
 
         comprobante = comprobanteRepository.save(comprobante);
+        logService.registrar(idUsuarioActual, "comprobantes", "generar",
+                "Comprobante " + comprobante.getNumeroComprobante() + " generado para pedido #" + idPedido, null);
         return toDTO(comprobante);
     }
 
@@ -102,6 +107,8 @@ public class ComprobanteService {
                 .orElseThrow(() -> new ResourceNotFoundException("Comprobante", idComprobante));
         c.setEstado("anulado");
         comprobanteRepository.save(c);
+        logService.registrar(idUsuarioActual, "comprobantes", "anular",
+                "Comprobante " + c.getNumeroComprobante() + " anulado", null);
         return toDTO(c);
     }
 

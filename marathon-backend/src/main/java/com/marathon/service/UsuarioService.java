@@ -30,14 +30,17 @@ public class UsuarioService {
     private final RolRepository rolRepository;
     private final RolService rolService;
     private final PasswordEncoder passwordEncoder;
+    private final LogService logService;
 
     public UsuarioService(UsuarioRepository usuarioRepository, UsuarioRolRepository usuarioRolRepository,
-                          RolRepository rolRepository, RolService rolService, PasswordEncoder passwordEncoder) {
+                          RolRepository rolRepository, RolService rolService, PasswordEncoder passwordEncoder,
+                          LogService logService) {
         this.usuarioRepository = usuarioRepository;
         this.usuarioRolRepository = usuarioRolRepository;
         this.rolRepository = rolRepository;
         this.rolService = rolService;
         this.passwordEncoder = passwordEncoder;
+        this.logService = logService;
     }
 
     public PageResponseDTO<UsuarioResponseDTO> listar(int page, int size, String nombre, String estado) {
@@ -88,6 +91,9 @@ public class UsuarioService {
                     .orElseThrow(() -> new ResourceNotFoundException("Rol", idRol));
             usuarioRolRepository.save(new UsuarioRol(usuario, rol));
         }
+
+        logService.registrar(null, "usuarios", "crear",
+                "Usuario creado: " + usuario.getCorreo(), null);
 
         return toDTO(usuario);
     }
@@ -149,6 +155,9 @@ public class UsuarioService {
 
         usuario.setEstado("inactivo");
         usuarioRepository.save(usuario);
+
+        logService.registrar(null, "usuarios", "desactivar",
+                "Usuario desactivado: " + usuario.getCorreo(), null);
     }
 
     private UsuarioResponseDTO toDTO(Usuario usuario) {

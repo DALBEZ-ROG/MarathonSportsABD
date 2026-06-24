@@ -33,6 +33,9 @@ export const routes: Routes = [
   { path: 'picking/:idPedido', loadComponent: () => import('./modules/picking/picking-ejecucion/picking-ejecucion.component').then(m => m.PickingEjecucionComponent), canActivate: [authGuard] },
   { path: 'empaque', loadComponent: () => import('./modules/empaque/empaque-lista/empaque-lista.component').then(m => m.EmpaqueListaComponent), canActivate: [authGuard] },
   { path: 'despachos', loadComponent: () => import('./modules/empaque/despacho-lista/despacho-lista.component').then(m => m.DespachoListaComponent), canActivate: [authGuard] },
+  { path: 'reportes', loadComponent: () => import('./modules/reportes/reportes.component').then(m => m.ReportesComponent), canActivate: [authGuard, rolGuard], data: { roles: ['Administrador', 'Supervisor E-Commerce'] } },
+  { path: 'ia', loadComponent: () => import('./modules/ia/ia-chat.component').then(m => m.IAChatComponent), canActivate: [authGuard, rolGuard], data: { roles: ['Administrador', 'Supervisor E-Commerce'] } },
+  { path: 'auditoria', loadComponent: () => import('./modules/auditoria/auditoria.component').then(m => m.AuditoriaComponent), canActivate: [authGuard, rolGuard], data: { rol: 'Administrador' } },
   { path: '', redirectTo: 'login', pathMatch: 'full' },
   { path: '**', redirectTo: 'login' }
 ];

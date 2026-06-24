@@ -25,6 +25,9 @@ import { AuthService } from '../../../core/services/auth.service';
         <a routerLink="/picking" routerLinkActive="active" *ngIf="isAdmin || isOperadorBodega">Picking</a>
         <a routerLink="/empaque" routerLinkActive="active" *ngIf="isAdmin || isOperadorBodega">Empaque</a>
         <a routerLink="/despachos" routerLinkActive="active" *ngIf="isAdmin || isOperadorBodega || isSupervisor">Despachos</a>
+        <a routerLink="/reportes" routerLinkActive="active" *ngIf="isAdmin || isSupervisor">Reportes</a>
+        <a routerLink="/ia" routerLinkActive="active" *ngIf="isAdmin || isSupervisor">🤖 IA</a>
+        <a routerLink="/auditoria" routerLinkActive="active" *ngIf="isAdmin">Auditoría</a>
         <a routerLink="/usuarios" routerLinkActive="active" *ngIf="isAdmin">Usuarios</a>
         <a routerLink="/roles" routerLinkActive="active" *ngIf="isAdmin">Roles</a>
         <a routerLink="/perfil" routerLinkActive="active">Mi Perfil</a>

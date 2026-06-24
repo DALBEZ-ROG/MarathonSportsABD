@@ -49,15 +49,17 @@ Plataforma web interna para gestionar el ciclo completo de pedidos e-commerce: r
 |------|--------|--------|
 | 14 | Módulo de Picking | ✅ Completada |
 | 15 | Módulo de Empaque y Despacho | ✅ Completada |
-| 16 | Dashboard Operativo | ⏳ Pendiente |
-| 17 | Reportes y Exportación | ⏳ Pendiente |
+| 16 | Dashboard Operativo | ✅ Completada |
+| 17 | Reportes y Exportación | ✅ Completada |
 
 ### Bloque 5: Calidad y Entrega
 | Fase | Nombre | Estado |
 |------|--------|--------|
-| 18 | Testing E2E + Validaciones | ⏳ Pendiente |
+| 18 | Asistente IA (consultas en lenguaje natural) | ✅ Completada |
+| 18b | Testing E2E + Validaciones | ⏳ Pendiente |
 | 19 | Optimización + Documentación API | ⏳ Pendiente |
-| 20 | Despliegue Final + Demo | ⏳ Pendiente |
+| 19b | Auditoría y Logs | ✅ Completada |
+| 20 | Seed Data y Cierre | 🔧 En progreso |
 
 ## Reglas de Negocio Críticas
 
@@ -68,3 +70,9 @@ Plataforma web interna para gestionar el ciclo completo de pedidos e-commerce: r
 3. **usuario.password llega hasheado (min 60 chars)** — La base de datos NO hashea contraseñas. La aplicación DEBE enviar el password ya hasheado con BCrypt antes del INSERT/UPDATE.
 
 4. **Para movimientos de stock** — Antes de hacer UPDATE a inventario, ejecutar: `SET app.current_user_id = '<id_usuario>'` para que el trigger de historial registre quién hizo el cambio.
+
+## Notas de Seguridad — Fase 18 (Asistente IA)
+- La API key de Anthropic va en `application-local.properties` (gitignored), NUNCA en `application.properties` ni en el repo.
+- El IAService solo ejecuta queries SELECT (valida contra INSERT/UPDATE/DELETE/DROP/TRUNCATE/ALTER/CREATE).
+- Límite de 500 resultados por consulta.
+- Riesgo conocido: se ejecuta SQL generado por IA. La validación SELECT-only es la principal mitigación.

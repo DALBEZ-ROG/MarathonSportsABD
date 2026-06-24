@@ -18,6 +18,8 @@ import com.marathon.exception.ValidationException;
 import com.marathon.model.Usuario;
 import com.marathon.repository.UsuarioRepository;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 @Service
 public class AuthService {
 
@@ -25,15 +27,21 @@ public class AuthService {
     private final UsuarioDetailsService usuarioDetailsService;
     private final JwtUtils jwtUtils;
     private final UsuarioRepository usuarioRepository;
+    private final LogService logService;
+    private final HttpServletRequest httpServletRequest;
 
     public AuthService(AuthenticationManager authenticationManager,
                        UsuarioDetailsService usuarioDetailsService,
                        JwtUtils jwtUtils,
-                       UsuarioRepository usuarioRepository) {
+                       UsuarioRepository usuarioRepository,
+                       LogService logService,
+                       HttpServletRequest httpServletRequest) {
         this.authenticationManager = authenticationManager;
         this.usuarioDetailsService = usuarioDetailsService;
         this.jwtUtils = jwtUtils;
         this.usuarioRepository = usuarioRepository;
+        this.logService = logService;
+        this.httpServletRequest = httpServletRequest;
     }
 
     public LoginResponseDTO login(LoginRequestDTO request) {
@@ -51,6 +59,9 @@ public class AuthService {
 
             String token = jwtUtils.generateToken(usuario, roles, permisos);
             String refreshToken = jwtUtils.generateRefreshToken(usuario);
+
+            logService.registrar(usuario.getIdUsuario(), "auth", "login",
+                    "Login exitoso: " + usuario.getCorreo(), httpServletRequest.getRemoteAddr());
 
             return new LoginResponseDTO(
                     token,

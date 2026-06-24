@@ -7,6 +7,15 @@ export const rolGuard: CanActivateFn = (route, state) => {
   const router = inject(Router);
 
   const rolEsperado = route.data?.['rol'] as string;
+  const rolesEsperados = route.data?.['roles'] as string[] | undefined;
+
+  if (rolesEsperados && rolesEsperados.length > 0) {
+    if (rolesEsperados.some(r => authService.hasRol(r))) {
+      return true;
+    }
+    router.navigate(['/dashboard']);
+    return false;
+  }
 
   if (!rolEsperado) return true;
 

@@ -1,0 +1,8 @@
+# Ejemplo de configuración — copiar a application-local.properties y completar
+spring.datasource.password=
+app.jwt.secret=
+
+# Asistente IA (Anthropic)
+anthropic.api.key=
+anthropic.api.url=https://api.anthropic.com/v1/messages
+anthropic.api.model=claude-sonnet-4-6

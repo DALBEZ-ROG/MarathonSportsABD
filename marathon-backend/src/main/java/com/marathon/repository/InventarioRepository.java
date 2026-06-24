@@ -24,4 +24,7 @@ public interface InventarioRepository extends JpaRepository<Inventario, Integer>
 
     @Query("SELECT i FROM Inventario i WHERE i.bodega.idBodega = :idBodega AND i.stockActual <= :umbral")
     List<Inventario> findStockBajoByBodega(@Param("idBodega") Integer idBodega, @Param("umbral") int umbral);
+
+    @Query("SELECT COUNT(i) FROM Inventario i WHERE i.stockActual <= i.stockMinimo AND i.stockMinimo > 0")
+    Long contarProductosStockBajo();
 }

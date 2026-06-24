@@ -44,6 +44,7 @@ public class PedidoService {
     private final ClienteRepository clienteRepository;
     private final UsuarioRepository usuarioRepository;
     private final ProductoRepository productoRepository;
+    private final LogService logService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -52,12 +53,14 @@ public class PedidoService {
                          DetallePedidoRepository detallePedidoRepository,
                          ClienteRepository clienteRepository,
                          UsuarioRepository usuarioRepository,
-                         ProductoRepository productoRepository) {
+                         ProductoRepository productoRepository,
+                         LogService logService) {
         this.pedidoRepository = pedidoRepository;
         this.detallePedidoRepository = detallePedidoRepository;
         this.clienteRepository = clienteRepository;
         this.usuarioRepository = usuarioRepository;
         this.productoRepository = productoRepository;
+        this.logService = logService;
     }
 
     public PageResponseDTO<PedidoResponseDTO> listar(int page, int size, String estado,
@@ -167,6 +170,10 @@ public class PedidoService {
         PedidoResponseDTO response = toDTO(pedido);
         List<DetallePedido> detalles = detallePedidoRepository.findByPedidoIdPedido(pedido.getIdPedido());
         response.setDetalles(detalles.stream().map(this::toDetalleDTO).collect(Collectors.toList()));
+
+        logService.registrar(idUsuarioActual, "pedidos", "crear",
+                "Pedido #" + pedido.getIdPedido() + " creado. Total: $" + pedido.getTotal(), null);
+
         return response;
     }
 
@@ -182,6 +189,9 @@ public class PedidoService {
 
         pedido.setEstado(nuevoEstado);
         pedido = pedidoRepository.save(pedido);
+
+        logService.registrar(null, "pedidos", "cambio_estado",
+                "Pedido #" + id + ": " + estadoActual + " → " + nuevoEstado, null);
 
         return toDTO(pedido);
     }

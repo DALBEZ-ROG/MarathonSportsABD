@@ -39,6 +39,7 @@ public class EmpaqueService {
     private final UsuarioRepository usuarioRepository;
     private final PickingService pickingService;
     private final PedidoService pedidoService;
+    private final LogService logService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -49,7 +50,8 @@ public class EmpaqueService {
                           MovimientoInventarioRepository movimientoRepository,
                           UsuarioRepository usuarioRepository,
                           PickingService pickingService,
-                          PedidoService pedidoService) {
+                          PedidoService pedidoService,
+                          LogService logService) {
         this.pedidoRepository = pedidoRepository;
         this.detallePedidoRepository = detallePedidoRepository;
         this.inventarioRepository = inventarioRepository;
@@ -57,6 +59,7 @@ public class EmpaqueService {
         this.usuarioRepository = usuarioRepository;
         this.pickingService = pickingService;
         this.pedidoService = pedidoService;
+        this.logService = logService;
     }
 
     @Transactional
@@ -122,6 +125,10 @@ public class EmpaqueService {
             mov.setObservacion("Despacho pedido #" + idPedido + " - HU: " + dto.getNumeroHu());
             movimientoRepository.save(mov);
         }
+
+        logService.registrar(idUsuarioActual, "empaque", "confirmar",
+                "Pedido #" + idPedido + " empacado. HU: " + dto.getNumeroHu()
+                        + ". Transportista: " + dto.getTransportista(), null);
 
         return pedidoService.obtener(idPedido);
     }
