@@ -45,9 +45,12 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         if (rolRepository.count() > 0) {
-            return; // Ya hay datos, no insertar
+            // Datos base ya existen — garantizar que los usuarios demo existan
+            crearUsuariosDemo();
+            return;
         }
 
+        // Primera ejecución: crear roles, permisos y usuario admin
         // 1. Crear roles
         Rol admin = crearRol("Administrador", "Gestión total del sistema");
         Rol supervisor = crearRol("Supervisor E-Commerce", "Dashboard, KPIs y reportes");
@@ -104,19 +107,22 @@ public class DataInitializer implements CommandLineRunner {
         asignarPermiso(operadorPedidos, "productos", "ver");
 
         // 4. Crear usuario administrador
-        Usuario adminUser = new Usuario();
-        adminUser.setNombre("Admin");
-        adminUser.setApellido("Marathon");
-        adminUser.setCorreo("admin@marathon.com");
-        adminUser.setPassword(passwordEncoder.encode("Admin1234!"));
-        adminUser.setEstado("activo");
-        usuarioRepository.save(adminUser);
+        if (!usuarioRepository.existsByCorreo("admin@marathon.com")) {
+            Usuario adminUser = new Usuario();
+            adminUser.setNombre("Admin");
+            adminUser.setApellido("Marathon");
+            adminUser.setCorreo("admin@marathon.com");
+            adminUser.setPassword(passwordEncoder.encode("Admin1234!"));
+            adminUser.setEstado("activo");
+            usuarioRepository.save(adminUser);
+            usuarioRolRepository.save(new UsuarioRol(adminUser, admin));
+            System.out.println("✅ Usuario admin creado: admin@marathon.com / Admin1234!");
+        }
 
-        // 5. Asignar rol
-        usuarioRolRepository.save(new UsuarioRol(adminUser, admin));
+        // 5. Crear usuarios demo para los demás roles
+        crearUsuariosDemo();
 
         System.out.println("✅ Datos iniciales cargados correctamente");
-        System.out.println("   Usuario: admin@marathon.com / Admin1234!");
     }
 
     private Rol crearRol(String nombre, String descripcion) {
@@ -142,6 +148,39 @@ public class DataInitializer implements CommandLineRunner {
                 rolPermisoRepository.save(new RolPermiso(rol, p));
                 break;
             }
+        }
+    }
+
+    private void crearUsuariosDemo() {
+        // Roles con nombres exactos tal como están en la tabla rol (con espacios)
+        crearUsuarioDemoSiNoExiste("supervisor@marathon.com", "Supervisor", "Demo",    "Supervisor E-Commerce");
+        crearUsuarioDemoSiNoExiste("bodega@marathon.com",     "Operador",   "Bodega",  "Operador de Bodega");
+        crearUsuarioDemoSiNoExiste("pedidos@marathon.com",    "Operador",   "Pedidos", "Operador de Pedidos");
+    }
+
+    private void crearUsuarioDemoSiNoExiste(String correo, String nombre, String apellido, String rolNombre) {
+        // Verificar individualmente por correo — independiente de otros usuarios
+        if (usuarioRepository.existsByCorreo(correo)) {
+            System.out.println("   [demo] Usuario ya existe, omitiendo: " + correo);
+            return;
+        }
+        Rol rol = rolRepository.findByNombre(rolNombre).orElse(null);
+        if (rol == null) {
+            System.out.println("   [demo] ⚠️  Rol '" + rolNombre + "' no encontrado en BD — omitiendo usuario " + correo);
+            return;
+        }
+        try {
+            Usuario u = new Usuario();
+            u.setNombre(nombre);
+            u.setApellido(apellido);
+            u.setCorreo(correo);
+            u.setPassword(passwordEncoder.encode("Demo1234!"));
+            u.setEstado("activo");
+            u = usuarioRepository.save(u);
+            usuarioRolRepository.save(new UsuarioRol(u, rol));
+            System.out.println("✅ Usuario demo creado: " + correo + " → " + rolNombre);
+        } catch (Exception e) {
+            System.out.println("   [demo] ❌ Error creando " + correo + ": " + e.getMessage());
         }
     }
 }

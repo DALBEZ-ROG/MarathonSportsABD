@@ -59,7 +59,9 @@ Plataforma web interna para gestionar el ciclo completo de pedidos e-commerce: r
 | 18b | Testing E2E + Validaciones | ⏳ Pendiente |
 | 19 | Optimización + Documentación API | ⏳ Pendiente |
 | 19b | Auditoría y Logs | ✅ Completada |
-| 20 | Seed Data y Cierre | 🔧 En progreso |
+| 20 | Cierre del Proyecto (Verificación Integral + Demo) | ✅ Completada |
+
+> **Nota F20 (2026-06-24):** Seed data cargado — 88 ciudades, 105 productos, 40 clientes, 25 pedidos, bodegas, proveedores, categorías, usuarios y roles. Verificación integral completada. Usuarios demo creados via DataInitializer. README.md y DEMO_CHECKLIST.md generados. **PROYECTO COMPLETO (20/20 fases).**
 
 ## Reglas de Negocio Críticas
 

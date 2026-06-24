@@ -1,9 +1,12 @@
 package com.marathon.config;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -40,12 +43,15 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
+                // --- Rutas públicas ---
                 .requestMatchers(
                     "/api/auth/**",
                     "/swagger-ui/**",
                     "/swagger-ui.html",
                     "/v3/api-docs/**"
                 ).permitAll()
+
+                // --- Lectura: cualquier usuario autenticado ---
                 .requestMatchers(org.springframework.http.HttpMethod.GET,
                     "/api/ciudades", "/api/ciudades/**",
                     "/api/categorias", "/api/categorias/**",
@@ -58,66 +64,115 @@ public class SecurityConfig {
                     "/api/pedidos", "/api/pedidos/**",
                     "/api/comprobantes", "/api/comprobantes/**"
                 ).authenticated()
+
+                // --- Maestros (crear/editar/eliminar): solo Administrador ---
                 .requestMatchers(org.springframework.http.HttpMethod.POST,
                     "/api/ciudades", "/api/categorias", "/api/unidades-medida",
-                    "/api/proveedores", "/api/productos"
-                ).hasRole("ADMINISTRADOR")
-                .requestMatchers(org.springframework.http.HttpMethod.POST,
-                    "/api/bodegas"
-                ).hasRole("ADMINISTRADOR")
+                    "/api/proveedores", "/api/productos", "/api/bodegas"
+                ).hasAuthority("ROLE_ADMINISTRADOR")
+                .requestMatchers(org.springframework.http.HttpMethod.PUT,
+                    "/api/ciudades/**", "/api/categorias/**", "/api/unidades-medida/**",
+                    "/api/proveedores/**", "/api/productos/**", "/api/bodegas/**"
+                ).hasAuthority("ROLE_ADMINISTRADOR")
+                .requestMatchers(org.springframework.http.HttpMethod.DELETE,
+                    "/api/ciudades/**", "/api/categorias/**", "/api/unidades-medida/**",
+                    "/api/proveedores/**", "/api/productos/**", "/api/bodegas/**"
+                ).hasAuthority("ROLE_ADMINISTRADOR")
+
+                // --- Clientes (crear/editar/eliminar): Administrador u Operador de Pedidos ---
                 .requestMatchers(org.springframework.http.HttpMethod.POST,
                     "/api/clientes"
-                ).hasAnyRole("ADMINISTRADOR", "OPERADOR_DE_PEDIDOS")
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_OPERADOR DE PEDIDOS")
                 .requestMatchers(org.springframework.http.HttpMethod.PUT,
                     "/api/clientes/**"
-                ).hasAnyRole("ADMINISTRADOR", "OPERADOR_DE_PEDIDOS")
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_OPERADOR DE PEDIDOS")
                 .requestMatchers(org.springframework.http.HttpMethod.DELETE,
                     "/api/clientes/**"
-                ).hasAnyRole("ADMINISTRADOR", "OPERADOR_DE_PEDIDOS")
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_OPERADOR DE PEDIDOS")
+
+                // --- Pedidos (crear): Administrador u Operador de Pedidos ---
                 .requestMatchers(org.springframework.http.HttpMethod.POST,
                     "/api/pedidos"
-                ).hasAnyRole("ADMINISTRADOR", "OPERADOR_DE_PEDIDOS")
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_OPERADOR DE PEDIDOS")
+
+                // --- Cambio de estado de pedido: cualquier usuario autenticado ---
                 .requestMatchers(org.springframework.http.HttpMethod.PUT,
                     "/api/pedidos/*/estado"
                 ).authenticated()
+
+                // --- Comprobantes (generar/anular): Administrador u Operador de Pedidos para generar,
+                //     solo Administrador para anular ---
                 .requestMatchers(org.springframework.http.HttpMethod.POST,
-                    "/api/inventario/movimiento"
-                ).hasAnyRole("ADMINISTRADOR", "OPERADOR_BODEGA")
+                    "/api/comprobantes/*/generar", "/api/comprobantes/pedido/*/generar"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_OPERADOR DE PEDIDOS")
                 .requestMatchers(org.springframework.http.HttpMethod.POST,
                     "/api/comprobantes/*/anular"
-                ).hasRole("ADMINISTRADOR")
-                .requestMatchers(org.springframework.http.HttpMethod.PUT,
-                    "/api/ciudades/**", "/api/categorias/**", "/api/unidades-medida/**",
-                    "/api/proveedores/**", "/api/productos/**",
-                    "/api/bodegas/**"
-                ).hasRole("ADMINISTRADOR")
-                .requestMatchers(org.springframework.http.HttpMethod.DELETE,
-                    "/api/ciudades/**", "/api/categorias/**", "/api/unidades-medida/**",
-                    "/api/proveedores/**", "/api/productos/**",
-                    "/api/bodegas/**"
-                ).hasRole("ADMINISTRADOR")
+                ).hasAuthority("ROLE_ADMINISTRADOR")
+
+                // --- Inventario (movimientos): Administrador u Operador de Bodega ---
+                .requestMatchers(org.springframework.http.HttpMethod.POST,
+                    "/api/inventario/movimiento"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_OPERADOR DE BODEGA")
+
+                // --- Cambio de contraseña: cualquier usuario autenticado (solo la propia) ---
                 .requestMatchers(org.springframework.http.HttpMethod.PUT,
                     "/api/usuarios/*/password"
                 ).authenticated()
+
+                // --- Picking: Administrador u Operador de Bodega ---
                 .requestMatchers("/api/picking/**")
-                    .hasAnyRole("ADMINISTRADOR", "OPERADOR_BODEGA")
+                    .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_OPERADOR DE BODEGA")
+
+                // --- Empaque (confirmar): Administrador u Operador de Bodega ---
                 .requestMatchers(org.springframework.http.HttpMethod.POST,
                     "/api/empaque/pedidos/*/confirmar"
-                ).hasAnyRole("ADMINISTRADOR", "OPERADOR_BODEGA")
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_OPERADOR DE BODEGA")
+
+                // --- Empaque (consulta): cualquier usuario autenticado ---
                 .requestMatchers(org.springframework.http.HttpMethod.GET,
                     "/api/empaque/pedidos", "/api/empaque/**"
                 ).authenticated()
+
+                // --- Usuarios, roles y permisos: solo Administrador ---
                 .requestMatchers("/api/usuarios/**", "/api/roles/**", "/api/permisos/**")
-                    .hasRole("ADMINISTRADOR")
+                    .hasAuthority("ROLE_ADMINISTRADOR")
+
+                // --- Logs y auditoría: solo Administrador ---
                 .requestMatchers("/api/logs/**").hasAuthority("ROLE_ADMINISTRADOR")
                 .requestMatchers("/api/auditoria/**").hasAuthority("ROLE_ADMINISTRADOR")
+
+                // --- Dashboard, reportes e IA: Administrador o Supervisor E-Commerce ---
                 .requestMatchers("/api/dashboard/**")
                     .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_SUPERVISOR E-COMMERCE")
                 .requestMatchers("/api/reportes/**")
                     .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_SUPERVISOR E-COMMERCE")
                 .requestMatchers("/api/ia/**")
                     .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_SUPERVISOR E-COMMERCE")
+
+                // --- Resto: autenticado ---
                 .anyRequest().authenticated()
+            )
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                    response.setContentType("application/json; charset=UTF-8");
+                    String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
+                    response.getWriter().write(
+                        "{\"status\":401,\"error\":\"Unauthorized\","
+                        + "\"message\":\"Debes iniciar sesión para acceder a este recurso\","
+                        + "\"timestamp\":\"" + ts + "\"}"
+                    );
+                })
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    response.setStatus(HttpStatus.FORBIDDEN.value());
+                    response.setContentType("application/json; charset=UTF-8");
+                    String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
+                    response.getWriter().write(
+                        "{\"status\":403,\"error\":\"Forbidden\","
+                        + "\"message\":\"No tienes permisos para acceder a este recurso\","
+                        + "\"timestamp\":\"" + ts + "\"}"
+                    );
+                })
             )
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)

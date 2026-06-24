@@ -45,6 +45,7 @@ public class PedidoService {
     private final UsuarioRepository usuarioRepository;
     private final ProductoRepository productoRepository;
     private final LogService logService;
+    private final PickingService pickingService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -54,13 +55,15 @@ public class PedidoService {
                          ClienteRepository clienteRepository,
                          UsuarioRepository usuarioRepository,
                          ProductoRepository productoRepository,
-                         LogService logService) {
+                         LogService logService,
+                         PickingService pickingService) {
         this.pedidoRepository = pedidoRepository;
         this.detallePedidoRepository = detallePedidoRepository;
         this.clienteRepository = clienteRepository;
         this.usuarioRepository = usuarioRepository;
         this.productoRepository = productoRepository;
         this.logService = logService;
+        this.pickingService = pickingService;
     }
 
     public PageResponseDTO<PedidoResponseDTO> listar(int page, int size, String estado,
@@ -186,6 +189,17 @@ public class PedidoService {
         String nuevoEstado = dto.getEstado();
 
         validarTransicion(estadoActual, nuevoEstado);
+
+        // La transición procesado→enviado requiere picking completo.
+        // El flujo normal pasa por EmpaqueService, que valida y asigna HU/transportista.
+        if ("procesado".equals(estadoActual) && "enviado".equals(nuevoEstado)) {
+            String estadoPicking = pickingService.verificarEstadoPicking(id);
+            if (!"completo".equals(estadoPicking)) {
+                throw new ValidationException(
+                    "No se puede enviar el pedido: el picking no está completo. " +
+                    "Usa el módulo de empaque para procesar el despacho correctamente.");
+            }
+        }
 
         pedido.setEstado(nuevoEstado);
         pedido = pedidoRepository.save(pedido);
