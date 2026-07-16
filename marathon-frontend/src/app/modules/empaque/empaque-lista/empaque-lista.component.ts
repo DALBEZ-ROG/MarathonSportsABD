@@ -99,41 +99,7 @@ interface PageResponse<T> {
     </div>
   `,
   styles: [`
-    .empaque-container{max-width:1100px;margin:0 auto}
-    .toolbar{margin-bottom:1.5rem}
-    .toolbar h2{color:#2d5a27;margin:0}
-    .spinner{text-align:center;padding:2rem;color:#666}
-    .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem}
-    .card{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.08);display:flex;flex-direction:column;border-left:4px solid #2d5a27}
-    .card-header{display:flex;justify-content:space-between;align-items:center;padding:1rem 1rem .5rem}
-    .pedido-num{font-weight:700;color:#2d5a27}
-    .estado-badge{padding:.25rem .7rem;border-radius:12px;font-size:.7rem;font-weight:700;background:#e8f5e9;color:#2e7d32}
-    .card-body{padding:0 1rem 1rem}
-    .cliente{font-weight:600;margin:.3rem 0}
-    .lineas{color:#666;font-size:.8rem;margin:0}
-    .card-footer{padding:.8rem 1rem;border-top:1px solid #eee}
-    .btn-empacar{width:100%;background:#2d5a27;color:#fff;border:none;padding:.6rem;border-radius:6px;cursor:pointer;font-weight:600;font-size:.85rem}
-    .btn-empacar:hover{background:#1e3d1a}
-    .empty{grid-column:1/-1;text-align:center;color:#999;padding:2rem}
-    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000;padding:1rem}
-    .modal{background:#fff;border-radius:10px;padding:1.5rem;width:100%;max-width:480px;max-height:90vh;overflow:auto}
-    .modal h3{color:#2d5a27;margin:0 0 1rem}
-    .form-group{margin-bottom:1rem}
-    .form-group label{display:block;font-size:.8rem;color:#555;margin-bottom:.3rem;font-weight:600}
-    .form-group input,.form-group textarea{width:100%;padding:.5rem;border:1px solid #ddd;border-radius:4px;font-size:.85rem;box-sizing:border-box}
-    .hu-row{display:flex;gap:.5rem}
-    .hu-row input{flex:1}
-    .btn-gen{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:.4rem .7rem;cursor:pointer;font-size:.75rem;white-space:nowrap}
-    .btn-gen:hover{background:#eee}
-    .resumen{background:#f5f5f5;border-radius:6px;padding:.8rem;margin-bottom:1rem}
-    .resumen h4{margin:0 0 .5rem;color:#2d5a27;font-size:.85rem}
-    .resumen p{margin:.2rem 0;font-size:.85rem;color:#444}
-    .modal-actions{display:flex;justify-content:flex-end;gap:.8rem}
-    .btn-cancel{background:#fff;border:1px solid #ddd;padding:.5rem 1.2rem;border-radius:4px;cursor:pointer}
-    .btn-confirm{background:#2d5a27;color:#fff;border:none;padding:.5rem 1.2rem;border-radius:4px;cursor:pointer;font-weight:600}
-    .btn-confirm:disabled{opacity:.6;cursor:not-allowed}
-    .toast{position:fixed;bottom:2rem;right:2rem;background:#2d5a27;color:#fff;padding:.8rem 1.5rem;border-radius:6px;z-index:9999}
-    .toast.error{background:#c00}
+    /* Inherits global dark theme from styles.scss */
   `]
 })
 export class EmpaqueListaComponent implements OnInit {

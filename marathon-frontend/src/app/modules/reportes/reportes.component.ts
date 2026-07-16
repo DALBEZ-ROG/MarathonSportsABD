@@ -226,37 +226,7 @@ interface MovimientoItem {
     </div>
   `,
   styles: [`
-    .reportes{padding:1.5rem;max-width:1200px;margin:0 auto;background:#f5f5f5}
-    h1{color:#2d5a27;font-size:1.6rem;margin:0 0 1rem}
-    .tabs{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap}
-    .tabs button{background:#fff;border:1px solid #ddd;color:#444;padding:.6rem 1.1rem;border-radius:8px 8px 0 0;cursor:pointer;font-weight:600}
-    .tabs button.active{background:#2d5a27;color:#fff;border-color:#2d5a27}
-    .card{background:#fff;border-radius:12px;padding:1.2rem;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:1.5rem}
-    .filtro-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1rem}
-    @media(max-width:900px){.filtro-grid{grid-template-columns:repeat(2,1fr)}}
-    @media(max-width:520px){.filtro-grid{grid-template-columns:1fr}}
-    .campo{display:flex;flex-direction:column;gap:.3rem}
-    .campo label{font-size:.8rem;color:#666;font-weight:600}
-    .campo input,.campo select{padding:.5rem;border:1px solid #ddd;border-radius:6px;font-size:.9rem}
-    .acciones{display:flex;gap:.8rem;flex-wrap:wrap}
-    .btn{border:none;padding:.6rem 1.2rem;border-radius:8px;cursor:pointer;font-weight:600;color:#fff}
-    .btn:disabled{opacity:.6;cursor:default}
-    .btn-primary{background:#2d5a27}
-    .btn-excel{background:#1d6f42}
-    .btn-pdf{background:#b03030}
-    .toast{margin-top:1rem;padding:.7rem 1rem;border-radius:8px;background:#e8f5e9;color:#2d5a27;font-size:.9rem}
-    .toast.error{background:#fdecea;color:#b03030}
-    .aviso{background:#fff3cd;color:#856404;padding:.6rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.85rem}
-    .tabla{width:100%;border-collapse:collapse}
-    .tabla th,.tabla td{padding:.55rem .5rem;text-align:left;border-bottom:1px solid #eee;font-size:.85rem}
-    .tabla th{background:#2d5a27;color:#fff;font-size:.75rem;text-transform:uppercase}
-    .tabla tbody tr:nth-child(even){background:#f5f5f5}
-    .tabla .num{text-align:right}
-    .tabla tfoot td{border-top:2px solid #2d5a27;background:#e8f5e9}
-    .empty{text-align:center;color:#999;padding:2rem}
-    .cargando-card{display:flex;align-items:center;justify-content:center;gap:1rem;color:#2d5a27}
-    .spinner{width:28px;height:28px;border:3px solid #e0e0e0;border-top-color:#2d5a27;border-radius:50%;animation:spin 1s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
+    /* Inherits global dark theme from styles.scss */
   `]
 })
 export class ReportesComponent implements OnInit {

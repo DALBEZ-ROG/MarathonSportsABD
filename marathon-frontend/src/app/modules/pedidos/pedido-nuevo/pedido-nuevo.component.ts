@@ -140,38 +140,7 @@ interface DetalleLinea {
     </div>
   `,
   styles: [`
-    .container{max-width:900px;margin:0 auto}
-    h2{color:#2d5a27;margin-bottom:1.5rem}
-    .form-section{background:#fff;border-radius:10px;padding:1.5rem;margin-bottom:1.5rem;box-shadow:0 1px 4px rgba(0,0,0,.08)}
-    .form-section h3{color:#2d5a27;font-size:1rem;margin-bottom:1rem;border-bottom:1px solid #eee;padding-bottom:.5rem}
-    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
-    .form-group{margin-bottom:.8rem;display:flex;flex-direction:column;gap:.3rem}
-    .form-group label{font-size:.85rem;font-weight:600}
-    .form-group input,.form-group select{padding:.6rem;border:1px solid #ddd;border-radius:4px;font-size:.9rem}
-    .full-width{width:100%}
-    .product-search{display:flex;gap:.8rem;align-items:flex-end;flex-wrap:wrap}
-    .flex-2{flex:2}
-    .flex-1{flex:1}
-    .btn-group{flex:0 0 auto}
-    .btn-add{background:#2d5a27;color:#fff;border:none;padding:.6rem 1rem;border-radius:4px;cursor:pointer;font-weight:600}
-    .btn-add:hover{background:#1e3d1a}
-    .detail-table{width:100%;border-collapse:collapse}
-    .detail-table th{background:#f5f5f5;padding:.6rem;text-align:left;font-size:.85rem;border-bottom:2px solid #ddd}
-    .detail-table td{padding:.6rem;border-bottom:1px solid #eee;font-size:.85rem}
-    .detail-table tfoot td{font-weight:700;border-top:2px solid #2d5a27;padding:.8rem .6rem}
-    .total{font-weight:600;color:#2d5a27}
-    .total-label{text-align:right}
-    .total-value{color:#2d5a27;font-size:1.1rem}
-    .btn-remove{background:none;border:none;color:#c00;cursor:pointer;font-size:1.1rem;font-weight:700}
-    .error{color:#c00;font-size:.85rem;display:block;margin-bottom:1rem}
-    .form-actions{display:flex;gap:.8rem;justify-content:flex-end}
-    .btn-cancel{padding:.6rem 1.2rem;border:1px solid #ddd;border-radius:4px;background:#fff;cursor:pointer}
-    .btn-save{padding:.6rem 1.5rem;border:none;border-radius:4px;background:#2d5a27;color:#fff;cursor:pointer;font-weight:600}
-    .btn-save:disabled{opacity:.6}
-    .toggle-row{display:flex;align-items:center;gap:.5rem;font-size:.9rem;font-weight:600;cursor:pointer}
-    .toggle-row input{width:auto}
-    .especial-fields{margin-top:1rem;padding-top:1rem;border-top:1px dashed #ddd}
-    .especial-fields textarea{padding:.6rem;border:1px solid #ddd;border-radius:4px;font-size:.9rem;resize:vertical;font-family:inherit}
+    /* Inherits global dark theme from styles.scss */
   `]
 })
 export class PedidoNuevoComponent implements OnInit {

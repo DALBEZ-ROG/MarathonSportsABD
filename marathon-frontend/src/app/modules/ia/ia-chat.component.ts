@@ -110,45 +110,7 @@ interface ChatMessage {
     </div>
   `,
   styles: [`
-    .ia-wrap{display:flex;flex-direction:column;height:100%;min-height:0;background:#f5f5f5}
-    .ia-header{padding:1rem 1.5rem;background:#fff;border-bottom:1px solid #e0e0e0}
-    .title-row{display:flex;align-items:center;gap:.8rem}
-    .ia-header h1{color:#2d5a27;margin:0;font-size:1.3rem}
-    .badge-beta{background:#2d5a27;color:#fff;font-size:.7rem;font-weight:700;padding:.15rem .5rem;border-radius:10px;text-transform:uppercase;letter-spacing:.5px}
-    .subtitle{color:#666;margin:.3rem 0 0;font-size:.85rem}
-    .chat-area{flex:1;overflow-y:auto;padding:1.5rem;display:flex;flex-direction:column;gap:1rem;min-height:0}
-    .ejemplos{margin-bottom:.5rem}
-    .ejemplos-titulo{color:#666;font-size:.9rem;margin:0 0 .8rem}
-    .chips{display:flex;flex-wrap:wrap;gap:.6rem}
-    .chip{background:#fff;border:1px solid #2d5a27;color:#2d5a27;padding:.5rem .9rem;border-radius:18px;cursor:pointer;font-size:.82rem;transition:background .15s}
-    .chip:hover{background:#2d5a27;color:#fff}
-    .msg-row{display:flex;justify-content:flex-start}
-    .msg-row.right{justify-content:flex-end}
-    .bubble{max-width:80%;padding:.8rem 1rem;border-radius:12px;font-size:.9rem;line-height:1.4;box-shadow:0 1px 4px rgba(0,0,0,.08)}
-    .bubble-user{background:#2d5a27;color:#fff;border-bottom-right-radius:2px}
-    .bubble-ia{background:#f0f0f0;color:#222;border-bottom-left-radius:2px}
-    .explicacion{margin:0 0 .6rem}
-    .error-msg{color:#c62828;font-weight:600}
-    .tabla-wrap{overflow-x:auto;margin-top:.5rem}
-    .tabla-resultados{width:100%;border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;font-size:.82rem}
-    .tabla-resultados th,.tabla-resultados td{padding:.5rem .6rem;text-align:left;border-bottom:1px solid #e8e8e8;white-space:nowrap}
-    .tabla-resultados th{background:#2d5a27;color:#fff;font-size:.72rem;text-transform:uppercase;letter-spacing:.3px}
-    .tabla-resultados tr:nth-child(even) td{background:#fafafa}
-    .total-filas{color:#666;font-size:.75rem;margin:.5rem 0 0}
-    .sin-resultados{color:#888;font-style:italic;margin:.4rem 0 0}
-    .sql-section{margin-top:.7rem}
-    .ver-sql{background:none;border:none;color:#2d5a27;cursor:pointer;font-size:.8rem;font-weight:600;padding:0}
-    .sql-code{background:#1e1e1e;color:#9cdcfe;padding:.8rem;border-radius:6px;margin:.5rem 0 0;font-size:.78rem;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
-    .input-area{display:flex;gap:.6rem;padding:1rem 1.5rem;background:#fff;border-top:1px solid #e0e0e0}
-    .input-area input{flex:1;padding:.7rem 1rem;border:1px solid #ccc;border-radius:24px;font-size:.9rem;outline:none}
-    .input-area input:focus{border-color:#2d5a27}
-    .input-area input:disabled{background:#f5f5f5}
-    .btn-enviar{background:#2d5a27;color:#fff;border:none;width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-    .btn-enviar:disabled{opacity:.5;cursor:default}
-    .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(45,90,39,.3);border-top-color:#2d5a27;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
-    .bubble-ia .spinner{border-color:rgba(45,90,39,.3);border-top-color:#2d5a27}
-    .btn-enviar .spinner{border-color:rgba(255,255,255,.4);border-top-color:#fff}
-    @keyframes spin{to{transform:rotate(360deg)}}
+    /* Inherits global dark theme from styles.scss */
   `]
 })
 export class IAChatComponent implements OnInit, AfterViewChecked {

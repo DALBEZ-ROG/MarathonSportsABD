@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CrudService, PageResponse } from '../../core/services/crud.service';
@@ -26,6 +26,7 @@ interface Proveedor {
   selector: 'app-proveedores',
   standalone: true,
   imports: [CommonModule, FormsModule],
+  encapsulation: ViewEncapsulation.None,
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -134,42 +135,7 @@ interface Proveedor {
     </div>
   `,
   styles: [`
-    .crud-container { max-width: 1100px; }
-    .toolbar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
-    .toolbar h2 { color: #2d5a27; flex: 1; }
-    .filters { display: flex; gap: 0.5rem; }
-    .input-search, .select-filter { padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem; }
-    .input-search { width: 180px; }
-    .btn-new { background: #2d5a27; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-weight: 600; }
-    .btn-new:hover { background: #1e3d1a; }
-    .spinner { text-align: center; padding: 2rem; color: #666; }
-    .data-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
-    .data-table th { background: #2d5a27; color: #fff; padding: 0.7rem; text-align: left; font-size: 0.85rem; }
-    .data-table td { padding: 0.6rem 0.7rem; border-bottom: 1px solid #eee; font-size: 0.85rem; }
-    .data-table tr:hover td { background: #f0f7f0; }
-    .badge { padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; background: #eee; }
-    .badge.active { background: #c8e6c9; color: #2d5a27; }
-    .actions { display: flex; gap: 0.3rem; }
-    .btn-icon { background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0.2rem; }
-    .empty { text-align: center; color: #999; padding: 2rem !important; }
-    .pagination { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1rem; }
-    .pagination button { padding: 0.4rem 0.8rem; border: 1px solid #ddd; border-radius: 4px; background: #fff; cursor: pointer; }
-    .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-    .modal-card { background: #fff; border-radius: 10px; padding: 2rem; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
-    .modal-card h3 { color: #2d5a27; margin-bottom: 1rem; }
-    .form-group { margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.3rem; }
-    .form-group label { font-size: 0.85rem; font-weight: 600; }
-    .form-group input, .form-group select { padding: 0.6rem; border: 1px solid #ddd; border-radius: 4px; }
-    .error { color: #c00; font-size: 0.8rem; }
-    .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem; }
-    .btn-cancel { padding: 0.5rem 1rem; border: 1px solid #ddd; border-radius: 4px; background: #fff; cursor: pointer; }
-    .btn-save { padding: 0.5rem 1rem; border: none; border-radius: 4px; background: #2d5a27; color: #fff; cursor: pointer; }
-    .btn-save:disabled { opacity: 0.6; }
-    .btn-delete { padding: 0.5rem 1rem; border: none; border-radius: 4px; background: #c00; color: #fff; cursor: pointer; }
-    .toast { position: fixed; bottom: 2rem; right: 2rem; background: #2d5a27; color: #fff; padding: 0.8rem 1.5rem; border-radius: 6px; z-index: 9999; animation: fadeIn 0.3s; }
-    .toast.error { background: #c00; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    /* Inherits global dark theme from styles.scss */
   `]
 })
 export class ProveedoresComponent implements OnInit {

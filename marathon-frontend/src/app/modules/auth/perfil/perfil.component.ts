@@ -32,21 +32,7 @@ import { environment } from '../../../../environments/environment';
     </div>
   `,
   styles: [`
-    .perfil-container{max-width:500px;margin:2rem auto;padding:0 1rem}
-    .perfil-card{background:#fff;border-radius:12px;padding:2rem;box-shadow:0 2px 12px rgba(0,0,0,.08)}
-    h2{color:#2d5a27;margin-bottom:1rem}
-    h3{color:#2d5a27;margin:1.5rem 0 1rem;padding-top:1rem;border-top:1px solid #eee}
-    .info-section{margin-bottom:1rem}
-    .info-row{display:flex;gap:.5rem;margin-bottom:.5rem;font-size:.9rem}
-    .label{font-weight:600;min-width:80px}
-    .role-badge{background:#e8f5e9;color:#2d5a27;padding:.2rem .6rem;border-radius:10px;font-size:.8rem}
-    .form-group{margin-bottom:.8rem;display:flex;flex-direction:column;gap:.3rem}
-    .form-group label{font-size:.85rem;font-weight:600}
-    .form-group input{padding:.6rem;border:1px solid #ddd;border-radius:4px}
-    .error{color:#c00;font-size:.8rem;display:block;margin-bottom:.5rem}
-    .success{color:#2d5a27;font-size:.8rem;display:block;margin-bottom:.5rem}
-    .btn-save{width:100%;padding:.7rem;border:none;border-radius:6px;background:#2d5a27;color:#fff;cursor:pointer;font-weight:600}
-    .btn-save:disabled{opacity:.6}
+    /* Inherits global dark theme from styles.scss */
   `]
 })
 export class PerfilComponent {

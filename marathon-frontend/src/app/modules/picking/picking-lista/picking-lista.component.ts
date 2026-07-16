@@ -105,38 +105,7 @@ interface PageResponse<T> {
     </div>
   `,
   styles: [`
-    .picking-container{max-width:1100px;margin:0 auto}
-    .toolbar{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem}
-    .toolbar h2{color:#2d5a27;flex:1;margin:0}
-    .filters{display:flex;gap:.5rem;align-items:center}
-    .filters label{font-size:.85rem;color:#666}
-    .filters select{padding:.5rem;border:1px solid #ddd;border-radius:4px;font-size:.85rem}
-    .spinner{text-align:center;padding:2rem;color:#666}
-    .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem}
-    .card{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.08);display:flex;flex-direction:column;border-left:4px solid #2d5a27}
-    .card-header{display:flex;justify-content:space-between;align-items:center;padding:1rem 1rem .5rem}
-    .pedido-num{font-weight:700;color:#2d5a27}
-    .estado-badge{padding:.25rem .7rem;border-radius:12px;font-size:.7rem;font-weight:700;text-transform:uppercase}
-    .ep-pendiente{background:#f5f5f5;color:#666}
-    .ep-en_progreso{background:#fff8e1;color:#f57f17}
-    .ep-completo{background:#e8f5e9;color:#2e7d32}
-    .card-body{padding:0 1rem 1rem}
-    .cliente{font-weight:600;margin:.3rem 0}
-    .fecha{color:#666;font-size:.8rem;margin:0 0 .6rem}
-    .especial{display:flex;flex-direction:column;gap:.4rem;margin-bottom:.6rem}
-    .especial-badge{background:#9c27b0;color:#fff;padding:.2rem .6rem;border-radius:10px;font-size:.7rem;font-weight:700;align-self:flex-start}
-    .urgente{background:#ffebee;color:#c62828;border:1px solid #c62828;padding:.3rem .6rem;border-radius:6px;font-size:.75rem;font-weight:700}
-    .progress-wrap{margin-top:.5rem}
-    .progress-info{display:flex;justify-content:space-between;font-size:.75rem;color:#666;margin-bottom:.3rem}
-    .progress-bar{height:8px;background:#f5f5f5;border-radius:6px;overflow:hidden}
-    .progress-fill{height:100%;background:#2d5a27;transition:width .3s}
-    .card-footer{padding:.8rem 1rem;border-top:1px solid #eee}
-    .btn-picking{width:100%;background:#2d5a27;color:#fff;border:none;padding:.6rem;border-radius:6px;cursor:pointer;font-weight:600;font-size:.85rem}
-    .btn-picking:hover{background:#1e3d1a}
-    .empty{grid-column:1/-1;text-align:center;color:#999;padding:2rem}
-    .pagination{display:flex;align-items:center;justify-content:center;gap:1rem;margin-top:1.5rem}
-    .pagination button{padding:.4rem .8rem;border:1px solid #ddd;border-radius:4px;background:#fff;cursor:pointer}
-    .pagination button:disabled{opacity:.5;cursor:not-allowed}
+    /* Inherits global dark theme from styles.scss */
   `]
 })
 export class PickingListaComponent implements OnInit {

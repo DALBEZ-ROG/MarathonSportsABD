@@ -103,47 +103,7 @@ interface PickingPedido {
     <div class="spinner" *ngIf="!pedido">Cargando picking...</div>
   `,
   styles: [`
-    .container{max-width:900px;margin:0 auto}
-    .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:.5rem}
-    .header h2{color:#2d5a27;margin:0 .8rem 0 0;display:inline}
-    .cliente{font-weight:600;margin-right:.8rem}
-    .estado-badge{padding:.3rem .8rem;border-radius:12px;font-size:.75rem;font-weight:700;text-transform:uppercase}
-    .ep-pendiente{background:#f5f5f5;color:#666}
-    .ep-en_progreso{background:#fff8e1;color:#f57f17}
-    .ep-completo{background:#e8f5e9;color:#2e7d32}
-    .btn-back{background:none;border:1px solid #ddd;padding:.4rem .8rem;border-radius:4px;cursor:pointer}
-    .btn-back:hover{background:#f5f5f5}
-    .especial-banner{background:#faf5fc;border:1px solid #e6d4ee;border-radius:10px;padding:1rem;margin-bottom:1.5rem}
-    .especial-badge{background:#9c27b0;color:#fff;padding:.25rem .7rem;border-radius:10px;font-size:.75rem;font-weight:700}
-    .nota{margin:.6rem 0 0;color:#444;font-size:.9rem}
-    .urgente{background:#ffebee;color:#c62828;border:1px solid #c62828;padding:.5rem .8rem;border-radius:6px;font-weight:700;margin-top:.8rem;font-size:.85rem}
-    .progress-top{background:#fff;border-radius:10px;padding:1.2rem;margin-bottom:1.5rem;box-shadow:0 1px 4px rgba(0,0,0,.08)}
-    .progress-info{display:flex;justify-content:space-between;font-size:.85rem;color:#666;margin-bottom:.5rem}
-    .progress-bar{height:12px;background:#f5f5f5;border-radius:6px;overflow:hidden}
-    .progress-fill{height:100%;background:#2d5a27;transition:width .3s}
-    .lineas{display:flex;flex-direction:column;gap:1rem}
-    .linea{background:#fff;border-radius:10px;padding:1.2rem;box-shadow:0 1px 4px rgba(0,0,0,.08);border-left:4px solid #ccc}
-    .linea.completa{background:#f1f8f0;border-left-color:#2d5a27}
-    .linea.parcial{background:#fffaf0;border-left-color:#f57f17}
-    .linea.pendiente{background:#fafafa;border-left-color:#ccc}
-    .linea-info{margin-bottom:.8rem}
-    .prod-nombre{font-weight:700;color:#333;margin-right:.4rem}
-    .prod-unidad{color:#666;font-size:.85rem}
-    .prod-desc{display:block;color:#888;font-size:.8rem;margin-top:.2rem}
-    .linea-controles{display:flex;align-items:flex-end;gap:1rem;flex-wrap:wrap}
-    .campo{display:flex;flex-direction:column;gap:.3rem}
-    .campo label{font-size:.75rem;color:#666;text-transform:uppercase}
-    .cantidad-total{font-weight:700;font-size:1.1rem;color:#2d5a27}
-    .input-num{width:90px;padding:.45rem;border:1px solid #ddd;border-radius:4px;font-size:.9rem}
-    .campo.check{flex:1}
-    .campo.check label{display:flex;align-items:center;gap:.4rem;text-transform:none;font-size:.85rem;color:#333;cursor:pointer}
-    .btn-guardar{background:#2d5a27;color:#fff;border:none;padding:.5rem 1.2rem;border-radius:4px;cursor:pointer;font-weight:600;font-size:.85rem}
-    .btn-guardar:hover{background:#1e3d1a}
-    .btn-guardar:disabled{opacity:.6;cursor:not-allowed}
-    .spinner{text-align:center;padding:3rem;color:#666}
-    .toast{position:fixed;bottom:2rem;right:2rem;background:#2d5a27;color:#fff;padding:.8rem 1.5rem;border-radius:6px;z-index:9999;animation:fadeIn .3s}
-    .toast.error{background:#c00}
-    @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    /* Inherits global dark theme from styles.scss */
   `]
 })
 export class PickingEjecucionComponent implements OnInit {

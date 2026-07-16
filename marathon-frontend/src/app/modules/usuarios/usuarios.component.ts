@@ -113,49 +113,7 @@ interface UsuarioResp { idUsuario: number; nombre: string; apellido: string; cor
     </div>
   `,
   styles: [`
-    .page-container{max-width:1000px;padding:1.5rem}
-    .toolbar{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
-    .toolbar h2{color:#2d5a27;flex:1}
-    .filters{display:flex;gap:.5rem}
-    .input-search,.select-filter{padding:.5rem;border:1px solid #ddd;border-radius:4px;font-size:.85rem}
-    .input-search{width:180px}
-    .btn-new{background:#2d5a27;color:#fff;border:none;padding:.5rem 1rem;border-radius:4px;cursor:pointer;font-weight:600}
-    .spinner{text-align:center;padding:2rem;color:#666}
-    .data-table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.1)}
-    .data-table th{background:#2d5a27;color:#fff;padding:.7rem;text-align:left;font-size:.85rem}
-    .data-table td{padding:.6rem .7rem;border-bottom:1px solid #eee;font-size:.85rem}
-    .data-table tr:hover td{background:#f0f7f0}
-    .role-badge{background:#e8f5e9;color:#2d5a27;padding:.15rem .5rem;border-radius:10px;font-size:.75rem;margin-right:.3rem}
-    .badge{padding:.2rem .6rem;border-radius:12px;font-size:.75rem;background:#eee}
-    .badge.active{background:#c8e6c9;color:#2d5a27}
-    .actions{display:flex;gap:.3rem}
-    .btn-icon{background:none;border:none;cursor:pointer;font-size:1rem}
-    .empty{text-align:center;color:#999;padding:2rem!important}
-    .pagination{display:flex;align-items:center;justify-content:center;gap:1rem;margin-top:1rem}
-    .pagination button{padding:.4rem .8rem;border:1px solid #ddd;border-radius:4px;background:#fff;cursor:pointer}
-    .pagination button:disabled{opacity:.5;cursor:not-allowed}
-    .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000}
-    .modal-card{background:#fff;border-radius:10px;padding:2rem;width:90%;max-width:420px}
-    .modal-card.wide{max-width:520px}
-    .modal-card h3{color:#2d5a27;margin-bottom:1rem}
-    .form-row{display:flex;gap:1rem}
-    .form-row .form-group{flex:1}
-    .form-group{margin-bottom:.8rem;display:flex;flex-direction:column;gap:.3rem}
-    .form-group label{font-size:.85rem;font-weight:600}
-    .form-group input,.form-group select{padding:.6rem;border:1px solid #ddd;border-radius:4px}
-    .pass-wrap{display:flex;gap:.3rem}
-    .pass-wrap input{flex:1}
-    .btn-eye{background:none;border:1px solid #ddd;border-radius:4px;cursor:pointer;padding:.3rem .5rem}
-    .checkbox-list{display:flex;flex-wrap:wrap;gap:.5rem}
-    .cb-item{font-size:.85rem;display:flex;align-items:center;gap:.3rem}
-    .error{color:#c00;font-size:.8rem}
-    .modal-actions{display:flex;gap:.5rem;justify-content:flex-end;margin-top:1.5rem}
-    .btn-cancel{padding:.5rem 1rem;border:1px solid #ddd;border-radius:4px;background:#fff;cursor:pointer}
-    .btn-save{padding:.5rem 1rem;border:none;border-radius:4px;background:#2d5a27;color:#fff;cursor:pointer}
-    .btn-save:disabled{opacity:.6}
-    .btn-delete{padding:.5rem 1rem;border:none;border-radius:4px;background:#c00;color:#fff;cursor:pointer}
-    .toast{position:fixed;bottom:2rem;right:2rem;background:#2d5a27;color:#fff;padding:.8rem 1.5rem;border-radius:6px;z-index:9999}
-    .toast.error{background:#c00}
+    /* Inherits global dark theme from styles.scss */
   `]
 })
 export class UsuariosComponent implements OnInit {

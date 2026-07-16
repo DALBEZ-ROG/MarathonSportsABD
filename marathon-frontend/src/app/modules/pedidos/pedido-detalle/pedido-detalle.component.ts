@@ -197,54 +197,7 @@ interface PedidoDetalle {
     <div class="spinner" *ngIf="!pedido">Cargando pedido...</div>
   `,
   styles: [`
-    .container{max-width:900px;margin:0 auto}
-    .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem}
-    .header h2{color:#2d5a27;margin:0 .8rem 0 0;display:inline}
-    .btn-back{background:none;border:1px solid #ddd;padding:.4rem .8rem;border-radius:4px;cursor:pointer}
-    .btn-back:hover{background:#f5f5f5}
-    .status-badge{padding:.3rem .8rem;border-radius:12px;font-size:.8rem;font-weight:600;text-transform:capitalize}
-    .status-pendiente{background:#fff8e1;color:#f57f17}
-    .status-procesado{background:#e3f2fd;color:#1565c0}
-    .status-enviado{background:#fff3e0;color:#e65100}
-    .status-entregado{background:#e8f5e9;color:#2e7d32}
-    .status-anulado{background:#ffebee;color:#c62828}
-    .info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem;margin-bottom:1.5rem}
-    .info-card{background:#fff;border-radius:8px;padding:1rem;box-shadow:0 1px 4px rgba(0,0,0,.06)}
-    .info-card.full{margin-bottom:1.5rem}
-    .info-card label{display:block;font-size:.75rem;color:#666;margin-bottom:.3rem;text-transform:uppercase}
-    .info-card span{font-size:.95rem;font-weight:500}
-    .total{color:#2d5a27;font-weight:700;font-size:1.1rem}
-    .section{background:#fff;border-radius:10px;padding:1.5rem;margin-bottom:1.5rem;box-shadow:0 1px 4px rgba(0,0,0,.08)}
-    .section h3{color:#2d5a27;font-size:1rem;margin-bottom:1rem;border-bottom:1px solid #eee;padding-bottom:.5rem}
-    .detail-table{width:100%;border-collapse:collapse}
-    .detail-table th{background:#f5f5f5;padding:.6rem;text-align:left;font-size:.85rem;border-bottom:2px solid #ddd}
-    .detail-table td{padding:.6rem;border-bottom:1px solid #eee;font-size:.85rem}
-    .estado-actions{display:flex;gap:.8rem;flex-wrap:wrap}
-    .btn-estado{padding:.5rem 1.2rem;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:.85rem;color:#fff}
-    .btn-estado.procesado{background:#1565c0}
-    .btn-estado.enviado{background:#e65100}
-    .btn-estado.entregado{background:#2e7d32}
-    .btn-estado.anulado{background:#c62828}
-    .btn-estado:hover{opacity:.85}
-    .spinner{text-align:center;padding:3rem;color:#666}
-    .toast{position:fixed;bottom:2rem;right:2rem;background:#2d5a27;color:#fff;padding:.8rem 1.5rem;border-radius:6px;z-index:9999;animation:fadeIn .3s}
-    .toast.error{background:#c00}
-    @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-    .especial-section{border:1px solid #eee}
-    .especial-header{display:flex;align-items:center;gap:.8rem;margin-bottom:1rem}
-    .especial-badge{color:#fff;padding:.3rem .9rem;border-radius:12px;font-size:.75rem;font-weight:700;letter-spacing:.5px}
-    .tipo-text{font-weight:600;text-transform:capitalize;color:#333}
-    .alerta-urgente{background:#ffebee;color:#c62828;border:1px solid #c62828;padding:.6rem 1rem;border-radius:6px;font-weight:700;margin-bottom:1rem}
-    .comprobante-info .info-grid{margin-bottom:1rem}
-    .sin-comprobante{color:#666;font-size:.9rem;margin-bottom:1rem}
-    .btn-pdf{background:#2d5a27;color:#fff;border:none;padding:.5rem 1.2rem;border-radius:4px;cursor:pointer;font-weight:600;font-size:.85rem}
-    .btn-pdf:hover{background:#1e3d1a}
-    .btn-pdf:disabled{opacity:.6;cursor:not-allowed}
-    .btn-generar{background:#1565c0;color:#fff;border:none;padding:.5rem 1.2rem;border-radius:4px;cursor:pointer;font-weight:600;font-size:.85rem}
-    .btn-generar:hover{opacity:.85}
-    .btn-generar:disabled{opacity:.6;cursor:not-allowed}
-    .btn-entregado{background:#2e7d32;color:#fff;border:none;padding:.6rem 1.2rem;border-radius:4px;cursor:pointer;font-weight:600;font-size:.85rem;margin-top:1rem}
-    .btn-entregado:hover{opacity:.88}
+    /* Inherits global dark theme from styles.scss */
   `]
 })
 export class PedidoDetalleComponent implements OnInit {

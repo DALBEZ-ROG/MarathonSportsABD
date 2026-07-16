@@ -76,34 +76,7 @@ interface PageResponse<T> {
     </div>
   `,
   styles: [`
-    .crud-container{max-width:1100px}
-    .toolbar{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
-    .toolbar h2{color:#2d5a27;flex:1}
-    .filters{display:flex;gap:.5rem;align-items:center}
-    .input-search{padding:.5rem;border:1px solid #ddd;border-radius:4px;font-size:.85rem;min-width:240px}
-    .spinner{text-align:center;padding:2rem;color:#666}
-    .data-table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.1)}
-    .data-table th{background:#2d5a27;color:#fff;padding:.7rem;text-align:left;font-size:.85rem}
-    .data-table td{padding:.6rem .7rem;border-bottom:1px solid #eee;font-size:.85rem}
-    .data-table tr:hover td{background:#f0f7f0}
-    .total{font-weight:600;color:#2d5a27}
-    .status-badge{padding:.25rem .7rem;border-radius:12px;font-size:.75rem;font-weight:600;text-transform:capitalize}
-    .status-emitido{background:#e8f5e9;color:#2e7d32}
-    .status-anulado{background:#ffebee;color:#c62828}
-    .actions{display:flex;gap:.4rem;flex-wrap:wrap}
-    .btn-pdf{background:#2d5a27;color:#fff;border:none;padding:.35rem .8rem;border-radius:4px;cursor:pointer;font-size:.8rem;font-weight:600}
-    .btn-pdf:hover{background:#1e3d1a}
-    .btn-pdf:disabled{opacity:.6;cursor:not-allowed}
-    .btn-anular{background:#c62828;color:#fff;border:none;padding:.35rem .8rem;border-radius:4px;cursor:pointer;font-size:.8rem;font-weight:600}
-    .btn-anular:hover{background:#a01b1b}
-    .btn-anular:disabled{opacity:.6;cursor:not-allowed}
-    .empty{text-align:center;color:#999;padding:2rem !important}
-    .pagination{display:flex;align-items:center;justify-content:center;gap:1rem;margin-top:1rem}
-    .pagination button{padding:.4rem .8rem;border:1px solid #ddd;border-radius:4px;background:#fff;cursor:pointer}
-    .pagination button:disabled{opacity:.5;cursor:not-allowed}
-    .toast{position:fixed;bottom:2rem;right:2rem;background:#2d5a27;color:#fff;padding:.8rem 1.5rem;border-radius:6px;z-index:9999;animation:fadeIn .3s}
-    .toast.error{background:#c00}
-    @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    /* Inherits global dark theme from styles.scss */
   `]
 })
 export class ComprobantesListaComponent implements OnInit, OnDestroy {
