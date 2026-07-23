@@ -191,6 +191,11 @@ interface PedidoDetalle {
         </div>
       </div>
 
+      <!-- Solicitar devolucion -->
+      <div class="section" *ngIf="pedido.estado === 'entregado'">
+        <button class="btn-estado procesado" (click)="irDevolucion()">Solicitar devolucion</button>
+      </div>
+
       <div class="toast" *ngIf="toast" [class.error]="toastError">{{toast}}</div>
     </div>
 
@@ -289,6 +294,11 @@ export class PedidoDetalleComponent implements OnInit {
       },
       error: (err) => { this.mostrarToast(err.error?.message || 'Error al marcar como entregado', true); }
     });
+  }
+
+  irDevolucion() {
+    if (!this.pedido) return;
+    this.router.navigate(['/devoluciones/nueva', this.pedido.idPedido]);
   }
 
   badgeColor(tipo: string): string {

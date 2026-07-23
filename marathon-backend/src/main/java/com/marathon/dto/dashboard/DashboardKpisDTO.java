@@ -15,6 +15,7 @@ public class DashboardKpisDTO {
     private Long productosStockBajo;
     private Long pedidosEspecialesActivos;
     private Long pedidosPickingPendiente;
+    private Long productosFabricados;
 
     public DashboardKpisDTO() {}
 
@@ -68,4 +69,7 @@ public class DashboardKpisDTO {
 
     public Long getPedidosPickingPendiente() { return pedidosPickingPendiente; }
     public void setPedidosPickingPendiente(Long pedidosPickingPendiente) { this.pedidosPickingPendiente = pedidosPickingPendiente; }
+
+    public Long getProductosFabricados() { return productosFabricados; }
+    public void setProductosFabricados(Long productosFabricados) { this.productosFabricados = productosFabricados; }
 }

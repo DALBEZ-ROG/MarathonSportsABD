@@ -5,6 +5,7 @@ import java.util.List;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 
 public class ProductoRequestDTO {
 
@@ -30,6 +31,10 @@ public class ProductoRequestDTO {
 
     private Integer stockMinimo;
     private String estado;
+
+    @Pattern(regexp = "comprado|fabricado", message = "El origen debe ser 'comprado' o 'fabricado'")
+    private String origen = "comprado";
+
     private List<Integer> proveedorIds;
 
     public ProductoRequestDTO() {}
@@ -60,6 +65,9 @@ public class ProductoRequestDTO {
 
     public String getEstado() { return estado; }
     public void setEstado(String estado) { this.estado = estado; }
+
+    public String getOrigen() { return origen; }
+    public void setOrigen(String origen) { this.origen = origen; }
 
     public List<Integer> getProveedorIds() { return proveedorIds; }
     public void setProveedorIds(List<Integer> proveedorIds) { this.proveedorIds = proveedorIds; }

@@ -12,6 +12,7 @@ public class MateriaPrimaResponseDTO {
     private String estado;
     private java.math.BigDecimal stockActual;
     private java.math.BigDecimal stockMinimo;
+    private Boolean stockBajo;
     private LocalDateTime createdAt;
 
     public MateriaPrimaResponseDTO() {}
@@ -21,6 +22,9 @@ public class MateriaPrimaResponseDTO {
 
     public java.math.BigDecimal getStockMinimo() { return stockMinimo; }
     public void setStockMinimo(java.math.BigDecimal stockMinimo) { this.stockMinimo = stockMinimo; }
+
+    public Boolean getStockBajo() { return stockBajo; }
+    public void setStockBajo(Boolean stockBajo) { this.stockBajo = stockBajo; }
 
     public Integer getIdMateriaPrima() { return idMateriaPrima; }
     public void setIdMateriaPrima(Integer idMateriaPrima) { this.idMateriaPrima = idMateriaPrima; }

@@ -51,6 +51,20 @@ public class SecurityConfig {
                     "/v3/api-docs/**"
                 ).permitAll()
 
+                // --- Lista de Materiales / BOM (F27) ---
+                //   Debe declararse ANTES de las reglas generales de /api/productos/**
+                //   GET: Encargado de Produccion, Encargado de Compras, Administrador
+                //   PUT: Encargado de Produccion, Administrador
+                .requestMatchers(org.springframework.http.HttpMethod.GET,
+                    "/api/productos/*/bom"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE PRODUCCIÓN", "ROLE_ENCARGADO DE COMPRAS")
+                .requestMatchers(org.springframework.http.HttpMethod.PUT,
+                    "/api/productos/*/bom"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE PRODUCCIÓN")
+                .requestMatchers(org.springframework.http.HttpMethod.PUT,
+                    "/api/productos/*/origen"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE PRODUCCIÓN")
+
                 // --- Lectura: cualquier usuario autenticado ---
                 .requestMatchers(org.springframework.http.HttpMethod.GET,
                     "/api/ciudades", "/api/ciudades/**",
@@ -156,12 +170,48 @@ public class SecurityConfig {
                 .requestMatchers("/api/recepciones/**")
                     .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE COMPRAS")
 
-                // --- Materia Prima (F21) ---
-                //   Lectura: Encargado de Compras, Encargado de Producción y Administrador
-                //   Escritura: Encargado de Producción y Administrador
+                // --- Devoluciones de Cliente (F24) ---
+                .requestMatchers(org.springframework.http.HttpMethod.GET,
+                    "/api/devoluciones", "/api/devoluciones/**"
+                ).authenticated()
+                .requestMatchers(org.springframework.http.HttpMethod.POST,
+                    "/api/devoluciones"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_OPERADOR DE PEDIDOS")
+                .requestMatchers(org.springframework.http.HttpMethod.PUT,
+                    "/api/devoluciones/*/iniciar-inspeccion", "/api/devoluciones/*/inspeccionar"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_OPERADOR DE BODEGA")
+                .requestMatchers(org.springframework.http.HttpMethod.POST,
+                    "/api/devoluciones/*/reembolso"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_OPERADOR DE PEDIDOS")
+
+                // --- Facturas de Compra (F23): Encargado de Compras o Administrador ---
+                .requestMatchers("/api/facturas-compra/**")
+                    .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE COMPRAS")
+
+                // --- Cuentas por Pagar (F23): Lectura para Supervisor, escritura para Compras/Admin ---
+                .requestMatchers(org.springframework.http.HttpMethod.GET,
+                    "/api/cuentas-por-pagar", "/api/cuentas-por-pagar/**"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE COMPRAS", "ROLE_SUPERVISOR E-COMMERCE")
+                .requestMatchers("/api/cuentas-por-pagar/**")
+                    .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE COMPRAS")
+
+                // --- Pagos a Proveedor (F23): Encargado de Compras o Administrador ---
+                .requestMatchers("/api/pagos-proveedor/**")
+                    .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE COMPRAS")
+
+                // --- Devoluciones a Proveedor (F25): Encargado de Compras o Administrador ---
+                .requestMatchers("/api/devoluciones-proveedor/**")
+                    .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE COMPRAS")
+
+                // --- Materia Prima (F21 + F26) ---
+                //   Lectura: Encargado de Compras, Encargado de Produccion y Administrador
+                //   Escritura/movimientos: Encargado de Produccion y Administrador
                 .requestMatchers(org.springframework.http.HttpMethod.GET,
                     "/api/materia-prima", "/api/materia-prima/**"
                 ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE COMPRAS", "ROLE_ENCARGADO DE PRODUCCIÓN")
+                .requestMatchers(org.springframework.http.HttpMethod.POST,
+                    "/api/materia-prima/movimiento"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE PRODUCCIÓN")
                 .requestMatchers(org.springframework.http.HttpMethod.POST,
                     "/api/materia-prima", "/api/materia-prima/**"
                 ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE PRODUCCIÓN")

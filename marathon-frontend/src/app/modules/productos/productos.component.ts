@@ -22,6 +22,25 @@ interface ProveedorSimple {
   ruc: string;
 }
 
+interface MateriaPrima {
+  idMateriaPrima: number;
+  nombre: string;
+  unidadMedidaNombre?: string;
+  unidadMedida?: string;
+}
+
+interface BomLinea {
+  idMateriaPrima: number | null;
+  cantidadNecesaria: number | null;
+}
+
+interface BomItemResponse {
+  idBom: number;
+  cantidadNecesaria: number;
+  estado: string;
+  materiaPrima: { idMateriaPrima: number; nombre: string; unidadMedida: string };
+}
+
 interface Producto {
   idProducto: number;
   codigo: string;
@@ -35,6 +54,8 @@ interface Producto {
   unidadMedidaNombre: string;
   stockMinimo: number;
   estado: string;
+  origen: string;
+  tieneBom?: boolean;
   proveedores: ProveedorSimple[];
 }
 
@@ -57,6 +78,11 @@ interface Producto {
             <option value="">Todas las categorías</option>
             <option *ngFor="let c of categorias" [value]="c.idCategoria">{{c.nombre}}</option>
           </select>
+          <select [(ngModel)]="filtroOrigen" (change)="cargar()" class="select-filter">
+            <option value="">Todo origen</option>
+            <option value="comprado">Comprado</option>
+            <option value="fabricado">Fabricado</option>
+          </select>
         </div>
         <button class="btn-new" (click)="abrirModal()">+ Nuevo</button>
       </div>
@@ -65,7 +91,7 @@ interface Producto {
 
       <table class="data-table" *ngIf="!loading">
         <thead>
-          <tr><th>Código</th><th>Nombre</th><th>P. Compra</th><th>P. Venta</th><th>Categoría</th><th>Unidad</th><th>Estado</th><th>Acciones</th></tr>
+          <tr><th>Código</th><th>Nombre</th><th>P. Compra</th><th>P. Venta</th><th>Categoría</th><th>Unidad</th><th>Origen</th><th>Estado</th><th>Acciones</th></tr>
         </thead>
         <tbody>
           <tr *ngFor="let item of data">
@@ -75,13 +101,18 @@ interface Producto {
             <td>$ {{item.precioVenta | number:'1.2-2'}}</td>
             <td>{{item.categoriaNombre}}</td>
             <td>{{item.unidadMedidaNombre}}</td>
+            <td>
+              <span class="badge-origen" [class.fabricado]="item.origen==='fabricado'" [class.comprado]="item.origen==='comprado'">
+                {{item.origen==='fabricado' ? 'Fabricado' : 'Comprado'}}
+              </span>
+            </td>
             <td><span class="badge" [class.active]="item.estado==='activo'">{{item.estado}}</span></td>
             <td class="actions">
               <button class="btn-icon" (click)="editar(item)" title="Editar">✏️</button>
               <button class="btn-icon danger" (click)="confirmarEliminar(item)" title="Eliminar">🗑️</button>
             </td>
           </tr>
-          <tr *ngIf="data.length === 0"><td colspan="8" class="empty">No hay registros</td></tr>
+          <tr *ngIf="data.length === 0"><td colspan="9" class="empty">No hay registros</td></tr>
         </tbody>
       </table>
 
@@ -149,6 +180,33 @@ interface Producto {
                 </select>
               </div>
             </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Origen *</label>
+                <select [(ngModel)]="form.origen" name="origen" (change)="onOrigenChange()">
+                  <option value="comprado">Comprado (a una marca)</option>
+                  <option value="fabricado">Fabricado (producción interna)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Lista de Materiales (BOM) — solo para productos fabricados -->
+            <div class="bom-section" *ngIf="form.origen==='fabricado'">
+              <h4>Lista de Materiales (BOM)</h4>
+              <p class="bom-hint">Debe definir al menos 1 material antes de guardar. Cantidad necesaria para producir 1 unidad.</p>
+              <div class="bom-linea" *ngFor="let linea of bomLineas; let i = index">
+                <select [(ngModel)]="linea.idMateriaPrima" [name]="'mp'+i" class="bom-mp">
+                  <option [ngValue]="null">-- Materia prima --</option>
+                  <option *ngFor="let m of materiasPrimas" [ngValue]="m.idMateriaPrima">{{m.nombre}}</option>
+                </select>
+                <input type="number" [(ngModel)]="linea.cantidadNecesaria" [name]="'cant'+i" step="0.001" min="0.001"
+                       class="bom-cant" placeholder="Cantidad"/>
+                <span class="bom-unidad">{{unidadDeMateria(linea.idMateriaPrima)}}</span>
+                <button type="button" class="btn-icon danger" (click)="quitarLineaBom(i)" title="Eliminar">🗑️</button>
+              </div>
+              <button type="button" class="btn-add-mat" (click)="agregarLineaBom()">+ Agregar material</button>
+            </div>
+
             <div class="form-group">
               <label>Proveedores</label>
               <div class="proveedor-list">
@@ -185,6 +243,17 @@ interface Producto {
   `,
   styles: [`
     /* Inherits global dark theme from styles.scss */
+    .badge-origen { padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
+    .badge-origen.comprado { background: #1e3a8a; color: #bfdbfe; }
+    .badge-origen.fabricado { background: #14532d; color: #bbf7d0; }
+    .bom-section { border: 1px solid #334155; border-radius: 8px; padding: 12px; margin: 10px 0; }
+    .bom-section h4 { margin: 0 0 4px; }
+    .bom-hint { font-size: 0.8rem; color: #94a3b8; margin: 0 0 10px; }
+    .bom-linea { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .bom-mp { flex: 2; }
+    .bom-cant { flex: 1; }
+    .bom-unidad { min-width: 60px; font-size: 0.8rem; color: #94a3b8; }
+    .btn-add-mat { background: #14532d; color: #bbf7d0; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
   `]
 })
 export class ProductosComponent implements OnInit {
@@ -192,6 +261,8 @@ export class ProductosComponent implements OnInit {
   categorias: Categoria[] = [];
   unidades: UnidadMedida[] = [];
   proveedores: ProveedorSimple[] = [];
+  materiasPrimas: MateriaPrima[] = [];
+  bomLineas: BomLinea[] = [];
   loading = false;
   saving = false;
   page = 0;
@@ -200,13 +271,15 @@ export class ProductosComponent implements OnInit {
   filtroNombre = '';
   filtroEstado = '';
   filtroCategoria: string = '';
+  filtroOrigen: string = '';
   showModal = false;
   showConfirm = false;
   editando = false;
   editId: number | null = null;
   form: any = {
     codigo: '', nombre: '', descripcion: '', precioCompra: null, precioVenta: null,
-    idCategoria: null, idUnidadMedida: null, stockMinimo: 0, estado: 'activo', proveedorIds: [] as number[]
+    idCategoria: null, idUnidadMedida: null, stockMinimo: 0, estado: 'activo',
+    origen: 'comprado', proveedorIds: [] as number[]
   };
   formError = '';
   itemEliminar: Producto | null = null;
@@ -227,6 +300,7 @@ export class ProductosComponent implements OnInit {
     if (this.filtroNombre) params['nombre'] = this.filtroNombre;
     if (this.filtroEstado) params['estado'] = this.filtroEstado;
     if (this.filtroCategoria) params['idCategoria'] = this.filtroCategoria;
+    if (this.filtroOrigen) params['origen'] = this.filtroOrigen;
 
     this.crud.listar<Producto>('productos', params).subscribe({
       next: res => { this.data = res.content; this.totalPages = res.totalPages; this.loading = false; },
@@ -244,6 +318,36 @@ export class ProductosComponent implements OnInit {
     this.crud.listar<any>('proveedores', { page: 0, size: 1000, estado: 'activo' }).subscribe({
       next: res => { this.proveedores = res.content; }
     });
+    this.crud.listar<any>('materia-prima', { page: 0, size: 1000, estado: 'activo' }).subscribe({
+      next: res => {
+        this.materiasPrimas = res.content.map((m: any) => ({
+          idMateriaPrima: m.idMateriaPrima,
+          nombre: m.nombre,
+          unidadMedida: m.unidadMedidaNombre || m.unidadMedida || m.abreviatura || ''
+        }));
+      },
+      error: () => { /* el usuario puede no tener permiso de lectura de materia prima */ }
+    });
+  }
+
+  onOrigenChange() {
+    if (this.form.origen === 'fabricado' && this.bomLineas.length === 0) {
+      this.agregarLineaBom();
+    }
+  }
+
+  agregarLineaBom() {
+    this.bomLineas.push({ idMateriaPrima: null, cantidadNecesaria: null });
+  }
+
+  quitarLineaBom(i: number) {
+    this.bomLineas.splice(i, 1);
+  }
+
+  unidadDeMateria(idMateriaPrima: number | null): string {
+    if (!idMateriaPrima) return '';
+    const m = this.materiasPrimas.find(x => x.idMateriaPrima === idMateriaPrima);
+    return m && m.unidadMedida ? '(' + m.unidadMedida + ')' : '';
   }
 
   onSearch() {
@@ -258,8 +362,10 @@ export class ProductosComponent implements OnInit {
     this.editId = null;
     this.form = {
       codigo: '', nombre: '', descripcion: '', precioCompra: null, precioVenta: null,
-      idCategoria: null, idUnidadMedida: null, stockMinimo: 0, estado: 'activo', proveedorIds: []
+      idCategoria: null, idUnidadMedida: null, stockMinimo: 0, estado: 'activo',
+      origen: 'comprado', proveedorIds: []
     };
+    this.bomLineas = [];
     this.formError = '';
     this.showModal = true;
   }
@@ -268,6 +374,7 @@ export class ProductosComponent implements OnInit {
     this.editando = true;
     this.editId = item.idProducto;
     this.formError = '';
+    this.bomLineas = [];
     // Fetch full product details with proveedores
     this.crud.obtener<Producto>('productos', item.idProducto).subscribe({
       next: (prod) => {
@@ -276,11 +383,28 @@ export class ProductosComponent implements OnInit {
           precioCompra: prod.precioCompra, precioVenta: prod.precioVenta,
           idCategoria: prod.idCategoria, idUnidadMedida: prod.idUnidadMedida,
           stockMinimo: prod.stockMinimo || 0, estado: prod.estado,
+          origen: prod.origen || 'comprado',
           proveedorIds: prod.proveedores ? prod.proveedores.map(p => p.idProveedor) : []
         };
         this.showModal = true;
+        if (this.form.origen === 'fabricado') {
+          this.cargarBom(prod.idProducto);
+        }
       },
       error: () => { this.mostrarToast('Error al cargar producto', true); }
+    });
+  }
+
+  cargarBom(idProducto: number) {
+    this.http.get<BomItemResponse[]>(`${environment.apiUrl}/productos/${idProducto}/bom`).subscribe({
+      next: (items) => {
+        this.bomLineas = (items || []).map(it => ({
+          idMateriaPrima: it.materiaPrima.idMateriaPrima,
+          cantidadNecesaria: it.cantidadNecesaria
+        }));
+        if (this.bomLineas.length === 0) { this.agregarLineaBom(); }
+      },
+      error: () => { /* sin BOM o sin permiso */ }
     });
   }
 
@@ -302,6 +426,22 @@ export class ProductosComponent implements OnInit {
     if (!this.form.precioVenta) { this.formError = 'El precio de venta es obligatorio'; return; }
     if (!this.form.idCategoria) { this.formError = 'La categoría es obligatoria'; return; }
     if (!this.form.idUnidadMedida) { this.formError = 'La unidad de medida es obligatoria'; return; }
+
+    let bomItems: { idMateriaPrima: number; cantidadNecesaria: number }[] = [];
+    if (this.form.origen === 'fabricado') {
+      bomItems = this.bomLineas
+        .filter(l => l.idMateriaPrima && l.cantidadNecesaria && l.cantidadNecesaria > 0)
+        .map(l => ({ idMateriaPrima: l.idMateriaPrima as number, cantidadNecesaria: l.cantidadNecesaria as number }));
+      if (bomItems.length === 0) {
+        this.formError = 'Un producto fabricado debe tener al menos 1 material en la lista de materiales';
+        return;
+      }
+      const ids = bomItems.map(b => b.idMateriaPrima);
+      if (new Set(ids).size !== ids.length) {
+        this.formError = 'No repita la misma materia prima en la lista de materiales';
+        return;
+      }
+    }
     this.saving = true;
 
     const obs = this.editando
@@ -309,7 +449,16 @@ export class ProductosComponent implements OnInit {
       : this.crud.crear<Producto>('productos', this.form);
 
     obs.subscribe({
-      next: () => { this.saving = false; this.cerrarModal(); this.cargar(); this.mostrarToast('Producto guardado correctamente'); },
+      next: (prod) => {
+        if (this.form.origen === 'fabricado' && bomItems.length > 0) {
+          this.http.put(`${environment.apiUrl}/productos/${prod.idProducto}/bom`, { items: bomItems }).subscribe({
+            next: () => { this.saving = false; this.cerrarModal(); this.cargar(); this.mostrarToast('Producto y lista de materiales guardados'); },
+            error: (err) => { this.saving = false; this.formError = err.error?.message || 'Producto guardado, pero fallo el BOM'; }
+          });
+        } else {
+          this.saving = false; this.cerrarModal(); this.cargar(); this.mostrarToast('Producto guardado correctamente');
+        }
+      },
       error: (err) => { this.saving = false; this.formError = err.error?.message || 'Error al guardar'; }
     });
   }

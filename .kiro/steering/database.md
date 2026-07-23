@@ -100,6 +100,7 @@
 | id_unidad | INT FK → unidad_medida | |
 | stock_minimo | INT DEFAULT 0 | |
 | estado | VARCHAR(20) DEFAULT 'activo' | |
+| origen | VARCHAR(20) NOT NULL DEFAULT 'comprado' | (F27) CHECK `chk_producto_origen`: comprado/fabricado. Trigger `trg_validar_cambio_origen_producto` impide pasar a 'comprado' si hay BOM activo |
 | created_at | TIMESTAMP DEFAULT NOW() | |
 
 ### usuario_rol
@@ -283,6 +284,139 @@
 
 > Solo entra al stock `cantidad_buena = cantidad_recibida_ahora - cantidad_defectuosa`.
 
+### factura_compra (Fase 23)
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id_factura_compra | INT GENERATED ALWAYS AS IDENTITY PK | |
+| id_orden_compra | INT FK → orden_compra NOT NULL | |
+| id_usuario_registro | INT FK → usuario NOT NULL | Quien registra |
+| numero_factura_proveedor | VARCHAR(50) NOT NULL | UNIQUE(id_orden_compra, numero_factura_proveedor) |
+| fecha_factura | DATE NOT NULL | |
+| fecha_vencimiento | DATE NOT NULL | CHECK >= fecha_factura |
+| subtotal | NUMERIC(12,2) NOT NULL | CHECK > 0 |
+| impuesto | NUMERIC(12,2) NOT NULL DEFAULT 0 | CHECK >= 0 |
+| total | NUMERIC(12,2) GENERATED ALWAYS AS (subtotal + impuesto) STORED | **NUNCA insertar/actualizar** |
+| estado | VARCHAR(20) NOT NULL DEFAULT 'pendiente' | CHECK: pendiente/pagada/anulada |
+| created_at | TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP | |
+
+### cuenta_por_pagar (Fase 23)
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id_cuenta_pagar | INT GENERATED ALWAYS AS IDENTITY PK | |
+| id_factura_compra | INT FK → factura_compra NOT NULL UNIQUE | 1:1 con factura |
+| id_proveedor | INT FK → proveedor NOT NULL | |
+| monto_total | NUMERIC(12,2) NOT NULL | |
+| monto_pagado | NUMERIC(12,2) NOT NULL DEFAULT 0 | **CALCULADO POR TRIGGER** — no escribir. Protegido contra UPDATE manual |
+| saldo_pendiente | NUMERIC(12,2) GENERATED ALWAYS AS (monto_total - monto_pagado) STORED | **NUNCA insertar/actualizar** |
+| fecha_vencimiento | DATE NOT NULL | |
+| estado | VARCHAR(20) NOT NULL DEFAULT 'vigente' | CHECK: vigente/vencida/pagada |
+| created_at | TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP | |
+
+### pago_proveedor (Fase 23)
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id_pago | INT GENERATED ALWAYS AS IDENTITY PK | |
+| id_cuenta_pagar | INT FK → cuenta_por_pagar NOT NULL | |
+| id_usuario_registro | INT FK → usuario NOT NULL | Quien registra el pago |
+| monto | NUMERIC(12,2) NOT NULL | CHECK > 0 |
+| fecha_pago | TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP | |
+| metodo_pago | VARCHAR(30) NOT NULL | CHECK: transferencia/cheque/efectivo/tarjeta |
+| referencia | VARCHAR(100) | Nro. transferencia, cheque, etc. |
+| observaciones | TEXT | |
+
+### solicitud_devolucion (Fase 24)
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id_solicitud | INT GENERATED ALWAYS AS IDENTITY PK | |
+| id_pedido | INT FK → pedido NOT NULL | |
+| id_usuario_registro | INT FK → usuario NOT NULL | Quien registra la solicitud |
+| motivo | VARCHAR(50) NOT NULL | CHECK: producto_defectuoso/talla_incorrecta/no_esperado/cambio_opinion/producto_incompleto/otro |
+| descripcion | TEXT | |
+| estado | VARCHAR(30) NOT NULL DEFAULT 'solicitada' | CHECK: solicitada/en_inspeccion/completada/rechazada |
+| fecha_solicitud | TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP | |
+| fecha_inspeccion | TIMESTAMP | Se setea al iniciar inspeccion |
+| id_usuario_inspector | INT FK → usuario NULL | Quien inspecciona |
+| created_at | TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP | |
+
+### solicitud_devolucion_detalle (Fase 24)
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id_detalle_sd | INT GENERATED ALWAYS AS IDENTITY PK | |
+| id_solicitud | INT FK → solicitud_devolucion NOT NULL | ON DELETE CASCADE |
+| id_detalle_pedido | INT FK → detalle_pedido NOT NULL | |
+| cantidad_devuelta | INT NOT NULL | CHECK > 0 |
+| resultado_inspeccion | VARCHAR(20) NULL | CHECK: NULL o apto_reventa/defectuoso/rechazado |
+| observacion_inspeccion | TEXT | |
+
+> apto_reventa: sube stock. defectuoso: registrado para F25. rechazado: no toca nada.
+
+### reembolso_cliente (Fase 24)
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id_reembolso | INT GENERATED ALWAYS AS IDENTITY PK | |
+| id_solicitud | INT FK → solicitud_devolucion NOT NULL UNIQUE | 1:1 con solicitud |
+| id_usuario_registro | INT FK → usuario NOT NULL | |
+| monto | NUMERIC(10,2) NOT NULL | CHECK > 0 |
+| metodo | VARCHAR(30) NOT NULL | CHECK: nota_credito/transferencia/efectivo |
+| fecha_reembolso | TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP | |
+| observaciones | TEXT | |
+
+### devolucion_proveedor (Fase 25)
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id_devolucion_prov | INT GENERATED ALWAYS AS IDENTITY PK | |
+| id_proveedor | INT FK → proveedor NOT NULL | |
+| id_usuario_registro | INT FK → usuario NOT NULL | |
+| fecha_devolucion | TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP | |
+| estado | VARCHAR(20) NOT NULL DEFAULT 'pendiente' | CHECK: pendiente/enviada/resuelta/rechazada |
+| tipo_resolucion | VARCHAR(20) NULL | CHECK: NULL o reembolso/reposicion |
+| monto_reembolso | NUMERIC(10,2) NULL | CHECK NULL o > 0 |
+| observaciones | TEXT | |
+| created_at | TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP | |
+
+### devolucion_proveedor_detalle (Fase 25)
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id_detalle_dp | INT GENERATED ALWAYS AS IDENTITY PK | |
+| id_devolucion_prov | INT FK → devolucion_proveedor NOT NULL | ON DELETE CASCADE |
+| origen | VARCHAR(20) NOT NULL | CHECK: rma_cliente/recepcion_compra |
+| id_solicitud_devolucion_detalle | INT FK → solicitud_devolucion_detalle NULL UNIQUE | Exclusivo con id_recepcion_detalle |
+| id_recepcion_detalle | INT FK → recepcion_mercancia_detalle NULL UNIQUE | Exclusivo con id_solicitud_devolucion_detalle |
+| id_producto | INT FK → producto NOT NULL | |
+| cantidad | INT NOT NULL | CHECK > 0 |
+| motivo | TEXT | |
+
+> Asociacion polimorfica exclusiva: CHECK `chk_dpd_origen_exclusivo`. UNIQUE en cada FK origen garantiza que un item defectuoso no se use dos veces.
+
+### movimiento_materia_prima (Fase 26)
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id_movimiento_mp | INT GENERATED ALWAYS AS IDENTITY PK | |
+| id_materia_prima | INT FK → materia_prima NOT NULL | |
+| id_usuario | INT FK → usuario NOT NULL | |
+| tipo_movimiento | VARCHAR(20) NOT NULL | CHECK: entrada_compra/salida_produccion/ajuste/merma |
+| cantidad | NUMERIC(12,3) NOT NULL | CHECK > 0 |
+| stock_anterior | NUMERIC(12,3) NOT NULL | Snapshot antes del movimiento |
+| stock_nuevo | NUMERIC(12,3) NOT NULL | Snapshot despues del movimiento |
+| id_recepcion | INT FK → recepcion_mercancia NULL | Solo para entrada_compra |
+| id_orden_produccion | INT NULL | FK pendiente hasta F28 |
+| observacion | TEXT | |
+| fecha | TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP | |
+
+> RecepcionMercanciaService fue retrofiteado (F26) para registrar kardex tipo `entrada_compra` al recibir materia prima.
+
+### lista_materiales (Fase 27) — BOM / receta
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id_bom | INT GENERATED ALWAYS AS IDENTITY PK | |
+| id_producto | INT FK → producto NOT NULL | ON DELETE CASCADE. Debe tener origen='fabricado' (trigger) |
+| id_materia_prima | INT FK → materia_prima NOT NULL | ON DELETE RESTRICT |
+| cantidad_necesaria | NUMERIC(12,3) NOT NULL | CHECK > 0. Cantidad para producir 1 unidad |
+| estado | VARCHAR(20) NOT NULL DEFAULT 'activo' | CHECK activo/inactivo |
+| created_at | TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP | |
+
+> UNIQUE `uq_bom_producto_materia (id_producto, id_materia_prima)`. La receta define QUÉ y CUÁNTA materia prima consume un producto fabricado; el consumo real ocurre en F28. Solo productos con `origen='fabricado'` admiten BOM (trigger `trg_validar_bom_producto_fabricado`).
+
 ## Relaciones FK
 
 | Tabla Origen | Columna FK | Tabla Destino | ON UPDATE | ON DELETE |
@@ -324,6 +458,30 @@
 | movimiento_inventario | id_bodega | bodega | CASCADE | RESTRICT |
 | movimiento_inventario | id_usuario | usuario | CASCADE | RESTRICT |
 | historial_inventario | id_inventario | inventario | CASCADE | CASCADE |
+| factura_compra | id_orden_compra | orden_compra | CASCADE | RESTRICT |
+| factura_compra | id_usuario_registro | usuario | CASCADE | RESTRICT |
+| cuenta_por_pagar | id_factura_compra | factura_compra | CASCADE | RESTRICT |
+| cuenta_por_pagar | id_proveedor | proveedor | CASCADE | RESTRICT |
+| pago_proveedor | id_cuenta_pagar | cuenta_por_pagar | CASCADE | RESTRICT |
+| pago_proveedor | id_usuario_registro | usuario | CASCADE | RESTRICT |
+| solicitud_devolucion | id_pedido | pedido | CASCADE | RESTRICT |
+| solicitud_devolucion | id_usuario_registro | usuario | CASCADE | RESTRICT |
+| solicitud_devolucion | id_usuario_inspector | usuario | CASCADE | SET NULL |
+| solicitud_devolucion_detalle | id_solicitud | solicitud_devolucion | CASCADE | CASCADE |
+| solicitud_devolucion_detalle | id_detalle_pedido | detalle_pedido | CASCADE | RESTRICT |
+| reembolso_cliente | id_solicitud | solicitud_devolucion | CASCADE | RESTRICT |
+| reembolso_cliente | id_usuario_registro | usuario | CASCADE | RESTRICT |
+| devolucion_proveedor | id_proveedor | proveedor | CASCADE | RESTRICT |
+| devolucion_proveedor | id_usuario_registro | usuario | CASCADE | RESTRICT |
+| devolucion_proveedor_detalle | id_devolucion_prov | devolucion_proveedor | CASCADE | CASCADE |
+| devolucion_proveedor_detalle | id_solicitud_devolucion_detalle | solicitud_devolucion_detalle | CASCADE | RESTRICT |
+| devolucion_proveedor_detalle | id_recepcion_detalle | recepcion_mercancia_detalle | CASCADE | RESTRICT |
+| devolucion_proveedor_detalle | id_producto | producto | CASCADE | RESTRICT |
+| movimiento_materia_prima | id_materia_prima | materia_prima | CASCADE | RESTRICT |
+| movimiento_materia_prima | id_usuario | usuario | CASCADE | RESTRICT |
+| movimiento_materia_prima | id_recepcion | recepcion_mercancia | CASCADE | SET NULL |
+| lista_materiales | id_producto | producto | CASCADE | CASCADE |
+| lista_materiales | id_materia_prima | materia_prima | CASCADE | RESTRICT |
 
 ## Módulos Principales
 
@@ -341,7 +499,7 @@
 
 ## Funciones y Triggers
 
-### Funciones (8)
+### Funciones (12)
 1. **fn_generar_numero_pedido()** — Genera número secuencial para pedidos (PED-000001)
 2. **fn_actualizar_total_pedido()** — Recalcula pedido.total sumando subtotales de detalles
 3. **fn_generar_numero_comprobante()** — Genera número secuencial para comprobantes (COMP-000001)
@@ -350,8 +508,12 @@
 6. **fn_validar_stock_pedido()** — Valida que haya stock suficiente antes de crear detalle_pedido
 7. **fn_recalcular_total_orden_compra_stmt()** (F21) — Recalcula orden_compra.total sumando subtotales (statement-level)
 8. **fn_proteger_total_orden_compra()** (F21) — Impide UPDATE manual de orden_compra.total
+9. **fn_recalcular_monto_pagado_cxp()** (F23) — Recalcula cuenta_por_pagar.monto_pagado tras cada pago; si pagada, marca factura también
+10. **fn_proteger_monto_pagado_cxp()** (F23) — Impide UPDATE manual de cuenta_por_pagar.monto_pagado
+11. **fn_validar_bom_producto_fabricado()** (F27) — Impide insertar/actualizar líneas de `lista_materiales` si el producto no tiene origen='fabricado'
+12. **fn_validar_cambio_origen_producto()** (F27) — Impide cambiar `producto.origen` a 'comprado' si el producto tiene BOM activo
 
-### Triggers (15)
+### Triggers (21)
 1. **trg_numero_pedido** → BEFORE INSERT ON pedido → fn_generar_numero_pedido
 2. **trg_actualizar_total_insert** → AFTER INSERT ON detalle_pedido → fn_actualizar_total_pedido
 3. **trg_actualizar_total_update** → AFTER UPDATE ON detalle_pedido → fn_actualizar_total_pedido
@@ -367,3 +529,9 @@
 13. **trg_oc_total_update** (F21) → AFTER UPDATE ON orden_compra_detalle → fn_recalcular_total_orden_compra_stmt
 14. **trg_oc_total_delete** (F21) → AFTER DELETE ON orden_compra_detalle → fn_recalcular_total_orden_compra_stmt
 15. **trg_proteger_total_oc** (F21) → BEFORE UPDATE ON orden_compra → fn_proteger_total_orden_compra
+16. **trg_cxp_pagado_insert** (F23) → AFTER INSERT ON pago_proveedor → fn_recalcular_monto_pagado_cxp
+17. **trg_cxp_pagado_update** (F23) → AFTER UPDATE ON pago_proveedor → fn_recalcular_monto_pagado_cxp
+18. **trg_cxp_pagado_delete** (F23) → AFTER DELETE ON pago_proveedor → fn_recalcular_monto_pagado_cxp
+19. **trg_proteger_monto_pagado_cxp** (F23) → BEFORE UPDATE ON cuenta_por_pagar → fn_proteger_monto_pagado_cxp
+20. **trg_validar_bom_producto_fabricado** (F27) → BEFORE INSERT OR UPDATE ON lista_materiales → fn_validar_bom_producto_fabricado
+21. **trg_validar_cambio_origen_producto** (F27) → BEFORE UPDATE OF origen ON producto → fn_validar_cambio_origen_producto

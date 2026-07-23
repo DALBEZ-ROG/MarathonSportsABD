@@ -114,6 +114,9 @@ interface Recepcion {
         <button *ngIf="(oc.estado === 'aprobada' || oc.estado === 'recibida_parcial') && esCompras"
                 class="btn-save" [routerLink]="['/compras', oc.idOrdenCompra, 'recepcion']">Registrar recepción</button>
 
+        <button *ngIf="(oc.estado === 'recibida_parcial' || oc.estado === 'recibida_completa') && esCompras"
+                class="btn-save factura-btn" [routerLink]="['/compras', oc.idOrdenCompra, 'factura']">Registrar factura de compra</button>
+
         <button *ngIf="oc.estado === 'borrador' && esCompras"
                 class="btn-save" (click)="cambiar('pendiente_aprobacion')">Enviar a aprobación</button>
 
@@ -136,6 +139,7 @@ interface Recepcion {
     .detail-card .label { font-size: .7rem; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.4); }
     .detail-card .total { color: #C9A84C; font-size: 1.1rem; font-weight: 600; }
     .acciones-estado { display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; }
+    .factura-btn { background: rgba(201,168,76,0.15) !important; border-color: rgba(201,168,76,0.4) !important; color: #C9A84C !important; }
     .pendiente-cero { color: #16a34a; font-weight: 600; }
     .oc-badge { padding: .25rem .6rem; border-radius: 12px; font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: #fff; width: fit-content; }
     .oc-borrador { background: #6b7280; }

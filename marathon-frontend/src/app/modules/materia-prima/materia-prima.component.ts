@@ -1,8 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { CrudService } from '../../core/services/crud.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ApiService } from '../../core/services/api.service';
 
 interface UnidadMedida {
   idUnidad: number;
@@ -17,6 +19,9 @@ interface MateriaPrima {
   idUnidadMedida: number;
   unidadMedidaNombre: string;
   estado: string;
+  stockActual: number;
+  stockMinimo: number;
+  stockBajo: boolean;
 }
 
 @Component({
@@ -42,22 +47,23 @@ interface MateriaPrima {
 
       <table class="data-table" *ngIf="!loading">
         <thead>
-          <tr><th>#</th><th>Nombre</th><th>Descripción</th><th>Unidad</th><th>Estado</th><th>Acciones</th></tr>
+          <tr><th>#</th><th>Nombre</th><th>Unidad</th><th>Stock Actual</th><th>Stock Min.</th><th>Estado</th><th>Acciones</th></tr>
         </thead>
         <tbody>
-          <tr *ngFor="let item of data">
+          <tr *ngFor="let item of data" [class.stock-bajo]="item.stockBajo">
             <td>{{item.idMateriaPrima}}</td>
             <td>{{item.nombre}}</td>
-            <td>{{item.descripcion}}</td>
             <td>{{item.unidadMedidaNombre}}</td>
+            <td>{{item.stockActual | number:'1.3-3'}}</td>
+            <td>{{item.stockMinimo | number:'1.3-3'}}</td>
             <td><span class="badge" [class.active]="item.estado==='activo'">{{item.estado}}</span></td>
             <td class="actions">
-              <button class="btn-icon" *ngIf="puedeEscribir" (click)="editar(item)" title="Editar">✏️</button>
-              <button class="btn-icon danger" *ngIf="puedeEscribir" (click)="confirmarEliminar(item)" title="Desactivar">🗑️</button>
-              <span *ngIf="!puedeEscribir">—</span>
+              <button class="btn-icon" *ngIf="puedeEscribir" (click)="editar(item)" title="Editar">&#9999;&#65039;</button>
+              <button class="btn-icon" (click)="verKardex(item)" title="Kardex">&#128203;</button>
+              <button class="btn-icon" *ngIf="puedeEscribir" (click)="abrirMovimiento(item)" title="Movimiento">&#128260;</button>
             </td>
           </tr>
-          <tr *ngIf="data.length === 0"><td colspan="6" class="empty">No hay registros</td></tr>
+          <tr *ngIf="data.length === 0"><td colspan="7" class="empty">No hay registros</td></tr>
         </tbody>
       </table>
 
@@ -144,7 +150,7 @@ export class MateriaPrimaComponent implements OnInit {
   puedeEscribir = false;
   private searchTimeout: any;
 
-  constructor(private crud: CrudService, private auth: AuthService) {}
+  constructor(private crud: CrudService, private auth: AuthService, private router: Router, private api: ApiService) {}
 
   ngOnInit() {
     this.puedeEscribir = this.auth.hasRol('Administrador') || this.auth.hasRol('Encargado de Producción');
@@ -226,5 +232,35 @@ export class MateriaPrimaComponent implements OnInit {
   mostrarToast(msg: string, error = false) {
     this.toast = msg; this.toastError = error;
     setTimeout(() => { this.toast = ''; }, 3000);
+  }
+
+  // ---- F26: Kardex ----
+  verKardex(item: MateriaPrima) {
+    this.router.navigate(['/materia-prima', item.idMateriaPrima, 'kardex']);
+  }
+
+  movItem: MateriaPrima | null = null;
+  showMovModal = false;
+  movForm = { tipoMovimiento: 'ajuste', esIncremento: true, cantidad: 0, observacion: '' };
+
+  abrirMovimiento(item: MateriaPrima) {
+    this.movItem = item;
+    this.movForm = { tipoMovimiento: 'ajuste', esIncremento: true, cantidad: 0, observacion: '' };
+    this.showMovModal = true;
+  }
+
+  guardarMovimiento() {
+    if (!this.movItem || !this.movForm.cantidad) return;
+    const body = {
+      idMateriaPrima: this.movItem.idMateriaPrima,
+      tipoMovimiento: this.movForm.tipoMovimiento,
+      esIncremento: this.movForm.tipoMovimiento === 'ajuste' ? this.movForm.esIncremento : false,
+      cantidad: this.movForm.cantidad,
+      observacion: this.movForm.observacion || null
+    };
+    this.api.post<any>('materia-prima/movimiento', body).subscribe({
+      next: () => { this.showMovModal = false; this.cargar(); this.mostrarToast('Movimiento registrado'); },
+      error: (err: any) => { this.mostrarToast(err.error?.message || 'Error', true); }
+    });
   }
 }

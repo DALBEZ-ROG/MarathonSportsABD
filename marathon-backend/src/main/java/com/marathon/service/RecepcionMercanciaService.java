@@ -49,6 +49,7 @@ public class RecepcionMercanciaService {
     private final BodegaRepository bodegaRepository;
     private final UsuarioRepository usuarioRepository;
     private final LogService logService;
+    private final com.marathon.repository.MovimientoMateriaPrimaRepository movimientoMateriaPrimaRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -62,7 +63,8 @@ public class RecepcionMercanciaService {
                                      MateriaPrimaRepository materiaPrimaRepository,
                                      BodegaRepository bodegaRepository,
                                      UsuarioRepository usuarioRepository,
-                                     LogService logService) {
+                                     LogService logService,
+                                     com.marathon.repository.MovimientoMateriaPrimaRepository movimientoMateriaPrimaRepository) {
         this.recepcionRepository = recepcionRepository;
         this.recepcionDetalleRepository = recepcionDetalleRepository;
         this.ordenCompraRepository = ordenCompraRepository;
@@ -73,6 +75,7 @@ public class RecepcionMercanciaService {
         this.bodegaRepository = bodegaRepository;
         this.usuarioRepository = usuarioRepository;
         this.logService = logService;
+        this.movimientoMateriaPrimaRepository = movimientoMateriaPrimaRepository;
     }
 
     @Transactional
@@ -152,8 +155,14 @@ public class RecepcionMercanciaService {
                             orden, dto.getNumeroGuiaRemision(), idUsuarioActual);
                 } else if ("materia_prima".equals(detOc.getTipoItem()) && detOc.getMateriaPrima() != null) {
                     MateriaPrima mp = detOc.getMateriaPrima();
+                    BigDecimal stockAnterior = mp.getStockActual();
                     mp.setStockActual(mp.getStockActual().add(BigDecimal.valueOf(cantidadBuena)));
                     materiaPrimaRepository.save(mp);
+                    // F26 — Kardex: registrar movimiento de entrada por compra
+                    registrarMovimientoMateriaPrima(mp, receptor, "entrada_compra",
+                            BigDecimal.valueOf(cantidadBuena), stockAnterior, mp.getStockActual(),
+                            recepcion.getIdRecepcion(),
+                            "Recepcion OC #" + orden.getIdOrdenCompra());
                 }
             }
             // f. cantidad_defectuosa queda registrada en detRm para la Fase 25 (devolución)
@@ -265,5 +274,24 @@ public class RecepcionMercanciaService {
         }
         dto.setDetalles(items);
         return dto;
+    }
+
+    /**
+     * F26 — Registra movimiento en el kardex de materia prima.
+     */
+    private void registrarMovimientoMateriaPrima(MateriaPrima mp, Usuario usuario, String tipo,
+                                                  BigDecimal cantidad, BigDecimal stockAnterior,
+                                                  BigDecimal stockNuevo, Integer idRecepcion,
+                                                  String observacion) {
+        com.marathon.model.MovimientoMateriaPrima mov = new com.marathon.model.MovimientoMateriaPrima();
+        mov.setMateriaPrima(mp);
+        mov.setUsuario(usuario);
+        mov.setTipoMovimiento(tipo);
+        mov.setCantidad(cantidad);
+        mov.setStockAnterior(stockAnterior);
+        mov.setStockNuevo(stockNuevo);
+        mov.setIdRecepcion(idRecepcion);
+        mov.setObservacion(observacion);
+        movimientoMateriaPrimaRepository.save(mov);
     }
 }

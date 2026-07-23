@@ -18,6 +18,8 @@ public class ProductoResponseDTO {
     private String unidadMedidaNombre;
     private Integer stockMinimo;
     private String estado;
+    private String origen;
+    private Boolean tieneBom;
     private LocalDateTime createdAt;
     private List<ProveedorSimpleDTO> proveedores;
 
@@ -58,6 +60,12 @@ public class ProductoResponseDTO {
 
     public String getEstado() { return estado; }
     public void setEstado(String estado) { this.estado = estado; }
+
+    public String getOrigen() { return origen; }
+    public void setOrigen(String origen) { this.origen = origen; }
+
+    public Boolean getTieneBom() { return tieneBom; }
+    public void setTieneBom(Boolean tieneBom) { this.tieneBom = tieneBom; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

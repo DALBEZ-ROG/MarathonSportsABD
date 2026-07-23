@@ -35,8 +35,9 @@ public class ProductoController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String nombre,
             @RequestParam(required = false) String estado,
-            @RequestParam(required = false) Integer idCategoria) {
-        return ResponseEntity.ok(productoService.listar(page, size, nombre, estado, idCategoria));
+            @RequestParam(required = false) Integer idCategoria,
+            @RequestParam(required = false) String origen) {
+        return ResponseEntity.ok(productoService.listar(page, size, nombre, estado, idCategoria, origen));
     }
 
     @GetMapping("/{id}")

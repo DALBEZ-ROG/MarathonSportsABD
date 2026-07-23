@@ -10,17 +10,21 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.dao.DataAccessException;
+
 import com.marathon.dto.PageResponseDTO;
 import com.marathon.dto.producto.ProductoRequestDTO;
 import com.marathon.dto.producto.ProductoResponseDTO;
 import com.marathon.dto.producto.ProductoResponseDTO.ProveedorSimpleDTO;
 import com.marathon.exception.ResourceNotFoundException;
+import com.marathon.exception.ValidationException;
 import com.marathon.model.Categoria;
 import com.marathon.model.Producto;
 import com.marathon.model.ProductoProveedor;
 import com.marathon.model.Proveedor;
 import com.marathon.model.UnidadMedida;
 import com.marathon.repository.CategoriaRepository;
+import com.marathon.repository.ListaMaterialesRepository;
 import com.marathon.repository.ProductoProveedorRepository;
 import com.marathon.repository.ProductoRepository;
 import com.marathon.repository.ProveedorRepository;
@@ -34,26 +38,45 @@ public class ProductoService {
     private final UnidadMedidaRepository unidadMedidaRepository;
     private final ProveedorRepository proveedorRepository;
     private final ProductoProveedorRepository productoProveedorRepository;
+    private final ListaMaterialesRepository listaMaterialesRepository;
 
     public ProductoService(ProductoRepository productoRepository,
                            CategoriaRepository categoriaRepository,
                            UnidadMedidaRepository unidadMedidaRepository,
                            ProveedorRepository proveedorRepository,
-                           ProductoProveedorRepository productoProveedorRepository) {
+                           ProductoProveedorRepository productoProveedorRepository,
+                           ListaMaterialesRepository listaMaterialesRepository) {
         this.productoRepository = productoRepository;
         this.categoriaRepository = categoriaRepository;
         this.unidadMedidaRepository = unidadMedidaRepository;
         this.proveedorRepository = proveedorRepository;
         this.productoProveedorRepository = productoProveedorRepository;
+        this.listaMaterialesRepository = listaMaterialesRepository;
     }
 
-    public PageResponseDTO<ProductoResponseDTO> listar(int page, int size, String nombre, String estado, Integer idCategoria) {
+    public PageResponseDTO<ProductoResponseDTO> listar(int page, int size, String nombre, String estado, Integer idCategoria, String origen) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Producto> result;
 
         boolean hasNombre = nombre != null && !nombre.isEmpty();
         boolean hasEstado = estado != null && !estado.isEmpty();
         boolean hasCategoria = idCategoria != null;
+        boolean hasOrigen = origen != null && !origen.isEmpty();
+
+        // Cuando se filtra por origen (F27) se usa el query unificado, que
+        // cubre cualquier combinacion de filtros.
+        if (hasOrigen) {
+            result = productoRepository.buscarConFiltros(
+                    hasNombre ? nombre : null,
+                    hasEstado ? estado : null,
+                    hasCategoria ? idCategoria : null,
+                    origen, pageable);
+            List<ProductoResponseDTO> contentOrigen = result.getContent().stream()
+                    .map(this::toDTO)
+                    .collect(Collectors.toList());
+            return new PageResponseDTO<>(contentOrigen, result.getTotalElements(),
+                    result.getTotalPages(), result.getNumber(), result.getSize());
+        }
 
         if (hasNombre && hasEstado && hasCategoria) {
             result = productoRepository.findByNombreContainingIgnoreCaseAndEstadoAndCategoriaIdCategoria(nombre, estado, idCategoria, pageable);
@@ -117,12 +140,51 @@ public class ProductoService {
         if (reqDTO.getEstado() != null) {
             producto.setEstado(reqDTO.getEstado());
         }
-        productoRepository.save(producto);
+        try {
+            productoRepository.saveAndFlush(producto);
+        } catch (DataAccessException e) {
+            throw traducirErrorOrigen(e);
+        }
 
         productoProveedorRepository.deleteByProductoIdProducto(id);
         guardarProveedores(producto, reqDTO.getProveedorIds());
 
         return obtener(id);
+    }
+
+    /**
+     * Cambia unicamente el origen del producto. El trigger de BD
+     * (trg_validar_cambio_origen_producto) impide cambiar a 'comprado' un
+     * producto con BOM activo; aqui se atrapa esa excepcion y se traduce a
+     * un mensaje amigable.
+     */
+    @Transactional
+    public ProductoResponseDTO cambiarOrigen(Integer id, String nuevoOrigen) {
+        Producto producto = productoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Producto", id));
+
+        if (nuevoOrigen == null || !(nuevoOrigen.equals("comprado") || nuevoOrigen.equals("fabricado"))) {
+            throw new ValidationException("El origen debe ser 'comprado' o 'fabricado'");
+        }
+
+        producto.setOrigen(nuevoOrigen);
+        try {
+            productoRepository.saveAndFlush(producto);
+        } catch (DataAccessException e) {
+            throw traducirErrorOrigen(e);
+        }
+        return obtener(id);
+    }
+
+    private ValidationException traducirErrorOrigen(DataAccessException e) {
+        String msg = e.getMostSpecificCause() != null
+                ? e.getMostSpecificCause().getMessage() : e.getMessage();
+        if (msg != null && msg.contains("lista de materiales activa")) {
+            return new ValidationException(
+                "No se puede cambiar el producto a comprado: tiene lista de materiales activa. "
+                + "Elimine o desactive el BOM primero.");
+        }
+        return new ValidationException(msg != null ? msg : "Error al actualizar el origen del producto");
     }
 
     public void eliminar(Integer id) {
@@ -136,6 +198,7 @@ public class ProductoService {
         producto.setNombre(dto.getNombre());
         producto.setDescripcion(dto.getDescripcion());
         producto.setPrecio(dto.getPrecioVenta());
+        producto.setOrigen(dto.getOrigen() != null ? dto.getOrigen() : "comprado");
 
         Categoria categoria = categoriaRepository.findById(dto.getIdCategoria())
                 .orElseThrow(() -> new ResourceNotFoundException("Categoría", dto.getIdCategoria()));
@@ -171,6 +234,9 @@ public class ProductoService {
         dto.setPrecioVenta(producto.getPrecio());
         dto.setPrecioCompra(producto.getPrecio());
         dto.setEstado(producto.getEstado());
+        dto.setOrigen(producto.getOrigen());
+        dto.setTieneBom(listaMaterialesRepository
+                .existsByProductoIdProductoAndEstado(producto.getIdProducto(), "activo"));
         dto.setCreatedAt(producto.getCreatedAt());
 
         if (producto.getCategoria() != null) {

@@ -21,6 +21,7 @@ interface DashboardKpis {
   productosStockBajo: number;
   pedidosEspecialesActivos: number;
   pedidosPickingPendiente: number;
+  productosFabricados: number;
 }
 
 interface VentaDia { fecha: string; totalVentas: number; cantidadPedidos: number; }
@@ -141,6 +142,33 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
           <div class="kpi-info">
             <span class="kpi-value">{{ ocPendientesAprobacion }}</span>
             <span class="kpi-label">OC por aprobar</span>
+          </div>
+        </div>
+        <div class="kpi-card clickable" *ngIf="isAdmin || isSupervisor" (click)="irA('/cuentas-por-pagar')">
+          <div class="kpi-icon kpi-icon-red">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-value">{{ cxpVencidas }}</span>
+            <span class="kpi-label">CxP vencidas</span>
+          </div>
+        </div>
+        <div class="kpi-card clickable" *ngIf="isAdmin || isOperadorBodega" (click)="irA('/devoluciones')">
+          <div class="kpi-icon kpi-icon-purple">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-value">{{ devPendientesInspeccion }}</span>
+            <span class="kpi-label">Dev. pendientes insp.</span>
+          </div>
+        </div>
+        <div class="kpi-card clickable" *ngIf="isAdmin || isProduccion" (click)="irA('/productos')">
+          <div class="kpi-icon kpi-icon-green">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-value">{{ kpis.productosFabricados }}</span>
+            <span class="kpi-label">Productos fabricados</span>
           </div>
         </div>
       </section>
@@ -529,12 +557,16 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   isSupervisor = false;
   isOperadorBodega = false;
   isOperadorPedidos = false;
+  isProduccion = false;
 
   kpis: DashboardKpis | null = null;
   topProductos: TopProducto[] = [];
   totalPedidos = 0;
   cargando = false;
   ocPendientesAprobacion = 0;
+  cxpVencidas = 0;
+  devPendientesInspeccion = 0;
+  mpStockBajo = 0;
 
   diasVentas = 7;
   limiteTop = 5;
@@ -570,14 +602,37 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     this.isSupervisor = this.authService.hasRol('Supervisor E-Commerce');
     this.isOperadorBodega = this.authService.hasRol('Operador de Bodega');
     this.isOperadorPedidos = this.authService.hasRol('Operador de Pedidos');
+    this.isProduccion = this.authService.hasRol('Encargado de Producción');
     this.cargarKpis();
     this.cargarTopProductos();
     if (this.isAdmin) { this.cargarOcPendientes(); }
+    if (this.isAdmin || this.isSupervisor) { this.cargarCxpVencidas(); }
   }
 
   cargarOcPendientes(): void {
     this.http.get<any>(`${this.apiUrl}/ordenes-compra?estado=pendiente_aprobacion&size=1`).subscribe({
       next: res => { this.ocPendientesAprobacion = res.totalElements || 0; },
+      error: () => { }
+    });
+  }
+
+  cargarCxpVencidas(): void {
+    this.http.get<any>(`${this.apiUrl}/cuentas-por-pagar?estado=vencida&size=1`).subscribe({
+      next: res => { this.cxpVencidas = res.totalElements || 0; },
+      error: () => { }
+    });
+  }
+
+  cargarDevPendientes(): void {
+    this.http.get<any>(`${this.apiUrl}/devoluciones?estado=solicitada&size=1`).subscribe({
+      next: res => { this.devPendientesInspeccion = res.totalElements || 0; },
+      error: () => { }
+    });
+  }
+
+  cargarMpStockBajo(): void {
+    this.http.get<any[]>(`${this.apiUrl}/materia-prima/stock-bajo`).subscribe({
+      next: res => { this.mpStockBajo = res.length || 0; },
       error: () => { }
     });
   }
@@ -601,6 +656,9 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cargarVentas();
     this.cargarEstados();
     if (this.isAdmin) { this.cargarOcPendientes(); }
+    if (this.isAdmin || this.isSupervisor) { this.cargarCxpVencidas(); }
+    if (this.isAdmin || this.isOperadorBodega) { this.cargarDevPendientes(); }
+    if (this.isAdmin) { this.cargarMpStockBajo(); }
   }
 
   cargarKpis(): void {

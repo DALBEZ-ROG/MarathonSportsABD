@@ -70,11 +70,28 @@ Plataforma web interna para gestionar el ciclo completo de pedidos e-commerce: r
 |------|--------|--------|
 | 21 | Órdenes de Compra (inicio ciclo Procure-to-Pay) | ✅ Completada |
 | 22 | Recepción de Mercancía | ✅ Completada |
-| 23 | Factura de Compra y Cuentas por Pagar | ⏳ Pendiente (siguiente) |
+| 23 | Factura de Compra y Cuentas por Pagar | ✅ Completada |
+| 24 | Devolución de Cliente (RMA) | ✅ Completada |
+| 25 | Devolución a Proveedor | ✅ Completada |
+| 26 | Materia Prima: Kardex de Movimientos | ✅ Completada |
+
+### Bloque 9: Manufactura
+| Fase | Nombre | Estado |
+|------|--------|--------|
+| 27 | Diferenciación de Origen del Producto + Lista de Materiales (BOM) | ✅ Completada |
+| 28 | Órdenes de Producción (consume el BOM para fabricar) | ⏳ Pendiente |
 
 > **Nota F21 (2026-07-22):** Inicio del BLOQUE 8 — Compras. Primer módulo del ciclo Procure-to-Pay que se suma a las 20 fases base ya completadas. **Completada:** tablas `materia_prima`, `orden_compra`, `orden_compra_detalle` (con triggers de total y protección); roles Encargado de Compras y Encargado de Producción; permisos módulo `compras`; usuarios demo `compras@marathon.com` y `produccion@marathon.com`; backend (entidades, DTOs, repos, servicios, controladores, seguridad) y frontend (módulos `compras` y `materia-prima`, navbar, card de dashboard). **Fase siguiente: F22 — Recepción de mercancía.**
 
 > **Nota F22 (2026-07-22):** Recepción de mercancía. Tablas `recepcion_mercancia` y `recepcion_mercancia_detalle`; columnas `stock_actual`/`stock_minimo` (NUMERIC) agregadas a `materia_prima`. Al recibir, sube stock de producto (por bodega, vía `inventario` + `movimiento_inventario` con `SET LOCAL app.current_user_id`) o el stock global de materia prima. Soporta recepciones parciales múltiples: `orden_compra_detalle.cantidad_recibida` se ACUMULA. El estado de la orden pasa automáticamente a `recibida_parcial` / `recibida_completa`. Endpoints `POST /api/recepciones` y `GET /api/recepciones/orden/{id}`. **Fase siguiente: F23 — Factura de Compra y Cuentas por Pagar.**
+>
+> **Nota F23 (2026-07-23):** Factura de Compra y Cuentas por Pagar. Tablas `factura_compra` (total GENERATED = subtotal + impuesto), `cuenta_por_pagar` (saldo_pendiente GENERATED = monto_total - monto_pagado; monto_pagado calculado por trigger), `pago_proveedor`. Triggers `fn_recalcular_monto_pagado_cxp` (statement-level con REFERENCING) y `fn_proteger_monto_pagado_cxp` (protección UPDATE manual). Cascada lógica: al pagar completamente, la cuenta pasa a `pagada` y la factura también. Validación en servicio: monto ≤ saldo_pendiente antes de insertar. Endpoints: `/api/facturas-compra`, `/api/cuentas-por-pagar`, `/api/pagos-proveedor`. Frontend: FacturaCompraNuevaComponent, CuentasPorPagarComponent, CuentaPorPagarDetalleComponent. Navbar: "Cuentas por Pagar" visible para Admin, Enc. Compras y Supervisor. **Fase siguiente: F24 — Devolución de Cliente (RMA).**
+>
+> **Nota F24 (2026-07-23):** Devolución de Cliente (RMA). Tablas `solicitud_devolucion`, `solicitud_devolucion_detalle`, `reembolso_cliente`. Solo pedidos 'entregado'. Flujo: solicitada → en_inspeccion → completada/rechazada. Inspección por línea: apto_reventa (sube stock), defectuoso (registrado para F25), rechazado (no toca nada). Reembolso informativo post-completada. Endpoints: `/api/devoluciones`. Frontend: DevolucionesListaComponent, DevolucionDetalleComponent, SolicitudDevolucionNuevaComponent. **Fase siguiente: F25 — Devolución a Proveedor.**
+>
+> **Nota F25 (2026-07-23):** Devolución a Proveedor. Tablas `devolucion_proveedor`, `devolucion_proveedor_detalle` (asociación polimórfica exclusiva: rma_cliente | recepcion_compra). Consume items defectuosos de F24 (solicitud_devolucion_detalle.resultado_inspeccion='defectuoso') y F22 (recepcion_mercancia_detalle.cantidad_defectuosa>0). UNIQUE constraints impiden doble uso de un item. Bandeja `/items-disponibles` lista ambos orígenes. Flujo: pendiente → enviada → resuelta/rechazada. Resolución con tipo (reembolso/reposición) y monto. **Ciclo completo de calidad cerrado end-to-end: cliente devuelve → inspección → devolución a proveedor → resolución.** Fase siguiente: F26 — Materia Prima: Inventario y Kardex.
+>
+> **Nota F27 (2026-07-23):** Diferenciación de Origen del Producto + Lista de Materiales (BOM). Inicio del BLOQUE 9 — Manufactura. Se agrega `producto.origen` ('comprado'|'fabricado', DEFAULT 'comprado' — no rompe los 105 productos seed) con CHECK `chk_producto_origen`. Nueva tabla `lista_materiales` (receta: por producto fabricado, qué materias primas y cantidad para producir 1 unidad; UNIQUE por producto+materia). Dos triggers de integridad en BD (defensa en profundidad): `fn_validar_bom_producto_fabricado`/`trg_validar_bom_producto_fabricado` impide BOM sobre producto no fabricado; `fn_validar_cambio_origen_producto`/`trg_validar_cambio_origen_producto` impide cambiar a 'comprado' un producto con BOM activo. Backend: entidad `ListaMateriales`, DTOs (`dto/bom`), `ListaMaterialesRepository`, `ListaMaterialesService` (definirBom hace upsert por el UNIQUE), `BomController` (`GET`/`PUT /api/productos/{id}/bom`, `PUT /api/productos/{id}/origen`), filtro `origen` en listado de productos, `tieneBom` en ProductoResponseDTO. Dashboard: KPI "Productos fabricados" (Admin/Enc. Producción). Frontend: dropdown Origen + sección BOM en modal de Productos, columna y filtro Origen. **Nota de entorno:** la BD estaba en estado F20; se aplicaron los scripts idempotentes fase21–fase26 antes del fase27 para alinear la BD con el estado documentado. **Fase siguiente: F28 — Órdenes de Producción** (consume el BOM definido aquí para fabricar productos reales).
 >
 > **Decisión de diseño — asociación polimórfica exclusiva:** `orden_compra_detalle` usa un patrón de asociación polimórfica exclusiva: cada línea de una orden de compra es O un producto (para reventa, ej. comprar zapatos Nike) O una materia prima (para fabricar, ej. tela), nunca ambos ni ninguno. Esto se garantiza con un CHECK constraint (`chk_oc_detalle_item_exclusivo`), NO con lógica de aplicación. Por eso en la F21 se crea también un catálogo mínimo de `materia_prima` (solo catálogo, sin inventario ni kardex todavía — eso llega en la Fase 26 de Manufactura). Decisión deliberada para no tener que alterar `orden_compra_detalle` más adelante.
 
@@ -99,6 +116,28 @@ Plataforma web interna para gestionar el ciclo completo de pedidos e-commerce: r
 9. **orden_compra_detalle.cantidad_recibida se ACUMULA** (F22) — Cada recepción suma (`+=`), nunca sobreescribe. Una orden admite varias entregas parciales. El estado `recibida_parcial`/`recibida_completa` se calcula automáticamente tras cada recepción (UPDATE directo, sin validación de roles).
 
 10. **Entrada de stock por recepción** (F22) — Producto: `inventario.stock_actual` por bodega + `movimiento_inventario` tipo 'entrada' (requiere `SET LOCAL app.current_user_id` antes del UPDATE). Materia prima: `materia_prima.stock_actual` global (sin bodega, NUMERIC). Solo entra la `cantidad_buena = recibida - defectuosa`.
+
+11. **factura_compra.total es GENERATED** (F23) — `subtotal + impuesto`. NUNCA insertar ni actualizar. `@Column(insertable=false, updatable=false)`.
+
+12. **cuenta_por_pagar.saldo_pendiente es GENERATED** (F23) — `monto_total - monto_pagado`. NUNCA insertar ni actualizar.
+
+13. **cuenta_por_pagar.monto_pagado solo lo modifica el trigger** (F23) — `fn_recalcular_monto_pagado_cxp` lo recalcula tras INSERT/UPDATE/DELETE en `pago_proveedor`. Protegido contra UPDATE manual por `fn_proteger_monto_pagado_cxp`. En JPA: `@Column(insertable=false, updatable=false)`.
+
+14. **Un pago nunca puede exceder el saldo pendiente** (F23) — Validar en servicio ANTES de insertar (`dto.monto ≤ cuenta.saldoPendiente`). La BD garantiza `monto_pagado ≤ monto_total` via CHECK, pero el servicio da mensaje claro.
+
+15. **Factura requiere al menos una recepción** (F23) — No se puede registrar factura sobre una orden que no tenga ninguna recepción. Validado en FacturaCompraService.
+
+16. **Solo pedidos 'entregado' admiten devolución** (F24) — No se puede solicitar devolución de un pedido en cualquier otro estado. Validado en SolicitudDevolucionService.
+
+17. **cantidad_devuelta no puede exceder cantidad comprada** (F24) — Cada línea de devolución valida que `cantidadDevuelta ≤ detalle_pedido.cantidad`.
+
+18. **Inspección apto_reventa sube stock** (F24) — Usa SET LOCAL + UPDATE inventario + movimiento_inventario entrada. Defectuoso NO toca stock (queda para F25). Rechazado no hace nada.
+
+19. **Solo productos con origen='fabricado' pueden tener BOM** (F27) — Garantizado por el trigger `trg_validar_bom_producto_fabricado` (BEFORE INSERT/UPDATE en `lista_materiales`). Un producto 'comprado' JAMÁS puede tener líneas de lista de materiales. El servicio también valida y traduce el error a mensaje en español.
+
+20. **No cambiar un producto a 'comprado' si tiene BOM activo** (F27) — El trigger `trg_validar_cambio_origen_producto` (BEFORE UPDATE OF origen en `producto`) lo impide. Primero se debe eliminar/desactivar el BOM. `producto.origen` es NUEVO (DEFAULT 'comprado', CHECK comprado/fabricado).
+
+21. **definirBom reemplaza el BOM completo con upsert** (F27) — Por el UNIQUE `(id_producto, id_materia_prima)`, `ListaMaterialesService.definirBom` desactiva las líneas actuales y reactiva-en-sitio las materias primas que reaparecen (nueva cantidad), en vez de insertar duplicados. El BOM define la receta; NO consume stock (eso es F28).
 
 ## Notas de Seguridad — Fase 18 (Asistente IA)
 - La API key de Anthropic va en `application-local.properties` (gitignored), NUNCA en `application.properties` ni en el repo.

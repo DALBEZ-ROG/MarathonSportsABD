@@ -38,6 +38,9 @@ public class Producto {
     @Column(name = "estado", nullable = false)
     private String estado;
 
+    @Column(name = "origen", nullable = false)
+    private String origen;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_unidad_medida", nullable = false)
     private UnidadMedida unidadMedida;
@@ -67,6 +70,9 @@ public class Producto {
 
     public String getEstado() { return estado; }
     public void setEstado(String estado) { this.estado = estado; }
+
+    public String getOrigen() { return origen; }
+    public void setOrigen(String origen) { this.origen = origen; }
 
     public UnidadMedida getUnidadMedida() { return unidadMedida; }
     public void setUnidadMedida(UnidadMedida unidadMedida) { this.unidadMedida = unidadMedida; }

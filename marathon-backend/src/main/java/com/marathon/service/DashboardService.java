@@ -16,6 +16,7 @@ import com.marathon.repository.DetallePedidoRepository;
 import com.marathon.repository.InventarioRepository;
 import com.marathon.repository.MovimientoInventarioRepository;
 import com.marathon.repository.PedidoRepository;
+import com.marathon.repository.ProductoRepository;
 
 @Service
 public class DashboardService {
@@ -24,15 +25,18 @@ public class DashboardService {
     private final DetallePedidoRepository detallePedidoRepository;
     private final InventarioRepository inventarioRepository;
     private final MovimientoInventarioRepository movimientoInventarioRepository;
+    private final ProductoRepository productoRepository;
 
     public DashboardService(PedidoRepository pedidoRepository,
                             DetallePedidoRepository detallePedidoRepository,
                             InventarioRepository inventarioRepository,
-                            MovimientoInventarioRepository movimientoInventarioRepository) {
+                            MovimientoInventarioRepository movimientoInventarioRepository,
+                            ProductoRepository productoRepository) {
         this.pedidoRepository = pedidoRepository;
         this.detallePedidoRepository = detallePedidoRepository;
         this.inventarioRepository = inventarioRepository;
         this.movimientoInventarioRepository = movimientoInventarioRepository;
+        this.productoRepository = productoRepository;
     }
 
     public DashboardKpisDTO getKpis() {
@@ -48,6 +52,7 @@ public class DashboardService {
         dto.setProductosStockBajo(inventarioRepository.contarProductosStockBajo());
         dto.setPedidosEspecialesActivos(pedidoRepository.countByEsPedidoEspecialTrueAndEstadoNot("anulado"));
         dto.setPedidosPickingPendiente(detallePedidoRepository.contarPedidosPickingPendiente());
+        dto.setProductosFabricados(productoRepository.countByOrigen("fabricado"));
         return dto;
     }
 
