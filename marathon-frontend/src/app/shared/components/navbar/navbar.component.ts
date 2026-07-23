@@ -263,6 +263,8 @@ export class NavbarComponent {
   isOperadorBodega = false;
   isOperadorPedidos = false;
   isSupervisor = false;
+  isEncargadoCompras = false;
+  isEncargadoProduccion = false;
   userName = '';
   userRole = '';
   userInitials = '';
@@ -286,6 +288,8 @@ export class NavbarComponent {
     { label: 'Picking', route: '/picking', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>', roles: ['Administrador', 'Operador de Bodega'] },
     { label: 'Empaque', route: '/empaque', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>', roles: ['Administrador', 'Operador de Bodega'] },
     { label: 'Despachos', route: '/despachos', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', roles: ['Administrador', 'Operador de Bodega', 'Supervisor E-Commerce'] },
+    { label: 'Compras', route: '/compras', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>', roles: ['Administrador', 'Encargado de Compras'] },
+    { label: 'Materia Prima', route: '/materia-prima', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>', roles: ['Administrador', 'Encargado de Producción'] },
     { label: 'Reportes', route: '/reportes', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>', roles: ['Administrador', 'Supervisor E-Commerce'] },
     { label: 'Asistente IA', route: '/ia', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9c.1-.48-.02-.99-.33-1.38"/></svg>', roles: ['Administrador', 'Supervisor E-Commerce'] },
     { label: 'Auditoría', route: '/auditoria', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>', roles: ['Administrador'] },
@@ -303,11 +307,15 @@ export class NavbarComponent {
       this.isOperadorBodega = this.authService.hasRol('Operador de Bodega');
       this.isOperadorPedidos = this.authService.hasRol('Operador de Pedidos');
       this.isSupervisor = this.authService.hasRol('Supervisor E-Commerce');
+      this.isEncargadoCompras = this.authService.hasRol('Encargado de Compras');
+      this.isEncargadoProduccion = this.authService.hasRol('Encargado de Producción');
 
       if (this.isAdmin) this.userRole = 'Administrador';
       else if (this.isSupervisor) this.userRole = 'Supervisor';
       else if (this.isOperadorBodega) this.userRole = 'Op. Bodega';
       else if (this.isOperadorPedidos) this.userRole = 'Op. Pedidos';
+      else if (this.isEncargadoCompras) this.userRole = 'Enc. Compras';
+      else if (this.isEncargadoProduccion) this.userRole = 'Enc. Producción';
     }
 
     this.buildNav();
@@ -320,6 +328,8 @@ export class NavbarComponent {
     if (this.isSupervisor) userRoles.push('Supervisor E-Commerce');
     if (this.isOperadorBodega) userRoles.push('Operador de Bodega');
     if (this.isOperadorPedidos) userRoles.push('Operador de Pedidos');
+    if (this.isEncargadoCompras) userRoles.push('Encargado de Compras');
+    if (this.isEncargadoProduccion) userRoles.push('Encargado de Producción');
 
     const filtered = this.allItems.filter(item => {
       if (!item.roles) return true;
@@ -331,6 +341,7 @@ export class NavbarComponent {
     const gestion = filtered.filter(i => ['/datos-maestros', '/proveedores', '/productos', '/bodegas', '/inventario', '/clientes'].includes(i.route));
     const pedidos = filtered.filter(i => ['/pedidos', '/pedidos/especiales', '/comprobantes'].includes(i.route));
     const operaciones = filtered.filter(i => ['/picking', '/empaque', '/despachos'].includes(i.route));
+    const compras = filtered.filter(i => ['/compras', '/materia-prima'].includes(i.route));
     const analytics = filtered.filter(i => ['/reportes', '/ia', '/auditoria'].includes(i.route));
     const cuenta = filtered.filter(i => ['/usuarios', '/roles', '/perfil'].includes(i.route));
 
@@ -339,6 +350,7 @@ export class NavbarComponent {
       ...(gestion.length ? [{ title: 'Gestión', items: gestion }] : []),
       ...(pedidos.length ? [{ title: 'Pedidos', items: pedidos }] : []),
       ...(operaciones.length ? [{ title: 'Operaciones', items: operaciones }] : []),
+      ...(compras.length ? [{ title: 'Compras', items: compras }] : []),
       ...(analytics.length ? [{ title: 'Análisis', items: analytics }] : []),
       ...(cuenta.length ? [{ title: 'Cuenta', items: cuenta }] : []),
     ];

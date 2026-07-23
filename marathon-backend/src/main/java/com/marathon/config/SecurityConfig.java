@@ -141,6 +141,37 @@ public class SecurityConfig {
                 .requestMatchers("/api/logs/**").hasAuthority("ROLE_ADMINISTRADOR")
                 .requestMatchers("/api/auditoria/**").hasAuthority("ROLE_ADMINISTRADOR")
 
+                // --- Órdenes de Compra (F21): Encargado de Compras o Administrador ---
+                .requestMatchers(org.springframework.http.HttpMethod.GET,
+                    "/api/ordenes-compra", "/api/ordenes-compra/**"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE COMPRAS")
+                .requestMatchers(org.springframework.http.HttpMethod.POST,
+                    "/api/ordenes-compra", "/api/ordenes-compra/**"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE COMPRAS")
+                .requestMatchers(org.springframework.http.HttpMethod.PUT,
+                    "/api/ordenes-compra/**"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE COMPRAS")
+
+                // --- Recepción de Mercancía (F22): Encargado de Compras o Administrador ---
+                .requestMatchers("/api/recepciones/**")
+                    .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE COMPRAS")
+
+                // --- Materia Prima (F21) ---
+                //   Lectura: Encargado de Compras, Encargado de Producción y Administrador
+                //   Escritura: Encargado de Producción y Administrador
+                .requestMatchers(org.springframework.http.HttpMethod.GET,
+                    "/api/materia-prima", "/api/materia-prima/**"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE COMPRAS", "ROLE_ENCARGADO DE PRODUCCIÓN")
+                .requestMatchers(org.springframework.http.HttpMethod.POST,
+                    "/api/materia-prima", "/api/materia-prima/**"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE PRODUCCIÓN")
+                .requestMatchers(org.springframework.http.HttpMethod.PUT,
+                    "/api/materia-prima/**"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE PRODUCCIÓN")
+                .requestMatchers(org.springframework.http.HttpMethod.DELETE,
+                    "/api/materia-prima/**"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE PRODUCCIÓN")
+
                 // --- Dashboard, reportes e IA: Administrador o Supervisor E-Commerce ---
                 .requestMatchers("/api/dashboard/**")
                     .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_SUPERVISOR E-COMMERCE")

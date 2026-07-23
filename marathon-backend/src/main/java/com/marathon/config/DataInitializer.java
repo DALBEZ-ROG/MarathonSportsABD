@@ -45,7 +45,8 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         if (rolRepository.count() > 0) {
-            // Datos base ya existen — garantizar que los usuarios demo existan
+            // Datos base ya existen — garantizar roles/permisos F21 y usuarios demo
+            ensureComprasFase21();
             crearUsuariosDemo();
             return;
         }
@@ -119,10 +120,66 @@ public class DataInitializer implements CommandLineRunner {
             System.out.println("✅ Usuario admin creado: admin@marathon.com / Admin1234!");
         }
 
-        // 5. Crear usuarios demo para los demás roles
+        // 5. Roles y permisos de Compras (Fase 21)
+        ensureComprasFase21();
+
+        // 6. Crear usuarios demo para los demás roles
         crearUsuariosDemo();
 
         System.out.println("✅ Datos iniciales cargados correctamente");
+    }
+
+    /**
+     * Fase 21 — Compras. Idempotente: crea (si no existen) los roles
+     * 'Encargado de Compras' y 'Encargado de Producción', los permisos del
+     * módulo 'compras' y las asignaciones rol_permiso para Encargado de
+     * Compras y Administrador. Se ejecuta en cada arranque.
+     */
+    private void ensureComprasFase21() {
+        Rol encargadoCompras = ensureRol("Encargado de Compras",
+                "Gestiona órdenes de compra, recepciones, facturas y cuentas por pagar");
+        ensureRol("Encargado de Producción",
+                "Gestiona materia prima, BOM y órdenes de producción");
+
+        Rol admin = rolRepository.findByNombre("Administrador").orElse(null);
+
+        String[] acciones = {"ver", "crear", "aprobar", "rechazar", "cancelar"};
+        List<Permiso> comprasPermisos = new ArrayList<>();
+        for (String accion : acciones) {
+            comprasPermisos.add(ensurePermiso("compras", accion));
+        }
+
+        for (Permiso p : comprasPermisos) {
+            ensureRolPermiso(encargadoCompras, p);
+            if (admin != null) {
+                ensureRolPermiso(admin, p);
+            }
+        }
+    }
+
+    private Rol ensureRol(String nombre, String descripcion) {
+        return rolRepository.findByNombre(nombre).orElseGet(() -> {
+            Rol rol = new Rol();
+            rol.setNombre(nombre);
+            rol.setDescripcion(descripcion);
+            Rol guardado = rolRepository.save(rol);
+            System.out.println("✅ Rol creado: " + nombre);
+            return guardado;
+        });
+    }
+
+    private Permiso ensurePermiso(String modulo, String accion) {
+        return permisoRepository.findByModuloAndAccion(modulo, accion)
+                .orElseGet(() -> permisoRepository.save(new Permiso(modulo, accion, modulo + ":" + accion)));
+    }
+
+    private void ensureRolPermiso(Rol rol, Permiso permiso) {
+        List<RolPermiso> existentes = rolPermisoRepository.findByRolIdRol(rol.getIdRol());
+        boolean yaAsignado = existentes.stream()
+                .anyMatch(rp -> rp.getPermiso().getIdPermiso().equals(permiso.getIdPermiso()));
+        if (!yaAsignado) {
+            rolPermisoRepository.save(new RolPermiso(rol, permiso));
+        }
     }
 
     private Rol crearRol(String nombre, String descripcion) {
@@ -156,6 +213,9 @@ public class DataInitializer implements CommandLineRunner {
         crearUsuarioDemoSiNoExiste("supervisor@marathon.com", "Supervisor", "Demo",    "Supervisor E-Commerce");
         crearUsuarioDemoSiNoExiste("bodega@marathon.com",     "Operador",   "Bodega",  "Operador de Bodega");
         crearUsuarioDemoSiNoExiste("pedidos@marathon.com",    "Operador",   "Pedidos", "Operador de Pedidos");
+        // Fase 21 — Compras
+        crearUsuarioDemoSiNoExiste("compras@marathon.com",    "Encargado",  "Compras",    "Encargado de Compras");
+        crearUsuarioDemoSiNoExiste("produccion@marathon.com", "Encargado",  "Producción", "Encargado de Producción");
     }
 
     private void crearUsuarioDemoSiNoExiste(String correo, String nombre, String apellido, String rolNombre) {

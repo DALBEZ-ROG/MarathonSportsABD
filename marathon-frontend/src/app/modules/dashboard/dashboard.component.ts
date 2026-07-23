@@ -134,6 +134,15 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">Especiales</span>
           </div>
         </div>
+        <div class="kpi-card clickable" *ngIf="isAdmin" (click)="irA('/compras')">
+          <div class="kpi-icon kpi-icon-orange">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-value">{{ ocPendientesAprobacion }}</span>
+            <span class="kpi-label">OC por aprobar</span>
+          </div>
+        </div>
       </section>
 
       <!-- Charts Row -->
@@ -525,6 +534,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   topProductos: TopProducto[] = [];
   totalPedidos = 0;
   cargando = false;
+  ocPendientesAprobacion = 0;
 
   diasVentas = 7;
   limiteTop = 5;
@@ -562,6 +572,14 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     this.isOperadorPedidos = this.authService.hasRol('Operador de Pedidos');
     this.cargarKpis();
     this.cargarTopProductos();
+    if (this.isAdmin) { this.cargarOcPendientes(); }
+  }
+
+  cargarOcPendientes(): void {
+    this.http.get<any>(`${this.apiUrl}/ordenes-compra?estado=pendiente_aprobacion&size=1`).subscribe({
+      next: res => { this.ocPendientesAprobacion = res.totalElements || 0; },
+      error: () => { }
+    });
   }
 
   ngAfterViewInit(): void {
@@ -582,6 +600,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cargarTopProductos();
     this.cargarVentas();
     this.cargarEstados();
+    if (this.isAdmin) { this.cargarOcPendientes(); }
   }
 
   cargarKpis(): void {

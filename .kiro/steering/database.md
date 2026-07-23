@@ -213,6 +213,76 @@
 | fecha_cambio | TIMESTAMP DEFAULT NOW() | |
 | tipo_operacion | VARCHAR(20) | INSERT/UPDATE/DELETE |
 
+### materia_prima (Fase 21)
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id_materia_prima | INT GENERATED ALWAYS AS IDENTITY PK | |
+| nombre | VARCHAR(150) NOT NULL UNIQUE | uq_materia_prima_nombre |
+| descripcion | TEXT | |
+| id_unidad_medida | INT FK → unidad_medida NOT NULL | |
+| estado | VARCHAR(20) NOT NULL DEFAULT 'activo' | CHECK activo/inactivo |
+| stock_actual | NUMERIC(12,3) NOT NULL DEFAULT 0 | (F22) CHECK stock_actual >= 0. Stock GLOBAL sin bodega |
+| stock_minimo | NUMERIC(12,3) NOT NULL DEFAULT 0 | (F22) |
+| created_at | TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP | |
+
+> Catálogo + stock global (F22). NUMERIC porque se mide en metros/kg/litros. Sin kardex/movimientos aún — eso llega en F26 Manufactura.
+
+### orden_compra (Fase 21)
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id_orden_compra | INT GENERATED ALWAYS AS IDENTITY PK | |
+| id_proveedor | INT FK → proveedor NOT NULL | |
+| id_usuario_solicitante | INT FK → usuario NOT NULL | Quien crea/solicita |
+| id_usuario_aprobador | INT FK → usuario NULL | Quien aprueba (solo Admin) |
+| fecha_orden | TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP | |
+| fecha_aprobacion | TIMESTAMP NULL | Se setea al aprobar |
+| estado | VARCHAR(30) NOT NULL DEFAULT 'borrador' | CHECK: borrador/pendiente_aprobacion/aprobada/rechazada/recibida_parcial/recibida_completa/cancelada |
+| total | NUMERIC(12,2) NOT NULL DEFAULT 0 | **CALCULADO POR TRIGGER** — no escribir. Protegido contra UPDATE manual |
+| observaciones | TEXT | |
+| created_at | TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP | |
+| updated_at | TIMESTAMP NULL | |
+
+### orden_compra_detalle (Fase 21)
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id_detalle_oc | INT GENERATED ALWAYS AS IDENTITY PK | |
+| id_orden_compra | INT FK → orden_compra NOT NULL | ON DELETE CASCADE |
+| tipo_item | VARCHAR(20) NOT NULL | CHECK: producto/materia_prima |
+| id_producto | INT FK → producto NULL | Exclusivo con id_materia_prima |
+| id_materia_prima | INT FK → materia_prima NULL | Exclusivo con id_producto |
+| cantidad | INT NOT NULL CHECK(>0) | |
+| precio_unitario | NUMERIC(10,2) NOT NULL CHECK(>0) | |
+| subtotal | NUMERIC(12,2) GENERATED ALWAYS AS (cantidad * precio_unitario) STORED | **NUNCA insertar/actualizar** |
+| cantidad_recibida | INT NOT NULL DEFAULT 0 | CHECK 0 ≤ recibida ≤ cantidad (recepción real en F22) |
+
+> **Asociación polimórfica exclusiva:** CHECK `chk_oc_detalle_item_exclusivo` garantiza que cada línea sea O producto O materia prima, nunca ambos ni ninguno, según `tipo_item`.
+
+### recepcion_mercancia (Fase 22)
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id_recepcion | INT GENERATED ALWAYS AS IDENTITY PK | Una entrega/visita física |
+| id_orden_compra | INT FK → orden_compra NOT NULL | |
+| id_usuario_receptor | INT FK → usuario NOT NULL | Quien recibe |
+| id_bodega | INT FK → bodega NOT NULL | Destino (aplica a líneas producto) |
+| fecha_recepcion | TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP | |
+| numero_guia_remision | VARCHAR(50) | |
+| observaciones | TEXT | |
+| created_at | TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP | |
+
+> Una orden puede recibirse en MÚLTIPLES entregas parciales, cada una es un `recepcion_mercancia`.
+
+### recepcion_mercancia_detalle (Fase 22)
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id_detalle_rm | INT GENERATED ALWAYS AS IDENTITY PK | |
+| id_recepcion | INT FK → recepcion_mercancia NOT NULL | ON DELETE CASCADE |
+| id_detalle_oc | INT FK → orden_compra_detalle NOT NULL | Línea de la OC que se recibe |
+| cantidad_recibida_ahora | INT NOT NULL CHECK(>0) | Se ACUMULA en orden_compra_detalle.cantidad_recibida |
+| cantidad_defectuosa | INT NOT NULL DEFAULT 0 | CHECK 0 ≤ def ≤ recibida_ahora. NO entra al stock (devolución en F25) |
+| observacion | TEXT | |
+
+> Solo entra al stock `cantidad_buena = cantidad_recibida_ahora - cantidad_defectuosa`.
+
 ## Relaciones FK
 
 | Tabla Origen | Columna FK | Tabla Destino | ON UPDATE | ON DELETE |
@@ -238,6 +308,18 @@
 | comprobante_interno | id_bodega_destino | bodega | CASCADE | SET NULL |
 | comprobante_interno | id_usuario | usuario | CASCADE | RESTRICT |
 | movimiento_inventario | id_comprobante | comprobante_interno | CASCADE | CASCADE |
+| materia_prima | id_unidad_medida | unidad_medida | CASCADE | RESTRICT |
+| orden_compra | id_proveedor | proveedor | CASCADE | RESTRICT |
+| orden_compra | id_usuario_solicitante | usuario | CASCADE | RESTRICT |
+| orden_compra | id_usuario_aprobador | usuario | CASCADE | SET NULL |
+| orden_compra_detalle | id_orden_compra | orden_compra | CASCADE | CASCADE |
+| orden_compra_detalle | id_producto | producto | CASCADE | RESTRICT |
+| orden_compra_detalle | id_materia_prima | materia_prima | CASCADE | RESTRICT |
+| recepcion_mercancia | id_orden_compra | orden_compra | CASCADE | RESTRICT |
+| recepcion_mercancia | id_usuario_receptor | usuario | CASCADE | RESTRICT |
+| recepcion_mercancia | id_bodega | bodega | CASCADE | RESTRICT |
+| recepcion_mercancia_detalle | id_recepcion | recepcion_mercancia | CASCADE | CASCADE |
+| recepcion_mercancia_detalle | id_detalle_oc | orden_compra_detalle | CASCADE | RESTRICT |
 | movimiento_inventario | id_producto | producto | CASCADE | RESTRICT |
 | movimiento_inventario | id_bodega | bodega | CASCADE | RESTRICT |
 | movimiento_inventario | id_usuario | usuario | CASCADE | RESTRICT |
@@ -259,15 +341,17 @@
 
 ## Funciones y Triggers
 
-### Funciones (6)
+### Funciones (8)
 1. **fn_generar_numero_pedido()** — Genera número secuencial para pedidos (PED-000001)
 2. **fn_actualizar_total_pedido()** — Recalcula pedido.total sumando subtotales de detalles
 3. **fn_generar_numero_comprobante()** — Genera número secuencial para comprobantes (COMP-000001)
 4. **fn_registrar_historial_inventario()** — Registra cambios en historial cuando se modifica inventario
 5. **fn_aplicar_movimiento_inventario()** — Actualiza cantidad en inventario al insertar movimiento
 6. **fn_validar_stock_pedido()** — Valida que haya stock suficiente antes de crear detalle_pedido
+7. **fn_recalcular_total_orden_compra_stmt()** (F21) — Recalcula orden_compra.total sumando subtotales (statement-level)
+8. **fn_proteger_total_orden_compra()** (F21) — Impide UPDATE manual de orden_compra.total
 
-### Triggers (11)
+### Triggers (15)
 1. **trg_numero_pedido** → BEFORE INSERT ON pedido → fn_generar_numero_pedido
 2. **trg_actualizar_total_insert** → AFTER INSERT ON detalle_pedido → fn_actualizar_total_pedido
 3. **trg_actualizar_total_update** → AFTER UPDATE ON detalle_pedido → fn_actualizar_total_pedido
@@ -279,3 +363,7 @@
 9. **trg_aplicar_movimiento** → AFTER INSERT ON movimiento_inventario → fn_aplicar_movimiento_inventario
 10. **trg_validar_stock_insert** → BEFORE INSERT ON detalle_pedido → fn_validar_stock_pedido
 11. **trg_validar_stock_update** → BEFORE UPDATE ON detalle_pedido → fn_validar_stock_pedido
+12. **trg_oc_total_insert** (F21) → AFTER INSERT ON orden_compra_detalle → fn_recalcular_total_orden_compra_stmt
+13. **trg_oc_total_update** (F21) → AFTER UPDATE ON orden_compra_detalle → fn_recalcular_total_orden_compra_stmt
+14. **trg_oc_total_delete** (F21) → AFTER DELETE ON orden_compra_detalle → fn_recalcular_total_orden_compra_stmt
+15. **trg_proteger_total_oc** (F21) → BEFORE UPDATE ON orden_compra → fn_proteger_total_orden_compra
