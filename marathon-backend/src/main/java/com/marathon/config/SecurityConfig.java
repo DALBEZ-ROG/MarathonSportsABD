@@ -222,6 +222,15 @@ public class SecurityConfig {
                     "/api/materia-prima/**"
                 ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE PRODUCCIÓN")
 
+                // --- Órdenes de Producción (F28) ---
+                //   GET (lectura, incluye Supervisor para reportes)
+                .requestMatchers(org.springframework.http.HttpMethod.GET,
+                    "/api/ordenes-produccion", "/api/ordenes-produccion/**"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE PRODUCCIÓN", "ROLE_SUPERVISOR E-COMMERCE")
+                //   Escritura (crear/iniciar/completar/cancelar): Encargado de Producción y Admin
+                .requestMatchers("/api/ordenes-produccion/**")
+                    .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE PRODUCCIÓN")
+
                 // --- Dashboard, reportes e IA: Administrador o Supervisor E-Commerce ---
                 .requestMatchers("/api/dashboard/**")
                     .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_SUPERVISOR E-COMMERCE")

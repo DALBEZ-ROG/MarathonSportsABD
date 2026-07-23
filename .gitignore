@@ -12,6 +12,7 @@ marathon-frontend/.angular/
 # Environment files with secrets
 .env
 marathon-backend/src/main/resources/application-local.properties
+.kiro/settings/mcp.json
 
 # OS
 Thumbs.db

@@ -293,6 +293,7 @@ export class NavbarComponent {
     { label: 'Cuentas por Pagar', route: '/cuentas-por-pagar', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>', roles: ['Administrador', 'Encargado de Compras', 'Supervisor E-Commerce'] },
     { label: 'Dev. a Proveedor', route: '/devoluciones-proveedor', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 110 8h-1"/></svg>', roles: ['Administrador', 'Encargado de Compras'] },
     { label: 'Materia Prima', route: '/materia-prima', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>', roles: ['Administrador', 'Encargado de Producción'] },
+    { label: 'Producción', route: '/produccion', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 20h20"/><path d="M4 20V8l6 4V8l6 4V8l4 3v9"/></svg>', roles: ['Administrador', 'Encargado de Producción'] },
     { label: 'Reportes', route: '/reportes', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>', roles: ['Administrador', 'Supervisor E-Commerce'] },
     { label: 'Asistente IA', route: '/ia', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9c.1-.48-.02-.99-.33-1.38"/></svg>', roles: ['Administrador', 'Supervisor E-Commerce'] },
     { label: 'Auditoría', route: '/auditoria', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>', roles: ['Administrador'] },
@@ -344,7 +345,8 @@ export class NavbarComponent {
     const gestion = filtered.filter(i => ['/datos-maestros', '/proveedores', '/productos', '/bodegas', '/inventario', '/clientes'].includes(i.route));
     const pedidos = filtered.filter(i => ['/pedidos', '/pedidos/especiales', '/comprobantes'].includes(i.route));
     const operaciones = filtered.filter(i => ['/picking', '/empaque', '/despachos', '/devoluciones'].includes(i.route));
-    const compras = filtered.filter(i => ['/compras', '/cuentas-por-pagar', '/devoluciones-proveedor', '/materia-prima'].includes(i.route));
+    const compras = filtered.filter(i => ['/compras', '/cuentas-por-pagar', '/devoluciones-proveedor'].includes(i.route));
+    const manufactura = filtered.filter(i => ['/materia-prima', '/produccion'].includes(i.route));
     const analytics = filtered.filter(i => ['/reportes', '/ia', '/auditoria'].includes(i.route));
     const cuenta = filtered.filter(i => ['/usuarios', '/roles', '/perfil'].includes(i.route));
 
@@ -354,6 +356,7 @@ export class NavbarComponent {
       ...(pedidos.length ? [{ title: 'Pedidos', items: pedidos }] : []),
       ...(operaciones.length ? [{ title: 'Operaciones', items: operaciones }] : []),
       ...(compras.length ? [{ title: 'Compras', items: compras }] : []),
+      ...(manufactura.length ? [{ title: 'Manufactura', items: manufactura }] : []),
       ...(analytics.length ? [{ title: 'Análisis', items: analytics }] : []),
       ...(cuenta.length ? [{ title: 'Cuenta', items: cuenta }] : []),
     ];

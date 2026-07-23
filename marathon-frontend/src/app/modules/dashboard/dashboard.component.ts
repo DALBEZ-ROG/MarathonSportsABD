@@ -22,6 +22,7 @@ interface DashboardKpis {
   pedidosEspecialesActivos: number;
   pedidosPickingPendiente: number;
   productosFabricados: number;
+  ordenesProduccionEnProceso: number;
 }
 
 interface VentaDia { fecha: string; totalVentas: number; cantidadPedidos: number; }
@@ -169,6 +170,15 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
           <div class="kpi-info">
             <span class="kpi-value">{{ kpis.productosFabricados }}</span>
             <span class="kpi-label">Productos fabricados</span>
+          </div>
+        </div>
+        <div class="kpi-card clickable" *ngIf="isAdmin || isProduccion" (click)="irA('/produccion')">
+          <div class="kpi-icon kpi-icon-orange">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20"/><path d="M4 20V8l6 4V8l6 4V8l4 3v9"/></svg>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-value">{{ kpis.ordenesProduccionEnProceso }}</span>
+            <span class="kpi-label">OP en proceso</span>
           </div>
         </div>
       </section>

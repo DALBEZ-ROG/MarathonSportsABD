@@ -180,3 +180,46 @@ Inicio del BLOQUE 9 — Manufactura. Un producto ahora es 'comprado' (se adquier
 ### Pendiente para proximas fases
 - **F28 — Ordenes de Produccion:** consume el BOM definido aqui para fabricar productos reales (movimientos `salida_produccion` de materia prima + `entrada` de producto terminado).
 - **F29 — Costeo:** agregar `materia_prima.costo_unitario_estimado` y completar `CostoProduccionEstimadoDTO`.
+
+
+## Setup / DDL base — hallazgo crítico (2026-07-23)
+
+Al documentar el orden de arranque desde cero (`SETUP_COMPLETO.md`) se detectó lo siguiente:
+
+### PENDIENTE CRÍTICO (resuelto) — no existía DDL base de las 20 tablas F1–F20
+- El repositorio **no incluía ningún script** con el DDL de las 20 tablas base (F1–F20): tablas, secuencias, índices, constraints, funciones y triggers. Ese esquema solo existía en la BD viva, lo que hacía **imposible reconstruir la BD desde cero** siguiendo el repo (los scripts `fase21`–`fase27` asumen que las tablas base y `unidad_medida`, `producto`, `usuario`, etc. ya existen).
+- **Resolución:** se generó `marathon-backend/sql/fase00_ddl_base.sql` con `pg_dump --schema-only` sobre las 20 tablas base. Como `pg_dump -t` **no exporta las funciones** de los triggers, se antepusieron al archivo las 8 funciones usadas por los triggers de las tablas base (obtenidas vía `pg_get_functiondef`), dejando el archivo autoejecutable sobre una BD vacía.
+- **Validación:** se ejecutó la secuencia completa `fase00 → fase21 … → fase27` sobre una BD temporal vacía (`setup_test_f27`) y se confirmó que crea las **35 tablas** sin errores. La BD temporal se eliminó tras la prueba.
+- **Deuda remanente:** `fase00_ddl_base.sql` es un *snapshot* del estado actual de la BD, por lo que la tabla base `producto` ya trae la columna `origen` y el trigger `trg_validar_cambio_origen_producto` (añadidos por F27, que ALTERó una tabla base). Es inofensivo (el cuerpo plpgsql no valida `lista_materiales` al crear la función, y `fase27` es idempotente), pero significa que `fase00` no es un F20 "puro". Si se quisiera un baseline estrictamente F20, habría que editar manualmente el snapshot para quitar los artefactos de F27 sobre `producto`.
+
+### Discrepancia de nombre de archivo F27
+- Algunas notas/instrucciones se refieren al script de F27 como `fase27_bom_origen.sql`, pero el **nombre real en el repo** es `fase27_origen_producto_bom.sql`. `SETUP_COMPLETO.md` usa el nombre real.
+
+### seed de negocio — presente
+- `marathon-backend/sql/seed_marathon_sports.sql` **sí existe** y contiene los datos de negocio (ciudades, categorías, productos, proveedores, bodegas, inventario, clientes y pedidos). Requiere que `admin@marathon.com` exista previamente (lo crea `DataInitializer` al arrancar el backend); el propio script aborta con `RAISE EXCEPTION` si no lo encuentra. **No es idempotente**: ejecutarlo dos veces duplica datos o viola constraints UNIQUE.
+
+
+## Fase 28 — Órdenes de Producción (2026-07-23)
+
+Corazón del módulo de Manufactura: fabricar un producto 'fabricado' consumiendo materia prima según su BOM, registrando mermas y dando de alta el producto terminado en inventario. Tablas `orden_produccion` y `orden_produccion_consumo`.
+
+### DEUDA RESUELTA de F26 — FK de `movimiento_materia_prima.id_orden_produccion`
+- En F26 la columna `id_orden_produccion` se creó como INTEGER simple **sin FK**, porque la tabla `orden_produccion` no existía todavía (quedó anotado como pendiente). **En esta fase se aplicó el retrofit**: `ALTER TABLE movimiento_materia_prima ADD CONSTRAINT fk_mmp_orden_produccion FOREIGN KEY (id_orden_produccion) REFERENCES orden_produccion(id_orden_produccion) ON UPDATE CASCADE ON DELETE SET NULL`. El script `fase28_ordenes_produccion.sql` lo aplica de forma idempotente (DO-block que verifica `pg_constraint`). **Deuda cerrada.**
+
+### Decisiones de diseño
+- **Consumo al INICIAR, no al crear.** Crear una OP (estado 'planificada') solo calcula el consumo teórico (bom.cantidad_necesaria × unidades) y verifica stock. El descuento real de materia prima ocurre al INICIAR (estado 'en_proceso'), registrando cada consumo en el kardex (`movimiento_materia_prima` tipo 'salida_produccion' con `id_orden_produccion`).
+- **Re-verificación de disponibilidad al iniciar.** El stock pudo cambiar entre planificar e iniciar (otra OP pudo consumir la MP), por eso `iniciar` vuelve a verificar antes de consumir.
+- **No se puede cancelar una OP en proceso.** Como la MP ya se consumió, solo se cancela desde 'planificada'. Una OP en proceso debe completarse (declarando lo realmente producido).
+- **Merma es columna GENERATED** (`COALESCE(cantidad_real, cantidad_teorica) - cantidad_teorica`). En JPA se anotó con `@Generated(event = {INSERT, UPDATE})` para que Hibernate RE-LEA el valor calculado por la BD tras escribir; sin esa anotación, el DTO devolvía la merma stale (0.000) al leerla en la misma transacción del `completar`. **Nota:** las columnas GENERATED de fases anteriores (subtotal, total, saldo_pendiente) NO tienen `@Generated` porque siempre se leen en una petición posterior; aquí fue necesario por leer en la misma transacción.
+- **Ajuste de stock al completar con consumo real:** exceso (real>teórico) descuenta stock adicional y registra 'merma'; sobrante (real<teórico) devuelve stock y registra 'ajuste'. Sin consumo real declarado, real=teórico y no se ajusta nada.
+- **Alta de producto terminado:** al completar con producidas>0 se sube `inventario.stock_actual` en la bodega destino con `SET LOCAL app.current_user_id` + `movimiento_inventario` 'entrada' (mismo patrón que recepción F22).
+
+### Simplificaciones / alcance limitado de esta fase
+- **Sin costeo.** No se calcula el costo de producción (materia prima consumida + mano de obra + overhead) ni el costo unitario del producto terminado. La materia prima no tiene aún `costo_unitario_estimado` (deuda abierta desde F27). El costeo es la **Fase 29**.
+- **Sin producción parcial/por lotes ni estaciones de trabajo.** Una OP es un único evento: se inicia (consume todo) y se completa (produce todo). No hay avance parcial, ni sub-lotes, ni ruteo por estaciones/operaciones. `cantidad_producida` puede ser menor a la planificada (mermas de producto), pero no se re-inicia ni se produce en tandas.
+- **La MP consumida no se devuelve al cancelar** porque no se permite cancelar en_proceso (justamente para no tener que revertir consumos). Si se necesitara "abortar" una OP en proceso, hoy la vía es completarla con `cantidadProducida=0` (el producto no entra a inventario, pero la MP consumida NO se devuelve salvo lo declarado como sobrante en consumo real).
+- **Stock de MP global (sin bodega).** Heredado de F22/F26: el consumo de materia prima descuenta del stock global de `materia_prima`, no de una bodega específica. El producto terminado sí entra a una bodega concreta (bodega destino).
+- **Concurrencia optimista no forzada.** Dos OP planificadas podrían pasar la verificación y competir por el mismo stock al iniciar; la re-verificación al iniciar mitiga esto, pero no hay bloqueo pesimista (SELECT ... FOR UPDATE). Para el volumen académico es suficiente.
+
+### Pendiente para próximas fases
+- **F29 — Costeo de Producción:** agregar `materia_prima.costo_unitario_estimado`, calcular costo de la OP (suma de consumos reales × costo) y costo unitario del producto fabricado; completar `CostoProduccionEstimadoDTO` de F27.

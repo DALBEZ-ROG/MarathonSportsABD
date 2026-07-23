@@ -24,21 +24,31 @@ Plataforma web interna para gestionar el ciclo completo de pedidos e-commerce: r
 
 ## Pasos de Instalación
 
+> **📋 Para levantar la BD desde cero en el orden EXACTO (DDL base → fases 21–27 → backend → seed), sigue la guía completa: [SETUP_COMPLETO.md](./SETUP_COMPLETO.md).** Incluye la query de verificación (35 tablas + conteos de negocio). Los pasos de abajo son un resumen.
+
 ### 1. Crear la base de datos y ejecutar el DDL
 
 ```sql
 CREATE DATABASE mod_venta_inve;
 ```
 
-Luego conectarse a `mod_venta_inve` y ejecutar el script DDL con tablas, funciones y triggers.
+Luego conéctate a `mod_venta_inve` y ejecuta, **en orden**, el DDL base y las migraciones de fase (ver [SETUP_COMPLETO.md](./SETUP_COMPLETO.md) pasos 2–9):
+
+```bash
+psql -U postgres -d mod_venta_inve -f marathon-backend/sql/fase00_ddl_base.sql
+psql -U postgres -d mod_venta_inve -f marathon-backend/sql/fase21_ordenes_compra.sql
+# ... fase22 … fase27 (ver SETUP_COMPLETO.md)
+```
 
 ### 2. Cargar datos de demostración
 
+Primero arranca el backend una vez para que `DataInitializer` cree roles, permisos y los 6 usuarios demo (incluido `admin@marathon.com`, requerido por el seed). Luego:
+
 ```bash
-psql -U postgres -d mod_venta_inve -f seed_marathon_sports.sql
+psql -U postgres -d mod_venta_inve -f marathon-backend/sql/seed_marathon_sports.sql
 ```
 
-> El seed incluye: 88 ciudades, 105 productos, 40 clientes, 25 pedidos, bodegas, proveedores, categorías y roles.
+> El seed incluye: 88 ciudades, 105 productos, 40 clientes, 25 pedidos, bodegas, proveedores, categorías e inventario. Los roles/permisos/usuarios los crea el `DataInitializer`, no el seed. Ver [SETUP_COMPLETO.md](./SETUP_COMPLETO.md).
 
 ### 3. Configurar la conexión al backend
 

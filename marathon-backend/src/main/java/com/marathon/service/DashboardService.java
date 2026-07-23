@@ -17,6 +17,7 @@ import com.marathon.repository.InventarioRepository;
 import com.marathon.repository.MovimientoInventarioRepository;
 import com.marathon.repository.PedidoRepository;
 import com.marathon.repository.ProductoRepository;
+import com.marathon.repository.OrdenProduccionRepository;
 
 @Service
 public class DashboardService {
@@ -26,17 +27,20 @@ public class DashboardService {
     private final InventarioRepository inventarioRepository;
     private final MovimientoInventarioRepository movimientoInventarioRepository;
     private final ProductoRepository productoRepository;
+    private final OrdenProduccionRepository ordenProduccionRepository;
 
     public DashboardService(PedidoRepository pedidoRepository,
                             DetallePedidoRepository detallePedidoRepository,
                             InventarioRepository inventarioRepository,
                             MovimientoInventarioRepository movimientoInventarioRepository,
-                            ProductoRepository productoRepository) {
+                            ProductoRepository productoRepository,
+                            OrdenProduccionRepository ordenProduccionRepository) {
         this.pedidoRepository = pedidoRepository;
         this.detallePedidoRepository = detallePedidoRepository;
         this.inventarioRepository = inventarioRepository;
         this.movimientoInventarioRepository = movimientoInventarioRepository;
         this.productoRepository = productoRepository;
+        this.ordenProduccionRepository = ordenProduccionRepository;
     }
 
     public DashboardKpisDTO getKpis() {
@@ -53,6 +57,7 @@ public class DashboardService {
         dto.setPedidosEspecialesActivos(pedidoRepository.countByEsPedidoEspecialTrueAndEstadoNot("anulado"));
         dto.setPedidosPickingPendiente(detallePedidoRepository.contarPedidosPickingPendiente());
         dto.setProductosFabricados(productoRepository.countByOrigen("fabricado"));
+        dto.setOrdenesProduccionEnProceso(ordenProduccionRepository.countByEstado("en_proceso"));
         return dto;
     }
 

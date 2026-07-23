@@ -16,6 +16,7 @@ public class DashboardKpisDTO {
     private Long pedidosEspecialesActivos;
     private Long pedidosPickingPendiente;
     private Long productosFabricados;
+    private Long ordenesProduccionEnProceso;
 
     public DashboardKpisDTO() {}
 
@@ -72,4 +73,7 @@ public class DashboardKpisDTO {
 
     public Long getProductosFabricados() { return productosFabricados; }
     public void setProductosFabricados(Long productosFabricados) { this.productosFabricados = productosFabricados; }
+
+    public Long getOrdenesProduccionEnProceso() { return ordenesProduccionEnProceso; }
+    public void setOrdenesProduccionEnProceso(Long ordenesProduccionEnProceso) { this.ordenesProduccionEnProceso = ordenesProduccionEnProceso; }
 }

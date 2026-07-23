@@ -399,7 +399,7 @@
 | stock_anterior | NUMERIC(12,3) NOT NULL | Snapshot antes del movimiento |
 | stock_nuevo | NUMERIC(12,3) NOT NULL | Snapshot despues del movimiento |
 | id_recepcion | INT FK → recepcion_mercancia NULL | Solo para entrada_compra |
-| id_orden_produccion | INT NULL | FK pendiente hasta F28 |
+| id_orden_produccion | INT FK → orden_produccion NULL | (F28) FK `fk_mmp_orden_produccion` aplicada en el retrofit; ON DELETE SET NULL. Para movimientos 'salida_produccion'/'merma'/'ajuste' de una OP |
 | observacion | TEXT | |
 | fecha | TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP | |
 
@@ -416,6 +416,36 @@
 | created_at | TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP | |
 
 > UNIQUE `uq_bom_producto_materia (id_producto, id_materia_prima)`. La receta define QUÉ y CUÁNTA materia prima consume un producto fabricado; el consumo real ocurre en F28. Solo productos con `origen='fabricado'` admiten BOM (trigger `trg_validar_bom_producto_fabricado`).
+
+### orden_produccion (Fase 28)
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id_orden_produccion | INT GENERATED ALWAYS AS IDENTITY PK | |
+| id_producto | INT FK → producto NOT NULL | Debe tener origen='fabricado' (trigger) |
+| id_bodega_destino | INT FK → bodega NOT NULL | Donde entra el producto terminado |
+| id_usuario_registro | INT FK → usuario NOT NULL | Quien crea la orden |
+| id_usuario_completa | INT FK → usuario NULL | Quien la completa (SET NULL) |
+| cantidad_planificada | INT NOT NULL | CHECK > 0 |
+| cantidad_producida | INT NULL | CHECK NULL o >= 0. Se llena al completar |
+| estado | VARCHAR(20) NOT NULL DEFAULT 'planificada' | CHECK: planificada/en_proceso/completada/cancelada |
+| fecha_creacion | TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP | |
+| fecha_inicio | TIMESTAMP NULL | Se setea al iniciar (consumo de MP) |
+| fecha_fin | TIMESTAMP NULL | Se setea al completar |
+| observaciones | TEXT | |
+
+> Trigger `trg_validar_op_producto_fabricado` (BEFORE INSERT/UPDATE): solo productos con `origen='fabricado'` admiten órdenes de producción. El consumo de MP ocurre al INICIAR; el alta del producto terminado, al COMPLETAR.
+
+### orden_produccion_consumo (Fase 28)
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id_consumo | INT GENERATED ALWAYS AS IDENTITY PK | |
+| id_orden_produccion | INT FK → orden_produccion NOT NULL | ON DELETE CASCADE |
+| id_materia_prima | INT FK → materia_prima NOT NULL | ON DELETE RESTRICT |
+| cantidad_teorica | NUMERIC(12,3) NOT NULL | CHECK > 0. bom.cantidad_necesaria × unidades |
+| cantidad_real | NUMERIC(12,3) NULL | CHECK NULL o >= 0. Se declara al completar |
+| merma | NUMERIC(12,3) GENERATED ALWAYS AS (COALESCE(cantidad_real, cantidad_teorica) - cantidad_teorica) STORED | **NUNCA insertar/actualizar**. En JPA con `@Generated(INSERT,UPDATE)` |
+
+> UNIQUE `uq_opc_orden_materia (id_orden_produccion, id_materia_prima)`. Merma positiva = se gastó de más; negativa = sobró.
 
 ## Relaciones FK
 
@@ -480,8 +510,15 @@
 | movimiento_materia_prima | id_materia_prima | materia_prima | CASCADE | RESTRICT |
 | movimiento_materia_prima | id_usuario | usuario | CASCADE | RESTRICT |
 | movimiento_materia_prima | id_recepcion | recepcion_mercancia | CASCADE | SET NULL |
+| movimiento_materia_prima | id_orden_produccion | orden_produccion | CASCADE | SET NULL |
 | lista_materiales | id_producto | producto | CASCADE | CASCADE |
 | lista_materiales | id_materia_prima | materia_prima | CASCADE | RESTRICT |
+| orden_produccion | id_producto | producto | CASCADE | RESTRICT |
+| orden_produccion | id_bodega_destino | bodega | CASCADE | RESTRICT |
+| orden_produccion | id_usuario_registro | usuario | CASCADE | RESTRICT |
+| orden_produccion | id_usuario_completa | usuario | CASCADE | SET NULL |
+| orden_produccion_consumo | id_orden_produccion | orden_produccion | CASCADE | CASCADE |
+| orden_produccion_consumo | id_materia_prima | materia_prima | CASCADE | RESTRICT |
 
 ## Módulos Principales
 
@@ -499,7 +536,7 @@
 
 ## Funciones y Triggers
 
-### Funciones (12)
+### Funciones (13)
 1. **fn_generar_numero_pedido()** — Genera número secuencial para pedidos (PED-000001)
 2. **fn_actualizar_total_pedido()** — Recalcula pedido.total sumando subtotales de detalles
 3. **fn_generar_numero_comprobante()** — Genera número secuencial para comprobantes (COMP-000001)
@@ -512,8 +549,9 @@
 10. **fn_proteger_monto_pagado_cxp()** (F23) — Impide UPDATE manual de cuenta_por_pagar.monto_pagado
 11. **fn_validar_bom_producto_fabricado()** (F27) — Impide insertar/actualizar líneas de `lista_materiales` si el producto no tiene origen='fabricado'
 12. **fn_validar_cambio_origen_producto()** (F27) — Impide cambiar `producto.origen` a 'comprado' si el producto tiene BOM activo
+13. **fn_validar_op_producto_fabricado()** (F28) — Impide crear/actualizar `orden_produccion` si el producto no tiene origen='fabricado'
 
-### Triggers (21)
+### Triggers (22)
 1. **trg_numero_pedido** → BEFORE INSERT ON pedido → fn_generar_numero_pedido
 2. **trg_actualizar_total_insert** → AFTER INSERT ON detalle_pedido → fn_actualizar_total_pedido
 3. **trg_actualizar_total_update** → AFTER UPDATE ON detalle_pedido → fn_actualizar_total_pedido
@@ -535,3 +573,4 @@
 19. **trg_proteger_monto_pagado_cxp** (F23) → BEFORE UPDATE ON cuenta_por_pagar → fn_proteger_monto_pagado_cxp
 20. **trg_validar_bom_producto_fabricado** (F27) → BEFORE INSERT OR UPDATE ON lista_materiales → fn_validar_bom_producto_fabricado
 21. **trg_validar_cambio_origen_producto** (F27) → BEFORE UPDATE OF origen ON producto → fn_validar_cambio_origen_producto
+22. **trg_validar_op_producto_fabricado** (F28) → BEFORE INSERT OR UPDATE ON orden_produccion → fn_validar_op_producto_fabricado
