@@ -40,6 +40,7 @@ public class CuentaPorPagar {
     private BigDecimal montoPagado;
 
     // GENERATED ALWAYS AS (monto_total - monto_pagado) — NUNCA insertar/actualizar
+    @org.hibernate.annotations.Generated(event = { org.hibernate.generator.EventType.INSERT, org.hibernate.generator.EventType.UPDATE })
     @Column(name = "saldo_pendiente", insertable = false, updatable = false)
     private BigDecimal saldoPendiente;
 

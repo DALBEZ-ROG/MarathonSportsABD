@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.marathon.dto.bom.CostoProduccionEstimadoDTO;
 import com.marathon.dto.bom.ListaMaterialesItemDTO;
 import com.marathon.dto.bom.ListaMaterialesResponseDTO;
 import com.marathon.dto.producto.ProductoResponseDTO;
@@ -50,6 +51,12 @@ public class BomController {
         Usuario usuario = (Usuario) authentication.getPrincipal();
         return ResponseEntity.ok(
                 listaMaterialesService.definirBom(idProducto, dto, usuario.getIdUsuario()));
+    }
+
+    // GET /api/productos/{idProducto}/costo-estimado  (F29)
+    @GetMapping("/costo-estimado")
+    public ResponseEntity<CostoProduccionEstimadoDTO> costoEstimado(@PathVariable Integer idProducto) {
+        return ResponseEntity.ok(listaMaterialesService.calcularCostoEstimado(idProducto));
     }
 
     // PUT /api/productos/{idProducto}/origen  (cambiar origen comprado <-> fabricado)

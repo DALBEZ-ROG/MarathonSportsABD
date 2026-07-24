@@ -220,6 +220,12 @@ public class OrdenProduccionService {
         for (OrdenProduccionConsumo c : consumos) {
             MateriaPrima mp = c.getMateriaPrima();
             BigDecimal stockAnterior = mp.getStockActual();
+
+            // F29 — Snapshot inmutable del costo promedio LEÍDO ANTES de consumir.
+            c.setCostoUnitarioSnapshot(mp.getCostoUnitarioPromedio() != null
+                    ? mp.getCostoUnitarioPromedio() : BigDecimal.ZERO);
+            consumoRepository.save(c);
+
             BigDecimal stockNuevo = stockAnterior.subtract(c.getCantidadTeorica());
             if (stockNuevo.compareTo(BigDecimal.ZERO) < 0) {
                 throw new ValidationException("Stock insuficiente de " + mp.getNombre()
@@ -236,6 +242,9 @@ public class OrdenProduccionService {
         orden.setEstado("en_proceso");
         orden.setFechaInicio(java.time.LocalDateTime.now());
         ordenRepository.save(orden);
+
+        // F29 — Calcular costo_materia_prima = SUM(costo_linea) de los consumos.
+        recalcularCostoMateriaPrima(orden.getIdOrdenProduccion());
 
         logService.registrar(idUsuarioActual, "produccion", "iniciar",
                 "OP #" + orden.getIdOrdenProduccion() + " iniciada: materia prima consumida", null);
@@ -326,10 +335,18 @@ public class OrdenProduccionService {
         orden.setCantidadProducida(dto.getCantidadProducida());
         orden.setFechaFin(java.time.LocalDateTime.now());
         orden.setUsuarioCompleta(usuario);
+        // F29 — costos de mano de obra e indirectos (default 0)
+        orden.setCostoManoObra(dto.getCostoManoObra() != null ? dto.getCostoManoObra() : BigDecimal.ZERO);
+        orden.setCostoIndirecto(dto.getCostoIndirecto() != null ? dto.getCostoIndirecto() : BigDecimal.ZERO);
         if (dto.getObservaciones() != null && !dto.getObservaciones().isBlank()) {
             orden.setObservaciones(dto.getObservaciones());
         }
         ordenRepository.save(orden);
+
+        // F29 — Recalcular costo_materia_prima con los costo_linea actuales
+        // (si hubo consumo real, costo_linea ya refleja cantidad_real). El
+        // costo_total y costo_unitario_producido son GENERATED en la BD.
+        recalcularCostoMateriaPrima(orden.getIdOrdenProduccion());
 
         logService.registrar(idUsuarioActual, "produccion", "completar",
                 "OP #" + orden.getIdOrdenProduccion() + " completada: " + dto.getCantidadProducida()
@@ -424,6 +441,32 @@ public class OrdenProduccionService {
         return "Materia prima insuficiente: " + detalle;
     }
 
+    /**
+     * F29 — Recalcula orden_produccion.costo_materia_prima como SUM(costo_linea)
+     * de sus consumos. Como el trigger de protección bloquea el UPDATE manual,
+     * se usa la función SQL dedicada fn_set_costo_materia_prima_op(), que activa
+     * una variable de sesión autorizada. Tras el UPDATE, la BD recalcula las
+     * columnas GENERATED costo_total y costo_unitario_producido, por lo que se
+     * refresca la entidad para reflejarlas.
+     */
+    private void recalcularCostoMateriaPrima(Integer idOrden) {
+        entityManager.flush();
+        Object suma = entityManager.createNativeQuery(
+                "SELECT COALESCE(SUM(costo_linea), 0) FROM orden_produccion_consumo WHERE id_orden_produccion = :id")
+                .setParameter("id", idOrden)
+                .getSingleResult();
+        BigDecimal costoMp = new BigDecimal(suma.toString()).setScale(2, java.math.RoundingMode.HALF_UP);
+        entityManager.createNativeQuery("SELECT fn_set_costo_materia_prima_op(:id, :costo)")
+                .setParameter("id", idOrden)
+                .setParameter("costo", costoMp)
+                .getSingleResult();
+        // Refrescar la entidad para leer costo_materia_prima + GENERATED (total, unitario)
+        OrdenProduccion o = ordenRepository.findById(idOrden).orElse(null);
+        if (o != null) {
+            entityManager.refresh(o);
+        }
+    }
+
     private void registrarMovimientoMp(MateriaPrima mp, Usuario usuario, String tipo, BigDecimal cantidad,
                                        BigDecimal stockAnterior, BigDecimal stockNuevo,
                                        Integer idOrdenProduccion, String observacion) {
@@ -450,6 +493,11 @@ public class OrdenProduccionService {
         dto.setFechaInicio(o.getFechaInicio());
         dto.setFechaFin(o.getFechaFin());
         dto.setObservaciones(o.getObservaciones());
+        dto.setCostoMateriaPrima(o.getCostoMateriaPrima());
+        dto.setCostoManoObra(o.getCostoManoObra());
+        dto.setCostoIndirecto(o.getCostoIndirecto());
+        dto.setCostoTotal(o.getCostoTotal());
+        dto.setCostoUnitarioProducido(o.getCostoUnitarioProducido());
         if (o.getProducto() != null) {
             dto.setIdProducto(o.getProducto().getIdProducto());
             dto.setProductoNombre(o.getProducto().getNombre());
@@ -475,6 +523,8 @@ public class OrdenProduccionService {
                 cd.setCantidadTeorica(c.getCantidadTeorica());
                 cd.setCantidadReal(c.getCantidadReal());
                 cd.setMerma(c.getMerma());
+                cd.setCostoUnitarioSnapshot(c.getCostoUnitarioSnapshot());
+                cd.setCostoLinea(c.getCostoLinea());
                 if (c.getMateriaPrima() != null) {
                     cd.setIdMateriaPrima(c.getMateriaPrima().getIdMateriaPrima());
                     cd.setMateriaPrimaNombre(c.getMateriaPrima().getNombre());

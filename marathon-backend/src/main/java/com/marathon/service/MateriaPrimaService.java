@@ -222,6 +222,7 @@ public class MateriaPrimaService {
         dto.setEstado(mp.getEstado());
         dto.setStockActual(mp.getStockActual());
         dto.setStockMinimo(mp.getStockMinimo());
+        dto.setCostoUnitarioPromedio(mp.getCostoUnitarioPromedio());
         dto.setStockBajo(mp.getStockMinimo() != null && mp.getStockMinimo().compareTo(java.math.BigDecimal.ZERO) > 0
                 && mp.getStockActual().compareTo(mp.getStockMinimo()) <= 0);
         dto.setCreatedAt(mp.getCreatedAt());

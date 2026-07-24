@@ -58,6 +58,10 @@ public class SecurityConfig {
                 .requestMatchers(org.springframework.http.HttpMethod.GET,
                     "/api/productos/*/bom"
                 ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE PRODUCCIÓN", "ROLE_ENCARGADO DE COMPRAS")
+                // F29 — costo estimado de producción
+                .requestMatchers(org.springframework.http.HttpMethod.GET,
+                    "/api/productos/*/costo-estimado"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE PRODUCCIÓN", "ROLE_SUPERVISOR E-COMMERCE")
                 .requestMatchers(org.springframework.http.HttpMethod.PUT,
                     "/api/productos/*/bom"
                 ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE PRODUCCIÓN")
@@ -221,6 +225,10 @@ public class SecurityConfig {
                 .requestMatchers(org.springframework.http.HttpMethod.DELETE,
                     "/api/materia-prima/**"
                 ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE PRODUCCIÓN")
+
+                // --- Análisis de Costos (F29): Admin, Supervisor, Encargado de Producción ---
+                .requestMatchers("/api/analisis-costos/**")
+                    .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_SUPERVISOR E-COMMERCE", "ROLE_ENCARGADO DE PRODUCCIÓN")
 
                 // --- Órdenes de Producción (F28) ---
                 //   GET (lectura, incluye Supervisor para reportes)

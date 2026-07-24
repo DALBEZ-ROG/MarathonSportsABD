@@ -156,7 +156,25 @@ public class RecepcionMercanciaService {
                 } else if ("materia_prima".equals(detOc.getTipoItem()) && detOc.getMateriaPrima() != null) {
                     MateriaPrima mp = detOc.getMateriaPrima();
                     BigDecimal stockAnterior = mp.getStockActual();
-                    mp.setStockActual(mp.getStockActual().add(BigDecimal.valueOf(cantidadBuena)));
+                    BigDecimal cantidad = BigDecimal.valueOf(cantidadBuena);
+
+                    // F29 — Recalcular costo unitario promedio ponderado ANTES de sumar stock.
+                    //   nuevo = ((stock_ant × costo_ant) + (cantidad × precio_compra)) / (stock_ant + cantidad)
+                    BigDecimal costoAnterior = mp.getCostoUnitarioPromedio() != null
+                            ? mp.getCostoUnitarioPromedio() : BigDecimal.ZERO;
+                    BigDecimal precioCompra = detOc.getPrecioUnitario();
+                    BigDecimal totalPosterior = stockAnterior.add(cantidad);
+                    BigDecimal nuevoCosto;
+                    if (totalPosterior.compareTo(BigDecimal.ZERO) > 0) {
+                        nuevoCosto = stockAnterior.multiply(costoAnterior)
+                                .add(cantidad.multiply(precioCompra))
+                                .divide(totalPosterior, 4, java.math.RoundingMode.HALF_UP);
+                    } else {
+                        nuevoCosto = precioCompra;
+                    }
+                    mp.setCostoUnitarioPromedio(nuevoCosto);
+
+                    mp.setStockActual(mp.getStockActual().add(cantidad));
                     materiaPrimaRepository.save(mp);
                     // F26 — Kardex: registrar movimiento de entrada por compra
                     registrarMovimientoMateriaPrima(mp, receptor, "entrada_compra",

@@ -31,6 +31,66 @@ public class ExcelService {
     private static final byte[] VERDE = new byte[]{(byte) 45, (byte) 90, (byte) 39};
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
+    // ===================== COSTOS DE PRODUCCIÓN (F29) =====================
+    public byte[] exportarCostosProduccionExcel(
+            List<com.marathon.dto.reporte.ReporteCostosProduccionItemDTO> datos, FiltroReporteDTO filtro) {
+        XSSFWorkbook wb = new XSSFWorkbook();
+        try {
+            Sheet sheet = wb.createSheet("Costos de Producción");
+            CellStyle header = headerStyle(wb);
+            CellStyle filaBlanca = bodyStyle(wb, false);
+            CellStyle filaGris = bodyStyle(wb, true);
+            CellStyle moneda = monedaStyle(wb, false);
+            CellStyle monedaGris = monedaStyle(wb, true);
+            CellStyle totalStyle = totalStyle(wb);
+            CellStyle totalMoneda = totalMonedaStyle(wb);
+
+            String[] cols = {"OP #", "Producto", "Cant. Producida", "Costo MP", "Mano de Obra",
+                    "Indirectos", "Costo Total", "Costo Unitario", "Fecha"};
+            Row headerRow = sheet.createRow(0);
+            for (int i = 0; i < cols.length; i++) {
+                Cell c = headerRow.createCell(i);
+                c.setCellValue(cols[i]);
+                c.setCellStyle(header);
+            }
+
+            BigDecimal totalSuma = BigDecimal.ZERO;
+            int r = 1;
+            for (com.marathon.dto.reporte.ReporteCostosProduccionItemDTO d : datos) {
+                boolean gris = (r % 2 == 0);
+                CellStyle txt = gris ? filaGris : filaBlanca;
+                CellStyle mon = gris ? monedaGris : moneda;
+                Row row = sheet.createRow(r++);
+                setCell(row, 0, d.getIdOrdenProduccion() != null ? d.getIdOrdenProduccion().toString() : "", txt);
+                setCell(row, 1, nz(d.getProducto()), txt);
+                setCell(row, 2, d.getCantidadProducida() != null ? d.getCantidadProducida().toString() : "0", txt);
+                setNumber(row, 3, d.getCostoMateriaPrima(), mon);
+                setNumber(row, 4, d.getCostoManoObra(), mon);
+                setNumber(row, 5, d.getCostoIndirecto(), mon);
+                setNumber(row, 6, d.getCostoTotal(), mon);
+                setNumber(row, 7, d.getCostoUnitario(), mon);
+                setCell(row, 8, d.getFecha() != null ? d.getFecha().format(FMT) : "", txt);
+                if (d.getCostoTotal() != null) {
+                    totalSuma = totalSuma.add(d.getCostoTotal());
+                }
+            }
+
+            Row totalRow = sheet.createRow(r);
+            setCell(totalRow, 5, "TOTAL", totalStyle);
+            setNumber(totalRow, 6, totalSuma, totalMoneda);
+
+            for (int i = 0; i < cols.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            crearHojaResumen(wb, filtro, datos.size(), "Costo total", totalSuma);
+
+            return toBytes(wb);
+        } finally {
+            cerrar(wb);
+        }
+    }
+
     // ===================== PEDIDOS =====================
     public byte[] exportarPedidosExcel(List<ReportePedidosItemDTO> datos, FiltroReporteDTO filtro) {
         XSSFWorkbook wb = new XSSFWorkbook();

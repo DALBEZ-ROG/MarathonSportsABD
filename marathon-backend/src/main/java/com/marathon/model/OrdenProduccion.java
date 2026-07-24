@@ -12,6 +12,11 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+import java.math.BigDecimal;
+
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
+
 @Entity
 @Table(name = "orden_produccion")
 public class OrdenProduccion {
@@ -58,6 +63,25 @@ public class OrdenProduccion {
     @Column(name = "observaciones", columnDefinition = "text")
     private String observaciones;
 
+    // F29 — Costos. costo_materia_prima lo calcula el servicio (protegido por
+    // trigger); costo_total y costo_unitario_producido son GENERATED.
+    @Column(name = "costo_materia_prima", insertable = false, updatable = false)
+    private BigDecimal costoMateriaPrima;
+
+    @Column(name = "costo_mano_obra", nullable = false)
+    private BigDecimal costoManoObra = BigDecimal.ZERO;
+
+    @Column(name = "costo_indirecto", nullable = false)
+    private BigDecimal costoIndirecto = BigDecimal.ZERO;
+
+    @Generated(event = { EventType.INSERT, EventType.UPDATE })
+    @Column(name = "costo_total", insertable = false, updatable = false)
+    private BigDecimal costoTotal;
+
+    @Generated(event = { EventType.INSERT, EventType.UPDATE })
+    @Column(name = "costo_unitario_producido", insertable = false, updatable = false)
+    private BigDecimal costoUnitarioProducido;
+
     public OrdenProduccion() {}
 
     public Integer getIdOrdenProduccion() { return idOrdenProduccion; }
@@ -94,4 +118,16 @@ public class OrdenProduccion {
 
     public String getObservaciones() { return observaciones; }
     public void setObservaciones(String observaciones) { this.observaciones = observaciones; }
+
+    public BigDecimal getCostoMateriaPrima() { return costoMateriaPrima; }
+
+    public BigDecimal getCostoManoObra() { return costoManoObra; }
+    public void setCostoManoObra(BigDecimal costoManoObra) { this.costoManoObra = costoManoObra; }
+
+    public BigDecimal getCostoIndirecto() { return costoIndirecto; }
+    public void setCostoIndirecto(BigDecimal costoIndirecto) { this.costoIndirecto = costoIndirecto; }
+
+    public BigDecimal getCostoTotal() { return costoTotal; }
+
+    public BigDecimal getCostoUnitarioProducido() { return costoUnitarioProducido; }
 }

@@ -207,6 +207,26 @@ interface Producto {
               <button type="button" class="btn-add-mat" (click)="agregarLineaBom()">+ Agregar material</button>
             </div>
 
+            <!-- Costo estimado de producción (F29) -->
+            <div class="costo-est" *ngIf="form.origen==='fabricado' && costoEst">
+              <h4>Costo estimado de producción</h4>
+              <table class="mini-table">
+                <thead><tr><th>Material</th><th>Cantidad</th><th>Costo unit.</th><th>Costo línea</th></tr></thead>
+                <tbody>
+                  <tr *ngFor="let m of costoEst.materiales">
+                    <td>{{m.nombre}}</td>
+                    <td>{{m.cantidadNecesaria | number:'1.0-3'}}</td>
+                    <td>$ {{m.costoUnitarioPromedio | number:'1.4-4'}}</td>
+                    <td>$ {{m.costoLinea | number:'1.2-4'}}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="costo-est-row"><span>Costo materia prima unitario</span><span>$ {{costoEst.costoMateriaPrimaUnitario | number:'1.2-4'}}</span></div>
+              <div class="costo-est-row"><span>Precio de venta</span><span>$ {{costoEst.precioVenta | number:'1.2-2'}}</span></div>
+              <div class="costo-est-row"><span>Margen bruto</span><span [ngClass]="{ 'margen-pos': costoEst.margenBruto >= 0, 'margen-neg': costoEst.margenBruto < 0 }">$ {{costoEst.margenBruto | number:'1.2-2'}} ({{costoEst.margenPorcentaje | number:'1.1-1'}}%)</span></div>
+              <p class="costo-adv" *ngIf="costoEst.advertencia">{{costoEst.advertencia}}</p>
+            </div>
+
             <div class="form-group">
               <label>Proveedores</label>
               <div class="proveedor-list">
@@ -254,6 +274,14 @@ interface Producto {
     .bom-cant { flex: 1; }
     .bom-unidad { min-width: 60px; font-size: 0.8rem; color: #94a3b8; }
     .btn-add-mat { background: #14532d; color: #bbf7d0; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+    .costo-est { border: 1px solid #334155; border-radius: 8px; padding: 12px; margin: 10px 0; }
+    .costo-est h4 { margin: 0 0 8px; }
+    .mini-table { width: 100%; font-size: 0.85rem; margin-bottom: 8px; }
+    .mini-table th, .mini-table td { text-align: left; padding: 3px 6px; }
+    .costo-est-row { display: flex; justify-content: space-between; padding: 2px 0; }
+    .margen-pos { color: #4ade80; font-weight: 600; }
+    .margen-neg { color: #f87171; font-weight: 600; }
+    .costo-adv { font-size: 0.75rem; color: #fbbf24; margin-top: 6px; }
   `]
 })
 export class ProductosComponent implements OnInit {
@@ -263,6 +291,7 @@ export class ProductosComponent implements OnInit {
   proveedores: ProveedorSimple[] = [];
   materiasPrimas: MateriaPrima[] = [];
   bomLineas: BomLinea[] = [];
+  costoEst: any = null;
   loading = false;
   saving = false;
   page = 0;
@@ -334,6 +363,9 @@ export class ProductosComponent implements OnInit {
     if (this.form.origen === 'fabricado' && this.bomLineas.length === 0) {
       this.agregarLineaBom();
     }
+    if (this.form.origen !== 'fabricado') {
+      this.costoEst = null;
+    }
   }
 
   agregarLineaBom() {
@@ -366,6 +398,7 @@ export class ProductosComponent implements OnInit {
       origen: 'comprado', proveedorIds: []
     };
     this.bomLineas = [];
+    this.costoEst = null;
     this.formError = '';
     this.showModal = true;
   }
@@ -403,7 +436,16 @@ export class ProductosComponent implements OnInit {
           cantidadNecesaria: it.cantidadNecesaria
         }));
         if (this.bomLineas.length === 0) { this.agregarLineaBom(); }
+        this.cargarCostoEstimado(idProducto);
       },
+      error: () => { /* sin BOM o sin permiso */ }
+    });
+  }
+
+  cargarCostoEstimado(idProducto: number) {
+    this.costoEst = null;
+    this.http.get<any>(`${environment.apiUrl}/productos/${idProducto}/costo-estimado`).subscribe({
+      next: (res) => { this.costoEst = res; },
       error: () => { /* sin BOM o sin permiso */ }
     });
   }

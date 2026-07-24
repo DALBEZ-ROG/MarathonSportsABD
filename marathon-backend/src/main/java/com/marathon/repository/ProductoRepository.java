@@ -38,4 +38,7 @@ public interface ProductoRepository extends JpaRepository<Producto, Integer> {
 
     // F27: conteo de productos fabricados (para dashboard)
     long countByOrigen(String origen);
+
+    // F29: listado paginado por origen (para análisis de costos)
+    Page<Producto> findByOrigen(String origen, Pageable pageable);
 }

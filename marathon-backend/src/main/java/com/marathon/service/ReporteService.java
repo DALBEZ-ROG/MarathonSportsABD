@@ -8,10 +8,12 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.marathon.dto.reporte.FiltroReporteDTO;
+import com.marathon.dto.reporte.ReporteCostosProduccionItemDTO;
 import com.marathon.dto.reporte.ReporteMovimientosItemDTO;
 import com.marathon.dto.reporte.ReportePedidosItemDTO;
 import com.marathon.dto.reporte.ReporteVentasProductoItemDTO;
 import com.marathon.model.MovimientoInventario;
+import com.marathon.model.OrdenProduccion;
 import com.marathon.model.Pedido;
 
 import jakarta.persistence.EntityManager;
@@ -23,6 +25,49 @@ public class ReporteService {
 
     @PersistenceContext
     private EntityManager entityManager;
+
+    // ===================== F29 — COSTOS DE PRODUCCIÓN =====================
+    public List<ReporteCostosProduccionItemDTO> generarReporteCostosProduccion(FiltroReporteDTO f) {
+        StringBuilder jpql = new StringBuilder(
+                "SELECT o FROM OrdenProduccion o WHERE o.estado = 'completada'");
+        if (f.getDesde() != null) {
+            jpql.append(" AND o.fechaFin >= :desde");
+        }
+        if (f.getHasta() != null) {
+            jpql.append(" AND o.fechaFin <= :hasta");
+        }
+        if (f.getIdCategoria() != null) {
+            jpql.append(" AND o.producto.categoria.idCategoria = :idCategoria");
+        }
+        jpql.append(" ORDER BY o.fechaFin DESC");
+
+        TypedQuery<OrdenProduccion> query = entityManager.createQuery(jpql.toString(), OrdenProduccion.class);
+        if (f.getDesde() != null) {
+            query.setParameter("desde", f.getDesde());
+        }
+        if (f.getHasta() != null) {
+            query.setParameter("hasta", f.getHasta());
+        }
+        if (f.getIdCategoria() != null) {
+            query.setParameter("idCategoria", f.getIdCategoria());
+        }
+        query.setMaxResults(f.getLimiteEfectivo());
+
+        List<ReporteCostosProduccionItemDTO> resultado = new ArrayList<>();
+        for (OrdenProduccion o : query.getResultList()) {
+            resultado.add(new ReporteCostosProduccionItemDTO(
+                    o.getIdOrdenProduccion(),
+                    o.getProducto() != null ? o.getProducto().getNombre() : null,
+                    o.getCantidadProducida(),
+                    o.getCostoMateriaPrima(),
+                    o.getCostoManoObra(),
+                    o.getCostoIndirecto(),
+                    o.getCostoTotal(),
+                    o.getCostoUnitarioProducido(),
+                    o.getFechaFin()));
+        }
+        return resultado;
+    }
 
     public List<ReportePedidosItemDTO> generarReportePedidos(FiltroReporteDTO f) {
         StringBuilder jpql = new StringBuilder("SELECT p FROM Pedido p WHERE 1=1");

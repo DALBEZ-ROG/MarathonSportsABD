@@ -22,6 +22,11 @@ public class OrdenProduccionResponseDTO {
     private LocalDateTime fechaInicio;
     private LocalDateTime fechaFin;
     private String observaciones;
+    private BigDecimal costoMateriaPrima;
+    private BigDecimal costoManoObra;
+    private BigDecimal costoIndirecto;
+    private BigDecimal costoTotal;
+    private BigDecimal costoUnitarioProducido;
     private List<ConsumoDTO> consumos;
 
     public OrdenProduccionResponseDTO() {}
@@ -77,6 +82,21 @@ public class OrdenProduccionResponseDTO {
     public List<ConsumoDTO> getConsumos() { return consumos; }
     public void setConsumos(List<ConsumoDTO> consumos) { this.consumos = consumos; }
 
+    public BigDecimal getCostoMateriaPrima() { return costoMateriaPrima; }
+    public void setCostoMateriaPrima(BigDecimal v) { this.costoMateriaPrima = v; }
+
+    public BigDecimal getCostoManoObra() { return costoManoObra; }
+    public void setCostoManoObra(BigDecimal v) { this.costoManoObra = v; }
+
+    public BigDecimal getCostoIndirecto() { return costoIndirecto; }
+    public void setCostoIndirecto(BigDecimal v) { this.costoIndirecto = v; }
+
+    public BigDecimal getCostoTotal() { return costoTotal; }
+    public void setCostoTotal(BigDecimal v) { this.costoTotal = v; }
+
+    public BigDecimal getCostoUnitarioProducido() { return costoUnitarioProducido; }
+    public void setCostoUnitarioProducido(BigDecimal v) { this.costoUnitarioProducido = v; }
+
     public static class ConsumoDTO {
         private Integer idConsumo;
         private Integer idMateriaPrima;
@@ -85,8 +105,16 @@ public class OrdenProduccionResponseDTO {
         private BigDecimal cantidadTeorica;
         private BigDecimal cantidadReal;
         private BigDecimal merma;
+        private BigDecimal costoUnitarioSnapshot;
+        private BigDecimal costoLinea;
 
         public ConsumoDTO() {}
+
+        public BigDecimal getCostoUnitarioSnapshot() { return costoUnitarioSnapshot; }
+        public void setCostoUnitarioSnapshot(BigDecimal v) { this.costoUnitarioSnapshot = v; }
+
+        public BigDecimal getCostoLinea() { return costoLinea; }
+        public void setCostoLinea(BigDecimal v) { this.costoLinea = v; }
 
         public Integer getIdConsumo() { return idConsumo; }
         public void setIdConsumo(Integer v) { this.idConsumo = v; }

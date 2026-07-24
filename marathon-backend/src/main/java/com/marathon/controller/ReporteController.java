@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.marathon.dto.reporte.FiltroReporteDTO;
+import com.marathon.dto.reporte.ReporteCostosProduccionItemDTO;
 import com.marathon.dto.reporte.ReporteMovimientosItemDTO;
 import com.marathon.dto.reporte.ReportePedidosItemDTO;
 import com.marathon.dto.reporte.ReporteVentasProductoItemDTO;
@@ -99,6 +100,26 @@ public class ReporteController {
         List<ReporteMovimientosItemDTO> datos = reporteService.generarReporteMovimientos(filtro);
         byte[] archivo = pdfReporteService.exportarMovimientosPDF(datos, filtro, nombreUsuario());
         return respuesta(archivo, MediaType.APPLICATION_PDF_VALUE, "reporte-movimientos-" + hoy() + ".pdf");
+    }
+
+    // ===================== COSTOS DE PRODUCCIÓN (F29) =====================
+    @PostMapping("/costos-produccion/preview")
+    public ResponseEntity<List<ReporteCostosProduccionItemDTO>> previewCostosProduccion(@RequestBody FiltroReporteDTO filtro) {
+        return ResponseEntity.ok(reporteService.generarReporteCostosProduccion(filtro));
+    }
+
+    @PostMapping("/costos-produccion/excel")
+    public ResponseEntity<byte[]> excelCostosProduccion(@RequestBody FiltroReporteDTO filtro) {
+        List<ReporteCostosProduccionItemDTO> datos = reporteService.generarReporteCostosProduccion(filtro);
+        byte[] archivo = excelService.exportarCostosProduccionExcel(datos, filtro);
+        return respuesta(archivo, EXCEL_MIME, "reporte-costos-produccion-" + hoy() + ".xlsx");
+    }
+
+    @PostMapping("/costos-produccion/pdf")
+    public ResponseEntity<byte[]> pdfCostosProduccion(@RequestBody FiltroReporteDTO filtro) {
+        List<ReporteCostosProduccionItemDTO> datos = reporteService.generarReporteCostosProduccion(filtro);
+        byte[] archivo = pdfReporteService.exportarCostosProduccionPDF(datos, filtro, nombreUsuario());
+        return respuesta(archivo, MediaType.APPLICATION_PDF_VALUE, "reporte-costos-produccion-" + hoy() + ".pdf");
     }
 
     // ===================== HELPERS =====================

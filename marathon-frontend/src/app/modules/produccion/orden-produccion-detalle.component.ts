@@ -31,7 +31,7 @@ import { ApiService } from '../../core/services/api.service';
 
       <h3>Consumo de materia prima</h3>
       <table class="data-table">
-        <thead><tr><th>Material</th><th>Teórico</th><th>Real</th><th>Merma</th></tr></thead>
+        <thead><tr><th>Material</th><th>Teórico</th><th>Real</th><th>Merma</th><th>Costo unitario</th><th>Costo línea</th></tr></thead>
         <tbody>
           <tr *ngFor="let c of op.consumos">
             <td>{{c.materiaPrimaNombre}}</td>
@@ -43,9 +43,21 @@ import { ApiService } from '../../core/services/api.service';
               </span>
               <span *ngIf="c.merma == null">-</span>
             </td>
+            <td>$ {{c.costoUnitarioSnapshot | number:'1.4-4'}}</td>
+            <td>$ {{c.costoLinea | number:'1.2-4'}}</td>
           </tr>
         </tbody>
       </table>
+
+      <!-- Panel de costos (F29) -->
+      <div class="costos-panel" *ngIf="op.estado === 'en_proceso' || op.estado === 'completada'">
+        <h3>Costos de producción</h3>
+        <div class="costo-row"><span>Costo materia prima</span><span>$ {{op.costoMateriaPrima | number:'1.2-2'}}</span></div>
+        <div class="costo-row"><span>Costo mano de obra</span><span>$ {{op.costoManoObra | number:'1.2-2'}}</span></div>
+        <div class="costo-row"><span>Costo indirecto</span><span>$ {{op.costoIndirecto | number:'1.2-2'}}</span></div>
+        <div class="costo-row total"><span>Costo total</span><span>$ {{op.costoTotal | number:'1.2-2'}}</span></div>
+        <div class="costo-row" *ngIf="op.cantidadProducida"><span>Costo unitario producido</span><span>$ {{op.costoUnitarioProducido | number:'1.4-4'}} / unidad</span></div>
+      </div>
 
       <!-- Acciones por estado -->
       <div class="acciones">
@@ -86,6 +98,16 @@ import { ApiService } from '../../core/services/api.service';
               <input type="number" min="0" step="0.001" [(ngModel)]="realMap[c.idMateriaPrima]"/>
             </div>
           </div>
+          <div class="form-row2">
+            <div class="form-group">
+              <label>Costo mano de obra</label>
+              <input type="number" min="0" step="0.01" [(ngModel)]="completar.costoManoObra"/>
+            </div>
+            <div class="form-group">
+              <label>Costo indirecto</label>
+              <input type="number" min="0" step="0.01" [(ngModel)]="completar.costoIndirecto"/>
+            </div>
+          </div>
           <div class="form-group">
             <label>Observaciones</label>
             <input [(ngModel)]="completar.observaciones"/>
@@ -120,6 +142,12 @@ import { ApiService } from '../../core/services/api.service';
     .form-group { display: flex; flex-direction: column; gap: .4rem; margin-bottom: .8rem; }
     .form-group label { font-size: .75rem; text-transform: uppercase; color: rgba(255,255,255,0.5); }
     .form-group input { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: .7rem; border-radius: 8px; }
+    .form-row2 { display: flex; gap: 1rem; }
+    .form-row2 .form-group { flex: 1; }
+    .costos-panel { margin-top: 1.5rem; padding: 1rem 1.25rem; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; max-width: 420px; }
+    .costos-panel h3 { margin: 0 0 .75rem; }
+    .costo-row { display: flex; justify-content: space-between; padding: .35rem 0; }
+    .costo-row.total { border-top: 1px solid rgba(255,255,255,0.12); margin-top: .35rem; padding-top: .6rem; font-weight: 700; color: #C9A84C; }
   `]
 })
 export class OrdenProduccionDetalleComponent implements OnInit {
@@ -163,7 +191,7 @@ export class OrdenProduccionDetalleComponent implements OnInit {
   }
 
   abrirCompletar() {
-    this.completar = { cantidadProducida: this.op.cantidadPlanificada, observaciones: '' };
+    this.completar = { cantidadProducida: this.op.cantidadPlanificada, costoManoObra: 0, costoIndirecto: 0, observaciones: '' };
     this.registrarReal = false;
     this.realMap = {};
     (this.op.consumos || []).forEach((c: any) => { this.realMap[c.idMateriaPrima] = c.cantidadTeorica; });
@@ -173,6 +201,8 @@ export class OrdenProduccionDetalleComponent implements OnInit {
   completarProduccion() {
     const body: any = {
       cantidadProducida: this.completar.cantidadProducida,
+      costoManoObra: this.completar.costoManoObra || 0,
+      costoIndirecto: this.completar.costoIndirecto || 0,
       observaciones: this.completar.observaciones || null
     };
     if (this.registrarReal) {

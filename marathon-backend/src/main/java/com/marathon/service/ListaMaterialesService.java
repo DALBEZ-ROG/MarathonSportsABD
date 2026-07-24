@@ -142,17 +142,63 @@ public class ListaMaterialesService {
     }
 
     /**
-     * Costo estimado de producir 1 unidad. Ver deuda tecnica F27: materia_prima
-     * aun no tiene costo_unitario_estimado, asi que el costo se retorna null.
+     * F29 — Costo estimado de producir 1 unidad: suma de cantidad_necesaria ×
+     * costo_unitario_promedio de cada materia prima del BOM activo. Incluye
+     * precio de venta y margen bruto (sin mano de obra ni indirectos, que son
+     * específicos de cada orden).
      */
-    public CostoProduccionEstimadoDTO obtenerCostoProduccionEstimado(Integer idProducto) {
+    public CostoProduccionEstimadoDTO calcularCostoEstimado(Integer idProducto) {
         Producto producto = productoRepository.findById(idProducto)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto", idProducto));
-        // TODO(F29): calcular sumando cantidad_necesaria * costo_unitario_estimado
-        // de cada materia prima cuando exista dicho campo. Por ahora null.
-        BigDecimal costo = null;
-        return new CostoProduccionEstimadoDTO(
-                producto.getIdProducto(), producto.getNombre(), costo);
+
+        List<ListaMateriales> bom = listaMaterialesRepository
+                .findByProductoIdProductoAndEstado(idProducto, "activo");
+        if (bom.isEmpty()) {
+            throw new ValidationException(
+                "El producto no tiene lista de materiales definida. Configure el BOM antes de estimar costos.");
+        }
+
+        List<CostoProduccionEstimadoDTO.CostoMaterialEstimadoDTO> materiales = new ArrayList<>();
+        BigDecimal costoUnitarioTotal = BigDecimal.ZERO;
+        boolean faltaCosto = false;
+
+        for (ListaMateriales linea : bom) {
+            MateriaPrima mp = linea.getMateriaPrima();
+            BigDecimal costoUnit = mp.getCostoUnitarioPromedio() != null
+                    ? mp.getCostoUnitarioPromedio() : BigDecimal.ZERO;
+            BigDecimal costoLinea = linea.getCantidadNecesaria().multiply(costoUnit)
+                    .setScale(4, java.math.RoundingMode.HALF_UP);
+            if (costoUnit.compareTo(BigDecimal.ZERO) == 0) faltaCosto = true;
+            costoUnitarioTotal = costoUnitarioTotal.add(costoLinea);
+            materiales.add(new CostoProduccionEstimadoDTO.CostoMaterialEstimadoDTO(
+                    mp.getIdMateriaPrima(), mp.getNombre(), linea.getCantidadNecesaria(),
+                    costoUnit, costoLinea));
+        }
+        costoUnitarioTotal = costoUnitarioTotal.setScale(4, java.math.RoundingMode.HALF_UP);
+
+        CostoProduccionEstimadoDTO dto = new CostoProduccionEstimadoDTO();
+        dto.setIdProducto(producto.getIdProducto());
+        dto.setNombreProducto(producto.getNombre());
+        dto.setMateriales(materiales);
+        dto.setCostoMateriaPrimaUnitario(costoUnitarioTotal);
+
+        BigDecimal precioVenta = producto.getPrecio() != null ? producto.getPrecio() : BigDecimal.ZERO;
+        dto.setPrecioVenta(precioVenta);
+        BigDecimal margen = precioVenta.subtract(costoUnitarioTotal).setScale(2, java.math.RoundingMode.HALF_UP);
+        dto.setMargenBruto(margen);
+        if (precioVenta.compareTo(BigDecimal.ZERO) > 0) {
+            dto.setMargenPorcentaje(margen.multiply(BigDecimal.valueOf(100))
+                    .divide(precioVenta, 2, java.math.RoundingMode.HALF_UP));
+        } else {
+            dto.setMargenPorcentaje(BigDecimal.ZERO);
+        }
+
+        String adv = "Estimado de materia prima únicamente; NO incluye mano de obra ni indirectos (son específicos de cada orden de producción).";
+        if (faltaCosto) {
+            adv += " Algunos materiales aún no tienen costo registrado (nunca se han recibido por compra).";
+        }
+        dto.setAdvertencia(adv);
+        return dto;
     }
 
     private ListaMaterialesResponseDTO toDTO(ListaMateriales lm) {

@@ -13,9 +13,13 @@ public class MateriaPrimaResponseDTO {
     private java.math.BigDecimal stockActual;
     private java.math.BigDecimal stockMinimo;
     private Boolean stockBajo;
+    private java.math.BigDecimal costoUnitarioPromedio;
     private LocalDateTime createdAt;
 
     public MateriaPrimaResponseDTO() {}
+
+    public java.math.BigDecimal getCostoUnitarioPromedio() { return costoUnitarioPromedio; }
+    public void setCostoUnitarioPromedio(java.math.BigDecimal costoUnitarioPromedio) { this.costoUnitarioPromedio = costoUnitarioPromedio; }
 
     public java.math.BigDecimal getStockActual() { return stockActual; }
     public void setStockActual(java.math.BigDecimal stockActual) { this.stockActual = stockActual; }

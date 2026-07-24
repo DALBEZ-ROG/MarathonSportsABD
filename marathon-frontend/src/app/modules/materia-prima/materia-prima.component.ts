@@ -22,6 +22,7 @@ interface MateriaPrima {
   stockActual: number;
   stockMinimo: number;
   stockBajo: boolean;
+  costoUnitarioPromedio: number;
 }
 
 @Component({
@@ -47,7 +48,7 @@ interface MateriaPrima {
 
       <table class="data-table" *ngIf="!loading">
         <thead>
-          <tr><th>#</th><th>Nombre</th><th>Unidad</th><th>Stock Actual</th><th>Stock Min.</th><th>Estado</th><th>Acciones</th></tr>
+          <tr><th>#</th><th>Nombre</th><th>Unidad</th><th>Stock Actual</th><th>Stock Min.</th><th title="Costo promedio ponderado, actualizado automáticamente con cada recepción de compra.">Costo promedio</th><th>Estado</th><th>Acciones</th></tr>
         </thead>
         <tbody>
           <tr *ngFor="let item of data" [class.stock-bajo]="item.stockBajo">
@@ -56,6 +57,7 @@ interface MateriaPrima {
             <td>{{item.unidadMedidaNombre}}</td>
             <td>{{item.stockActual | number:'1.3-3'}}</td>
             <td>{{item.stockMinimo | number:'1.3-3'}}</td>
+            <td title="Costo promedio ponderado, actualizado automáticamente con cada recepción de compra.">$ {{item.costoUnitarioPromedio | number:'1.4-4'}}</td>
             <td><span class="badge" [class.active]="item.estado==='activo'">{{item.estado}}</span></td>
             <td class="actions">
               <button class="btn-icon" *ngIf="puedeEscribir" (click)="editar(item)" title="Editar">&#9999;&#65039;</button>
@@ -63,7 +65,7 @@ interface MateriaPrima {
               <button class="btn-icon" *ngIf="puedeEscribir" (click)="abrirMovimiento(item)" title="Movimiento">&#128260;</button>
             </td>
           </tr>
-          <tr *ngIf="data.length === 0"><td colspan="7" class="empty">No hay registros</td></tr>
+          <tr *ngIf="data.length === 0"><td colspan="8" class="empty">No hay registros</td></tr>
         </tbody>
       </table>
 

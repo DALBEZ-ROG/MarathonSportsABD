@@ -47,6 +47,7 @@ public class FacturaCompra {
     private BigDecimal impuesto;
 
     // GENERATED ALWAYS AS (subtotal + impuesto) — NUNCA insertar/actualizar
+    @org.hibernate.annotations.Generated(event = { org.hibernate.generator.EventType.INSERT, org.hibernate.generator.EventType.UPDATE })
     @Column(name = "total", insertable = false, updatable = false)
     private BigDecimal total;
 

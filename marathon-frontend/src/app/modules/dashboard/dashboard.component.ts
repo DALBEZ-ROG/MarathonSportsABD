@@ -23,6 +23,7 @@ interface DashboardKpis {
   pedidosPickingPendiente: number;
   productosFabricados: number;
   ordenesProduccionEnProceso: number;
+  costoPromedioProduccionMes: number;
 }
 
 interface VentaDia { fecha: string; totalVentas: number; cantidadPedidos: number; }
@@ -179,6 +180,15 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
           <div class="kpi-info">
             <span class="kpi-value">{{ kpis.ordenesProduccionEnProceso }}</span>
             <span class="kpi-label">OP en proceso</span>
+          </div>
+        </div>
+        <div class="kpi-card kpi-wide clickable" *ngIf="isAdmin || isSupervisor" (click)="irA('/produccion/costos')">
+          <div class="kpi-icon kpi-icon-gold">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-value gold-text">{{ (kpis.costoPromedioProduccionMes || 0) | currency:'USD':'symbol':'1.2-2' }}</span>
+            <span class="kpi-label">Costo prom. producción (mes)</span>
           </div>
         </div>
       </section>

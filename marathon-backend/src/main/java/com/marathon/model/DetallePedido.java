@@ -35,6 +35,7 @@ public class DetallePedido {
     @Column(name = "precio_unitario", nullable = false)
     private BigDecimal precioUnitario;
 
+    @org.hibernate.annotations.Generated(event = { org.hibernate.generator.EventType.INSERT, org.hibernate.generator.EventType.UPDATE })
     @Column(name = "subtotal", insertable = false, updatable = false)
     private BigDecimal subtotal;
 

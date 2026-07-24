@@ -44,6 +44,15 @@ public class OrdenProduccionConsumo {
     @Column(name = "merma", insertable = false, updatable = false)
     private BigDecimal merma;
 
+    // F29 — Snapshot inmutable del costo promedio al momento de consumir.
+    @Column(name = "costo_unitario_snapshot", nullable = false)
+    private BigDecimal costoUnitarioSnapshot = BigDecimal.ZERO;
+
+    // F29 — Columna GENERATED: COALESCE(real, teorica) * snapshot.
+    @Generated(event = { EventType.INSERT, EventType.UPDATE })
+    @Column(name = "costo_linea", insertable = false, updatable = false)
+    private BigDecimal costoLinea;
+
     public OrdenProduccionConsumo() {}
 
     public Integer getIdConsumo() { return idConsumo; }
@@ -62,4 +71,9 @@ public class OrdenProduccionConsumo {
     public void setCantidadReal(BigDecimal cantidadReal) { this.cantidadReal = cantidadReal; }
 
     public BigDecimal getMerma() { return merma; }
+
+    public BigDecimal getCostoUnitarioSnapshot() { return costoUnitarioSnapshot; }
+    public void setCostoUnitarioSnapshot(BigDecimal costoUnitarioSnapshot) { this.costoUnitarioSnapshot = costoUnitarioSnapshot; }
+
+    public BigDecimal getCostoLinea() { return costoLinea; }
 }

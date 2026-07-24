@@ -76,6 +76,59 @@ public class PdfReporteService {
         return baos.toByteArray();
     }
 
+    // ===================== COSTOS DE PRODUCCIÓN (F29) =====================
+    public byte[] exportarCostosProduccionPDF(
+            List<com.marathon.dto.reporte.ReporteCostosProduccionItemDTO> datos,
+            FiltroReporteDTO filtro, String nombreUsuario) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfWriter writer = new PdfWriter(baos);
+        PdfDocument pdf = new PdfDocument(writer);
+        Document doc = new Document(pdf, PageSize.A4.rotate());
+        doc.setMargins(30, 30, 30, 30);
+
+        encabezado(doc, "MARATHON SPORTS — Reporte de Costos de Producción", filtro);
+
+        Table tabla = new Table(UnitValue.createPercentArray(
+                new float[]{1f, 3f, 1.5f, 1.8f, 1.8f, 1.8f, 1.8f, 1.8f, 2f}))
+                .useAllAvailableWidth().setMarginTop(6);
+        tabla.addHeaderCell(headerCell("OP #"));
+        tabla.addHeaderCell(headerCell("Producto"));
+        tabla.addHeaderCell(headerCell("Cant."));
+        tabla.addHeaderCell(headerCell("Costo MP"));
+        tabla.addHeaderCell(headerCell("Mano Obra"));
+        tabla.addHeaderCell(headerCell("Indirectos"));
+        tabla.addHeaderCell(headerCell("Costo Total"));
+        tabla.addHeaderCell(headerCell("C. Unitario"));
+        tabla.addHeaderCell(headerCell("Fecha"));
+
+        BigDecimal totalSuma = BigDecimal.ZERO;
+        for (com.marathon.dto.reporte.ReporteCostosProduccionItemDTO d : datos) {
+            tabla.addCell(bodyCell(str(d.getIdOrdenProduccion())));
+            tabla.addCell(bodyCell(nz(d.getProducto())));
+            tabla.addCell(bodyCellRight(d.getCantidadProducida() != null ? d.getCantidadProducida().toString() : "0"));
+            tabla.addCell(bodyCellRight("$ " + fmt(d.getCostoMateriaPrima())));
+            tabla.addCell(bodyCellRight("$ " + fmt(d.getCostoManoObra())));
+            tabla.addCell(bodyCellRight("$ " + fmt(d.getCostoIndirecto())));
+            tabla.addCell(bodyCellRight("$ " + fmt(d.getCostoTotal())));
+            tabla.addCell(bodyCellRight("$ " + fmt(d.getCostoUnitario())));
+            tabla.addCell(bodyCell(d.getFecha() != null ? d.getFecha().format(FMT) : "-"));
+            if (d.getCostoTotal() != null) {
+                totalSuma = totalSuma.add(d.getCostoTotal());
+            }
+        }
+        doc.add(tabla);
+
+        Paragraph total = new Paragraph("Costo total de producción: $ " + fmt(totalSuma)
+                + "   |   Órdenes: " + datos.size())
+                .setBold().setFontColor(MARATHON_GREEN).setFontSize(11).setMarginTop(8)
+                .setTextAlignment(TextAlignment.RIGHT);
+        doc.add(total);
+
+        pie(doc, nombreUsuario);
+        doc.close();
+        return baos.toByteArray();
+    }
+
     // ===================== VENTAS POR PRODUCTO =====================
     public byte[] exportarVentasProductoPDF(List<ReporteVentasProductoItemDTO> datos, FiltroReporteDTO filtro,
                                             String nombreUsuario) {

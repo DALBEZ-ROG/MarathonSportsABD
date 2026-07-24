@@ -17,6 +17,7 @@ public class DashboardKpisDTO {
     private Long pedidosPickingPendiente;
     private Long productosFabricados;
     private Long ordenesProduccionEnProceso;
+    private BigDecimal costoPromedioProduccionMes;
 
     public DashboardKpisDTO() {}
 
@@ -76,4 +77,7 @@ public class DashboardKpisDTO {
 
     public Long getOrdenesProduccionEnProceso() { return ordenesProduccionEnProceso; }
     public void setOrdenesProduccionEnProceso(Long ordenesProduccionEnProceso) { this.ordenesProduccionEnProceso = ordenesProduccionEnProceso; }
+
+    public BigDecimal getCostoPromedioProduccionMes() { return costoPromedioProduccionMes; }
+    public void setCostoPromedioProduccionMes(BigDecimal costoPromedioProduccionMes) { this.costoPromedioProduccionMes = costoPromedioProduccionMes; }
 }

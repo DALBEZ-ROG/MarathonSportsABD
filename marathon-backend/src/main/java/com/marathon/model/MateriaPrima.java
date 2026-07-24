@@ -41,6 +41,9 @@ public class MateriaPrima {
     @Column(name = "stock_minimo", nullable = false)
     private BigDecimal stockMinimo = BigDecimal.ZERO;
 
+    @Column(name = "costo_unitario_promedio", nullable = false)
+    private BigDecimal costoUnitarioPromedio = BigDecimal.ZERO;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -66,6 +69,9 @@ public class MateriaPrima {
 
     public BigDecimal getStockMinimo() { return stockMinimo; }
     public void setStockMinimo(BigDecimal stockMinimo) { this.stockMinimo = stockMinimo; }
+
+    public BigDecimal getCostoUnitarioPromedio() { return costoUnitarioPromedio; }
+    public void setCostoUnitarioPromedio(BigDecimal costoUnitarioPromedio) { this.costoUnitarioPromedio = costoUnitarioPromedio; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
 }

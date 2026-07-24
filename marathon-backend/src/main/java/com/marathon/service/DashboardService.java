@@ -58,6 +58,9 @@ public class DashboardService {
         dto.setPedidosPickingPendiente(detallePedidoRepository.contarPedidosPickingPendiente());
         dto.setProductosFabricados(productoRepository.countByOrigen("fabricado"));
         dto.setOrdenesProduccionEnProceso(ordenProduccionRepository.countByEstado("en_proceso"));
+        dto.setCostoPromedioProduccionMes(
+                ordenProduccionRepository.costoPromedioProduccionDesde(
+                        LocalDate.now().withDayOfMonth(1).atStartOfDay()));
         return dto;
     }
 
