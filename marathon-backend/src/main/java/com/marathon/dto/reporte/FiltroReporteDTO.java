@@ -10,9 +10,17 @@ public class FiltroReporteDTO {
     private Integer idCategoria;
     private String regionDestino;
     private Integer idBodega;
+    private Integer idMateriaPrima;   // F30 — filtro opcional para consumo de materia prima
+    private Integer idProducto;       // F30 — filtro opcional para eficiencia
     private Integer limite = 100;
 
     public FiltroReporteDTO() {}
+
+    public Integer getIdMateriaPrima() { return idMateriaPrima; }
+    public void setIdMateriaPrima(Integer idMateriaPrima) { this.idMateriaPrima = idMateriaPrima; }
+
+    public Integer getIdProducto() { return idProducto; }
+    public void setIdProducto(Integer idProducto) { this.idProducto = idProducto; }
 
     public LocalDateTime getDesde() { return desde; }
     public void setDesde(LocalDateTime desde) { this.desde = desde; }

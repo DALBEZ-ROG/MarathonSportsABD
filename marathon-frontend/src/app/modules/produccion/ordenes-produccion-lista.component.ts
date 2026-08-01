@@ -25,6 +25,7 @@ import { ApiService } from '../../core/services/api.service';
             <option *ngFor="let p of productos" [ngValue]="p.idProducto">{{p.nombre}}</option>
           </select>
         </div>
+        <button class="btn-cancel" routerLink="/produccion/costos">Análisis de costos</button>
         <button class="btn-new" routerLink="/produccion/nueva">+ Nueva orden de producción</button>
       </div>
 

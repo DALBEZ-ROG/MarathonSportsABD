@@ -61,17 +61,31 @@ BEGIN
 END$$;
 
 -- ---------------------------------------------------------------------
--- Trigger de protección: costo_materia_prima no se modifica manualmente.
--- El servicio lo actualiza mediante fn_actualizar_costo_mp_op() (SECURITY
--- DEFINER via pg_trigger_depth), que ejecuta el UPDATE de forma controlada.
+-- Trigger de protección: costo_materia_prima no se modifica arbitrariamente.
+--
+-- IMPORTANTE: se usa el patrón "comparar contra el valor real" de F21/F23
+-- (fn_proteger_total_orden_compra / fn_proteger_monto_pagado_cxp) y NO el
+-- de pg_trigger_depth() = 0, porque dentro de una función de trigger
+-- pg_trigger_depth() vale 1 (nunca 0) y por tanto esa condición NUNCA se
+-- cumple: el trigger jamás protegería. Ver DEUDA_TECNICA.md (bug detectado
+-- en fn_proteger_total_pedido, que arrastra ese mismo defecto).
+--
+-- Así, el UPDATE se permite solo si el nuevo valor coincide con la suma
+-- real de los costo_linea de los consumos (lo que hace el servicio);
+-- cualquier otro valor se rechaza.
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_proteger_costo_materia_prima_op()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+    v_costo_real NUMERIC(14,2);
 BEGIN
-    IF OLD.costo_materia_prima IS DISTINCT FROM NEW.costo_materia_prima
-       AND pg_trigger_depth() = 0
-       AND current_setting('app.allow_costo_mp_update', true) IS DISTINCT FROM 'on' THEN
-        RAISE EXCEPTION 'El costo de materia prima se calcula automáticamente a partir de los consumos. No puede modificarse directamente.';
+    IF OLD.costo_materia_prima IS DISTINCT FROM NEW.costo_materia_prima THEN
+        SELECT ROUND(COALESCE(SUM(c.costo_linea), 0), 2) INTO v_costo_real
+        FROM orden_produccion_consumo c
+        WHERE c.id_orden_produccion = NEW.id_orden_produccion;
+        IF NEW.costo_materia_prima IS DISTINCT FROM v_costo_real THEN
+            RAISE EXCEPTION 'El costo de materia prima se calcula automáticamente a partir de los consumos. No puede modificarse directamente.';
+        END IF;
     END IF;
     RETURN NEW;
 END;
@@ -83,15 +97,28 @@ CREATE TRIGGER trg_proteger_costo_materia_prima_op
     FOR EACH ROW EXECUTE FUNCTION fn_proteger_costo_materia_prima_op();
 
 -- ---------------------------------------------------------------------
--- Función controlada para que el servicio actualice costo_materia_prima
--- sin violar el trigger de protección. Setea la variable de sesión que
--- el trigger reconoce como "actualización autorizada".
+-- Función dedicada que usa el servicio para fijar costo_materia_prima.
+-- Encapsula el cálculo: siempre escribe la suma real de los consumos, por
+-- lo que pasa la validación del trigger de protección por construcción.
 -- ---------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION fn_set_costo_materia_prima_op(p_id INTEGER, p_costo NUMERIC)
-RETURNS void LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION fn_set_costo_materia_prima_op(p_id INTEGER)
+RETURNS NUMERIC LANGUAGE plpgsql AS $$
+DECLARE
+    v_costo NUMERIC(14,2);
 BEGIN
-    PERFORM set_config('app.allow_costo_mp_update', 'on', true);
-    UPDATE orden_produccion SET costo_materia_prima = p_costo WHERE id_orden_produccion = p_id;
-    PERFORM set_config('app.allow_costo_mp_update', 'off', true);
+    SELECT ROUND(COALESCE(SUM(c.costo_linea), 0), 2) INTO v_costo
+    FROM orden_produccion_consumo c
+    WHERE c.id_orden_produccion = p_id;
+
+    UPDATE orden_produccion SET costo_materia_prima = v_costo
+    WHERE id_orden_produccion = p_id;
+
+    RETURN v_costo;
 END;
 $$;
+
+-- Restaura el valor correcto si quedó desalineado por pruebas previas
+UPDATE orden_produccion o SET costo_materia_prima = sub.real_costo
+FROM (SELECT c.id_orden_produccion AS id, ROUND(COALESCE(SUM(c.costo_linea), 0), 2) AS real_costo
+      FROM orden_produccion_consumo c GROUP BY c.id_orden_produccion) sub
+WHERE o.id_orden_produccion = sub.id AND o.costo_materia_prima IS DISTINCT FROM sub.real_costo;

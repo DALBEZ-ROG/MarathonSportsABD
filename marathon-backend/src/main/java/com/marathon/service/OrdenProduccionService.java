@@ -450,15 +450,12 @@ public class OrdenProduccionService {
      * refresca la entidad para reflejarlas.
      */
     private void recalcularCostoMateriaPrima(Integer idOrden) {
+        // Debe estar escrito el snapshot/cantidad_real antes de sumar costo_linea
         entityManager.flush();
-        Object suma = entityManager.createNativeQuery(
-                "SELECT COALESCE(SUM(costo_linea), 0) FROM orden_produccion_consumo WHERE id_orden_produccion = :id")
+        // La función SQL calcula SUM(costo_linea) y hace el UPDATE; por construcción
+        // escribe el valor real, así que satisface el trigger de protección.
+        entityManager.createNativeQuery("SELECT fn_set_costo_materia_prima_op(:id)")
                 .setParameter("id", idOrden)
-                .getSingleResult();
-        BigDecimal costoMp = new BigDecimal(suma.toString()).setScale(2, java.math.RoundingMode.HALF_UP);
-        entityManager.createNativeQuery("SELECT fn_set_costo_materia_prima_op(:id, :costo)")
-                .setParameter("id", idOrden)
-                .setParameter("costo", costoMp)
                 .getSingleResult();
         // Refrescar la entidad para leer costo_materia_prima + GENERATED (total, unitario)
         OrdenProduccion o = ordenRepository.findById(idOrden).orElse(null);

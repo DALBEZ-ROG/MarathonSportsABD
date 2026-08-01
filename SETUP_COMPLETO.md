@@ -101,7 +101,19 @@ psql -U postgres -d mod_venta_inve -v ON_ERROR_STOP=1 -f marathon-backend/sql/fa
 
 > Crea `orden_produccion` y `orden_produccion_consumo`, el trigger `trg_validar_op_producto_fabricado`, y aplica el **retrofit** de la FK `fk_mmp_orden_produccion` sobre `movimiento_materia_prima` (pendiente desde F26). Idempotente.
 
-### 11. Arrancar el backend (crea roles, permisos y usuarios demo)
+### 11. Fase 29 — Costeo de Producción
+
+Archivo: **`marathon-backend/sql/fase29_costeo_produccion.sql`**
+
+```bash
+psql -U postgres -d mod_venta_inve -v ON_ERROR_STOP=1 -f marathon-backend/sql/fase29_costeo_produccion.sql
+```
+
+> **No crea tablas** (siguen siendo 37): solo agrega columnas de costo (`materia_prima.costo_unitario_promedio`; `orden_produccion_consumo.costo_unitario_snapshot` y `costo_linea`; `orden_produccion.costo_materia_prima/costo_mano_obra/costo_indirecto/costo_total/costo_unitario_producido`), el trigger `trg_proteger_costo_materia_prima_op` y la función `fn_set_costo_materia_prima_op`. Idempotente.
+
+> **Fase 30 — Reportes de Manufactura: NO requiere script SQL.** Es una fase de solo lectura (consultas agregadas, endpoints de reporte, dashboard y exportables); no crea tablas, columnas, vistas, funciones ni triggers. Solo código de aplicación — nada que ejecutar en la BD.
+
+### 12. Arrancar el backend (crea roles, permisos y usuarios demo)
 
 `DataInitializer` crea los **roles**, **permisos** y los **6 usuarios demo** (incluido `admin@marathon.com`). Esto **debe correr ANTES del seed**, porque el seed de pedidos requiere que exista `admin@marathon.com` (aborta con excepción si no está).
 
@@ -115,7 +127,7 @@ Espera a ver el log de inicialización de usuarios y luego puedes detenerlo (Ctr
 Usuarios demo creados (contraseña por defecto según `DataInitializer`):
 `admin@marathon.com`, `supervisor@marathon.com`, `bodega@marathon.com`, `pedidos@marathon.com`, `compras@marathon.com`, `produccion@marathon.com`.
 
-### 12. Seed de datos de negocio
+### 13. Seed de datos de negocio
 
 Archivo: **`marathon-backend/sql/seed_marathon_sports.sql`**
 
@@ -123,7 +135,42 @@ Archivo: **`marathon-backend/sql/seed_marathon_sports.sql`**
 psql -U postgres -d mod_venta_inve -v ON_ERROR_STOP=1 -f marathon-backend/sql/seed_marathon_sports.sql
 ```
 
-> Carga ciudades, categorías, productos, proveedores, bodegas, inventario, clientes y pedidos. **NO** incluye roles/permisos/admin (los crea el `DataInitializer` en el paso 11). Ejecutar **UNA sola vez** (no es idempotente: reejecutarlo duplica datos o viola constraints UNIQUE).
+> Carga ciudades, categorías, productos, proveedores, bodegas, inventario, clientes y pedidos. **NO** incluye roles/permisos/admin (los crea el `DataInitializer` en el paso 12). Ejecutar **UNA sola vez** (no es idempotente: reejecutarlo duplica datos o viola constraints UNIQUE).
+
+### 14. Seed de demostración de los bloques nuevos (Compras, Devoluciones, Manufactura)
+
+Archivo: **`marathon-backend/sql/fase31_seed_demo_bloques_nuevos.sql`**
+
+```bash
+psql -U postgres -d mod_venta_inve -v ON_ERROR_STOP=1 -f marathon-backend/sql/fase31_seed_demo_bloques_nuevos.sql
+```
+
+> Datos **permanentes** de demostración para que los módulos nuevos tengan contenido realista: 10 materias primas, 3 productos fabricados con su BOM, 4 órdenes de compra (2 recibidas con costo promedio ponderado real, 1 aprobada pendiente, 1 borrador), 2 facturas con sus cuentas por pagar (una pagada, una con abono parcial), 3 devoluciones de cliente (RMA), 1 devolución a proveedor y 2 órdenes de producción (una completada con costeo, una planificada).
+>
+> **Es idempotente**: se puede ejecutar más de una vez sin duplicar (usa `ON CONFLICT` y un guard que detecta si ya se sembró). Respeta todas las reglas de negocio: no escribe columnas GENERATED ni calculadas por trigger, y fija `orden_produccion.costo_materia_prima` mediante `fn_set_costo_materia_prima_op()`.
+>
+> Requiere que los pasos 12 (usuarios demo) y 13 (seed base) se hayan ejecutado antes, porque referencia usuarios, proveedores, bodegas y pedidos existentes.
+
+### 15. Fase 32 — Correcciones de deuda técnica (ÚLTIMO PASO, obligatorio)
+
+Archivo: **`marathon-backend/sql/fase32_fixes.sql`**
+
+```bash
+psql -U postgres -d mod_venta_inve -v ON_ERROR_STOP=1 -f marathon-backend/sql/fase32_fixes.sql
+```
+
+> **No crea tablas ni columnas.** Reemplaza la función `fn_proteger_total_pedido` y recrea su trigger. La versión que viene en `fase00_ddl_base.sql` condiciona la excepción a `pg_trigger_depth() = 0`, condición que **nunca se cumple** dentro de un trigger (allí esa función vale 1), por lo que `UPDATE pedido SET total = 9999` pasaba sin error y la regla de negocio #1 del proyecto quedaba sin protección efectiva. Este script la reimplementa comparando contra el **total neto real** (`GREATEST(SUM(subtotal) − descuento, 0)`), el patrón ya validado en F21/F23/F29.
+>
+> **Sin este paso la base de datos queda con el bug.** Es la razón por la que es obligatorio y no opcional.
+>
+> Idempotente (`CREATE OR REPLACE` + `DROP TRIGGER IF EXISTS`) e **incluye su propia verificación**: al ejecutarlo emite dos avisos que deben decir `OK`:
+>
+> ```
+> NOTICE:  OK: ninguna funcion usa pg_trigger_depth
+> NOTICE:  OK: todos los pedidos tienen total coherente con el neto
+> ```
+>
+> Puede ejecutarse en cualquier momento posterior al paso 2; se coloca al final para no interferir con los seeds. Verificado: ninguno de los seeds escribe `pedido.total` (dejan que el trigger lo calcule), así que el orden no afecta el resultado.
 
 ---
 
@@ -148,9 +195,60 @@ UNION ALL SELECT 'cliente',         COUNT(*),  40  FROM cliente
 UNION ALL SELECT 'pedido',          COUNT(*),  25  FROM pedido
 UNION ALL SELECT 'detalle_pedido',  COUNT(*),  68  FROM detalle_pedido
 ORDER BY tabla;
+
+-- Columnas y objetos de costeo (F29). El total de tablas NO cambia (37):
+-- esta fase solo agrega columnas, un trigger y una función.
+SELECT
+  (SELECT COUNT(*) FROM information_schema.columns
+     WHERE table_name='materia_prima' AND column_name='costo_unitario_promedio')            AS mp_costo_promedio,      -- esperado 1
+  (SELECT COUNT(*) FROM information_schema.columns
+     WHERE table_name='orden_produccion_consumo'
+       AND column_name IN ('costo_unitario_snapshot','costo_linea'))                        AS opc_cols_costo,         -- esperado 2
+  (SELECT COUNT(*) FROM information_schema.columns
+     WHERE table_name='orden_produccion'
+       AND column_name IN ('costo_materia_prima','costo_mano_obra','costo_indirecto',
+                           'costo_total','costo_unitario_producido'))                       AS op_cols_costo,          -- esperado 5
+  (SELECT COUNT(*) FROM pg_trigger
+     WHERE tgname='trg_proteger_costo_materia_prima_op')                                    AS trigger_costo,          -- esperado 1
+  (SELECT COUNT(*) FROM pg_proc
+     WHERE proname='fn_set_costo_materia_prima_op')                                         AS funcion_costo;          -- esperado 1
+
+-- Conteos de los módulos nuevos tras el seed demo (paso 14)
+SELECT 'materia_prima'                AS tabla, COUNT(*) AS filas, 10 AS esperado FROM materia_prima
+UNION ALL SELECT 'lista_materiales (BOM)',       COUNT(*), 12 FROM lista_materiales
+UNION ALL SELECT 'producto origen=fabricado',    COUNT(*),  3 FROM producto WHERE origen='fabricado'
+UNION ALL SELECT 'orden_compra',                 COUNT(*),  4 FROM orden_compra
+UNION ALL SELECT 'orden_compra_detalle',         COUNT(*), 10 FROM orden_compra_detalle
+UNION ALL SELECT 'recepcion_mercancia',          COUNT(*),  2 FROM recepcion_mercancia
+UNION ALL SELECT 'recepcion_mercancia_detalle',  COUNT(*),  7 FROM recepcion_mercancia_detalle
+UNION ALL SELECT 'factura_compra',               COUNT(*),  2 FROM factura_compra
+UNION ALL SELECT 'cuenta_por_pagar',             COUNT(*),  2 FROM cuenta_por_pagar
+UNION ALL SELECT 'pago_proveedor',               COUNT(*),  2 FROM pago_proveedor
+UNION ALL SELECT 'solicitud_devolucion',         COUNT(*),  3 FROM solicitud_devolucion
+UNION ALL SELECT 'solicitud_devolucion_detalle', COUNT(*),  3 FROM solicitud_devolucion_detalle
+UNION ALL SELECT 'reembolso_cliente',            COUNT(*),  1 FROM reembolso_cliente
+UNION ALL SELECT 'devolucion_proveedor',         COUNT(*),  1 FROM devolucion_proveedor
+UNION ALL SELECT 'devolucion_proveedor_detalle', COUNT(*),  1 FROM devolucion_proveedor_detalle
+UNION ALL SELECT 'movimiento_materia_prima',     COUNT(*), 11 FROM movimiento_materia_prima
+UNION ALL SELECT 'orden_produccion',             COUNT(*),  2 FROM orden_produccion
+UNION ALL SELECT 'orden_produccion_consumo',     COUNT(*),  8 FROM orden_produccion_consumo
+UNION ALL SELECT 'usuarios demo (6 roles)',      COUNT(*),  6 FROM usuario
+  WHERE correo IN ('admin@marathon.com','supervisor@marathon.com','bodega@marathon.com',
+                   'pedidos@marathon.com','compras@marathon.com','produccion@marathon.com')
+ORDER BY tabla;
+
+-- Integridad del costeo: el costo promedio ponderado debe igualar el precio de
+-- compra de cada material recibido una sola vez (esperado: 0 filas con 'REVISAR')
+SELECT mp.nombre, mp.costo_unitario_promedio,
+       CASE WHEN mp.costo_unitario_promedio =
+                 (SELECT ocd.precio_unitario FROM orden_compra_detalle ocd
+                   WHERE ocd.id_materia_prima = mp.id_materia_prima LIMIT 1)
+            THEN 'OK' ELSE 'REVISAR' END AS costo_ok
+FROM materia_prima mp
+WHERE mp.costo_unitario_promedio > 0;
 ```
 
-Resultado esperado:
+Resultado esperado (tras el seed base; el paso 14 añade productos e inventario):
 
 | tabla | filas (esperado) |
 |-------|------------------|
@@ -164,8 +262,10 @@ Resultado esperado:
 | producto | 105 |
 | proveedor | 6 |
 | **Total de tablas** | **37** |
+| mp_costo_promedio / opc_cols_costo / op_cols_costo | 1 / 2 / 5 |
+| trigger_costo / funcion_costo | 1 / 1 |
 
-> Los conteos de datos de negocio dependen del contenido de `seed_marathon_sports.sql`. Las 37 tablas dependen solo de los pasos 2–10 (DDL) y se validaron ejecutando la secuencia completa `fase00`→`fase28` sobre una BD vacía.
+> Los conteos de datos de negocio dependen del contenido de `seed_marathon_sports.sql`. Las 37 tablas dependen solo de los pasos 2–11 (DDL) y se validaron ejecutando la secuencia completa `fase00`→`fase29` sobre una BD vacía. La F29 no agrega tablas, por eso se verifican sus columnas/trigger/función.
 
 ---
 
@@ -183,5 +283,69 @@ Resultado esperado:
 | 8 | Kardex Materia Prima | `fase26_kardex_materia_prima.sql` |
 | 9 | Origen + BOM | `fase27_origen_producto_bom.sql` |
 | 10 | Órdenes de Producción | `fase28_ordenes_produccion.sql` |
-| 11 | Roles/permisos/usuarios demo | Arrancar backend (`DataInitializer`) |
-| 12 | Datos de negocio | `seed_marathon_sports.sql` |
+| 11 | Costeo de Producción (solo columnas + trigger) | `fase29_costeo_produccion.sql` |
+| 12 | Roles/permisos/usuarios demo | Arrancar backend (`DataInitializer`) |
+| 13 | Datos de negocio | `seed_marathon_sports.sql` |
+| 14 | Demo de Compras, Devoluciones y Manufactura | `fase31_seed_demo_bloques_nuevos.sql` |
+| 15 | **Correcciones de deuda técnica (obligatorio)** | `fase32_fixes.sql` |
+
+> **Nota:** la fase 30 no tiene script SQL — es solo código de aplicación (reportes y dashboard de manufactura), no toca el esquema.
+
+---
+
+## Verificación de integridad (opcional, recomendada)
+
+Comprobación final de que la base quedó consistente. Los cuatro bloques deben devolver los valores indicados.
+
+```sql
+-- 1) Objetos del esquema: 37 tablas, 17 funciones, 24 triggers
+SELECT
+  (SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+     WHERE n.nspname='public' AND c.relkind='r')                       AS tablas,        -- 37
+  (SELECT COUNT(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+     WHERE n.nspname='public' AND p.prokind='f')                       AS funciones,     -- 17
+  (SELECT COUNT(*) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
+     JOIN pg_namespace n ON n.oid=c.relnamespace
+     WHERE n.nspname='public' AND NOT t.tgisinternal)                  AS triggers_,     -- 24
+  (SELECT COUNT(*) FROM pg_constraint
+     WHERE contype='f' AND connamespace='public'::regnamespace)        AS fks;           -- 70
+
+-- 2) Ninguna función debe usar pg_trigger_depth (esperado: 0 filas)
+SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+WHERE n.nspname='public' AND p.prokind='f'
+  AND pg_get_functiondef(p.oid) LIKE '%pg_trigger_depth%';
+
+-- 3) Integridad referencial real: revalida cada fila de las 70 FKs.
+--    Si alguna tiene huérfanos, emite un WARNING con el nombre.
+DO $$
+DECLARE r record; fallos int := 0;
+BEGIN
+  FOR r IN SELECT conrelid::regclass AS tab, conname FROM pg_constraint
+           WHERE contype='f' AND connamespace='public'::regnamespace LOOP
+    BEGIN
+      EXECUTE format('ALTER TABLE %s VALIDATE CONSTRAINT %I', r.tab, r.conname);
+    EXCEPTION WHEN others THEN
+      fallos := fallos + 1;
+      RAISE WARNING 'FK ROTA: %.% -> %', r.tab, r.conname, SQLERRM;
+    END;
+  END LOOP;
+  IF fallos = 0 THEN RAISE NOTICE 'OK: 0 FKs con huerfanos';
+  ELSE RAISE WARNING '% FKs con problemas', fallos; END IF;
+END $$;
+
+-- 4) Coherencia de las columnas calculadas (todos los conteos deben dar 0)
+SELECT
+  (SELECT COUNT(*) FROM pedido p WHERE p.total <> GREATEST(
+     COALESCE((SELECT SUM(d.subtotal) FROM detalle_pedido d WHERE d.id_pedido=p.id_pedido),0)
+     - p.descuento, 0))                                                AS pedido_total_malo,
+  (SELECT COUNT(*) FROM orden_compra o WHERE o.total <>
+     COALESCE((SELECT SUM(d.subtotal) FROM orden_compra_detalle d
+                WHERE d.id_orden_compra=o.id_orden_compra),0))         AS oc_total_malo,
+  (SELECT COUNT(*) FROM cuenta_por_pagar c WHERE c.monto_pagado <>
+     COALESCE((SELECT SUM(pp.monto) FROM pago_proveedor pp
+                WHERE pp.id_cuenta_pagar=c.id_cuenta_pagar),0))        AS cxp_pagado_malo,
+  (SELECT COUNT(*) FROM lista_materiales b JOIN producto p USING (id_producto)
+     WHERE p.origen <> 'fabricado')                                    AS bom_no_fabricado,
+  (SELECT COUNT(*) FROM inventario WHERE stock_actual < 0)             AS stock_negativo,
+  (SELECT COUNT(*) FROM materia_prima WHERE stock_actual < 0)          AS mp_negativa;
+```

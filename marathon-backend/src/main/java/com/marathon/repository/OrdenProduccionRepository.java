@@ -21,17 +21,20 @@ public interface OrdenProduccionRepository extends JpaRepository<OrdenProduccion
 
     long countByEstado(String estado);
 
-    // F29 — Costo promedio de fabricación (avg de costo_unitario_producido) de
-    // las OP completadas de un producto. NULL si no hay ninguna.
-    @Query("SELECT AVG(o.costoUnitarioProducido) FROM OrdenProduccion o "
+    // F29 — Costo promedio de fabricación de las OP completadas de un producto.
+    // F32 — Corregido a promedio PONDERADO por cantidad producida
+    // (SUM(costo_total) / SUM(cantidad_producida)) en vez de un promedio simple
+    // de costos unitarios, que se sesgaba con lotes de tamaños distintos.
+    @Query("SELECT SUM(o.costoTotal) / SUM(o.cantidadProducida) FROM OrdenProduccion o "
         + "WHERE o.producto.idProducto = :idProducto AND o.estado = 'completada' "
         + "AND o.cantidadProducida > 0")
     BigDecimal costoPromedioFabricacion(@Param("idProducto") Integer idProducto);
 
     long countByProductoIdProductoAndEstado(Integer idProducto, String estado);
 
-    // F29 — Costo promedio de producción (avg costo_total) de las OP completadas
-    // desde una fecha (para el dashboard: mes actual).
+    // F29 — Costo promedio POR ORDEN de producción completada desde una fecha
+    // (dashboard: mes actual). Aquí el promedio por orden es lo correcto:
+    // responde "cuánto cuesta en promedio una orden", no un costo unitario.
     @Query("SELECT AVG(o.costoTotal) FROM OrdenProduccion o "
         + "WHERE o.estado = 'completada' AND o.fechaFin >= :desde")
     BigDecimal costoPromedioProduccionDesde(@Param("desde") java.time.LocalDateTime desde);

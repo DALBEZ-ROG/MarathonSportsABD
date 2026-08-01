@@ -1,61 +1,49 @@
 ---
 inclusion: auto
 ---
-# Deuda Técnica — Marathon Sports
+# Deuda Técnica — puntero al documento maestro
 
-Este archivo documenta items pendientes que DEBEN ser considerados al trabajar en el proyecto.
+> ⚠️ **La deuda técnica del proyecto se documenta en `DEUDA_TECNICA.md` en la raíz.**
+> Ese archivo es el maestro: tiene una sección por fase (F21–F32) y un
+> **INVENTARIO CONSOLIDADO** con la deuda clasificada por prioridad, lo resuelto y el
+> trabajo futuro. Consúltalo ahí; este archivo solo conserva datos de entorno.
+>
+> Este archivo contenía antes una copia parcial y desactualizada (última edición previa:
+> 2026-07-15, anterior a la Fase 21). Se vació en la **Fase 32** para eliminar la
+> duplicación y evitar que el steering aportara información contradictoria.
 
-## Prioridad Alta
+## Corrección importante aplicada en F32
 
-### 1. SQL de privilegios — Actualizar nombres de funciones
-- **Archivo**: `sql/administracion_usuarios_roles_privilegios.sql`
-- **Problema**: Los nombres de funciones en el script SQL no coinciden con los reales en la BD restaurada.
-- **Funciones reales en la BD** (verificado):
-  - `fn_proteger_total_pedido()`
-  - `fn_recalcular_total_pedido()`
-  - `fn_recalcular_total_pedido_delete()`
-  - `fn_recalcular_total_pedido_stmt()`
-  - `fn_recalcular_total_por_descuento()`
-  - `fn_set_updated_at()`
-  - `fn_trg_historial_inventario()`
-  - `fn_validar_total_comprobante()`
-- **Funciones incorrectas en el script** (del steering antiguo, NO existen):
-  - `fn_generar_numero_pedido()` → NO EXISTE
-  - `fn_actualizar_total_pedido()` → Correcto es `fn_recalcular_total_pedido()`
-  - `fn_generar_numero_comprobante()` → NO EXISTE
-  - `fn_registrar_historial_inventario()` → Correcto es `fn_trg_historial_inventario()`
-  - `fn_aplicar_movimiento_inventario()` → NO EXISTE
-  - `fn_validar_stock_pedido()` → NO EXISTE
-- **Acción**: Actualizar la sección 9 del SQL y la tabla de funciones/triggers en `.kiro/steering/database.md`
+La versión anterior de este archivo advertía —con razón— que la tabla de funciones y
+triggers de `.kiro/steering/database.md` no coincidía con la BD real. **Esa advertencia
+era correcta y quedó resuelta en la Fase 32**: `database.md` se regeneró consultando
+`pg_proc` y `pg_trigger`, y ahora refleja las **17 funciones y 24 triggers** reales.
 
-### 2. Steering `database.md` desactualizado
-- **Problema**: El archivo `.kiro/steering/database.md` lista funciones y triggers que no coinciden con la BD real (probablemente fueron renombrados en una iteración posterior).
-- **Acción**: Ejecutar `\df` y `\dy` en psql para obtener los nombres reales y actualizar el steering.
+Nombres que el steering antiguo listaba y que **NO existen** en la base:
+`fn_generar_numero_pedido`, `fn_actualizar_total_pedido`, `fn_generar_numero_comprobante`,
+`fn_registrar_historial_inventario`, `fn_aplicar_movimiento_inventario`,
+`fn_validar_stock_pedido`.
 
-## Prioridad Media
+Los nombres reales equivalentes son `fn_recalcular_total_pedido` (+ variantes `_stmt` y
+`_delete`) y `fn_trg_historial_inventario`.
 
-### 3. Sidebar collapsed — margin-left no se ajusta
-- **Problema**: Cuando el sidebar se colapsa (72px), el `main-content` mantiene `margin-left: 260px`.
-- **Acción**: Implementar comunicación entre `NavbarComponent` y `AppComponent` (via servicio o output) para ajustar dinámicamente el margin.
+> ✅ **Verificado en F32:** `sql/administracion_usuarios_roles_privilegios.sql` **ya usa
+> los nombres correctos** (`fn_trg_historial_inventario`, `fn_recalcular_total_pedido`,
+> `fn_recalcular_total_pedido_delete`, `fn_recalcular_total_pedido_stmt`,
+> `fn_recalcular_total_por_descuento`). Esa deuda estaba resuelta; solo este steering
+> seguía reportándola. Único detalle menor pendiente: el script no otorga privilegios
+> sobre las funciones nuevas de F21–F29, pero es un script opcional de administración
+> de usuarios de BD que no afecta el funcionamiento de la aplicación.
 
-### 4. Angular CLI analytics prompt
-- **Problema**: Se agregó `"cli": {"analytics": false}` al inicio de `angular.json` para evitar prompts interactivos.
-- **Nota**: Esto es inofensivo pero fue un workaround.
+## Información de Entorno (esta PC)
 
-## Prioridad Baja
-
-### 5. ViewEncapsulation en proveedores
-- **Problema**: `proveedores.component.ts` tiene `ViewEncapsulation.None` importado pero solo como precaución. Los demás componentes CRUD no lo necesitan porque los estilos globales aplican correctamente.
-- **Acción**: Puede removerse `ViewEncapsulation` del import si no causa problemas.
-
-### 6. Estilos inline vaciados
-- **Problema**: 20+ componentes tienen `styles: ['/* Inherits global dark theme from styles.scss */']`. Si algún componente necesita estilos únicos en el futuro, agregar nuevos estilos inline ahí (no en el global).
-- **Nota**: El archivo `marathon-frontend/src/styles.scss` tiene ~2000 líneas de estilos globales que cubren todos los patrones CRUD, modales, tablas, badges, chat IA, reportes, etc.
-
-## Información de Entorno
-
-- PostgreSQL en esta PC: versión 18, password del user postgres: se encuentra en `.env` y `application-local.properties` (gitignored)
-- Java: OpenJDK 17.0.19 (Microsoft), instalado via winget
-- Maven: 3.9.16, ubicado en `C:\Users\dbeni\OneDrive\Documentos\apache-maven-3.9.16-bin\apache-maven-3.9.16\bin`
-- Node: v24.15.0, npm: 11.12.1
-- El proyecto se corre con `mvn spring-boot:run` en marathon-backend y `npx ng serve` en marathon-frontend
+- **PostgreSQL 18** (aunque el proyecto apunta a 15 como mínimo). La contraseña del
+  usuario `postgres` está en `.env` y `application-local.properties` (ambos gitignored).
+- **Java**: OpenJDK 17.0.19 (Microsoft), instalado vía winget.
+- **Maven**: 3.9.16 en `C:\Users\dbeni\OneDrive\Documentos\apache-maven-3.9.16-bin\apache-maven-3.9.16\bin`
+- **Node**: v24.15.0 · **npm**: 11.12.1
+- **Arranque**: `mvn spring-boot:run` en `marathon-backend` y `npx ng serve` en `marathon-frontend`.
+- **MCP**: servidor `postgres-marathon` configurado en `.kiro/settings/mcp.json`
+  (gitignored porque contiene la contraseña). Da acceso de lectura/escritura a la BD.
+- Si el puerto 8080 está ocupado, arrancar con
+  `mvn spring-boot:run "-Dspring-boot.run.arguments=--server.port=8085"`.

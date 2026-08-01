@@ -25,11 +25,15 @@ public interface ProductoRepository extends JpaRepository<Producto, Integer> {
     Page<Producto> findByNombreContainingIgnoreCaseAndEstadoAndCategoriaIdCategoria(String nombre, String estado, Integer idCategoria, Pageable pageable);
 
     // F27: filtro unificado que incluye origen (comprado/fabricado)
+    // F32 — BUG CORREGIDO: sin los CAST explícitos, PostgreSQL no puede inferir el
+    // tipo de los parámetros cuando llegan en NULL, los asume `bytea` y falla con
+    // "no existe la función lower(bytea)" (error 500). Rompía el filtro por origen,
+    // que usan el listado de productos y los dropdowns del módulo de Producción.
     @Query("SELECT p FROM Producto p WHERE "
-        + "(:nombre IS NULL OR LOWER(p.nombre) LIKE LOWER(CONCAT('%', :nombre, '%'))) AND "
-        + "(:estado IS NULL OR p.estado = :estado) AND "
+        + "(CAST(:nombre AS string) IS NULL OR LOWER(p.nombre) LIKE LOWER(CONCAT('%', CAST(:nombre AS string), '%'))) AND "
+        + "(CAST(:estado AS string) IS NULL OR p.estado = CAST(:estado AS string)) AND "
         + "(:idCategoria IS NULL OR p.categoria.idCategoria = :idCategoria) AND "
-        + "(:origen IS NULL OR p.origen = :origen)")
+        + "(CAST(:origen AS string) IS NULL OR p.origen = CAST(:origen AS string))")
     Page<Producto> buscarConFiltros(@Param("nombre") String nombre,
                                     @Param("estado") String estado,
                                     @Param("idCategoria") Integer idCategoria,

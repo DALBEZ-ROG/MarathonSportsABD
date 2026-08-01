@@ -1,154 +1,233 @@
 # Guion de Demostración — Marathon Sports
 
-Sistema de Gestión de Pedidos E-Commerce | Proyecto Semestral
+Sistema de Gestión de Pedidos, Compras, Manufactura y Calidad
+Proyecto de Administración de Bases de Datos · 32 fases · 37 tablas · 24 triggers
+
+**Duración total: 40–45 minutos.** Si el tiempo aprieta, los ciclos 1 y 3 son los imprescindibles: el primero muestra el trigger de integridad, el tercero es lo que distingue al proyecto.
 
 ---
 
-## Preparación Previa
+## Preparación previa
 
 - [ ] Backend corriendo en `http://localhost:8080`
 - [ ] Frontend corriendo en `http://localhost:4200`
-- [ ] Base de datos con seed data cargado
-- [ ] Navegador abierto en modo limpio (sin sesión previa)
-- [ ] Tener a mano las credenciales de los 4 usuarios
+- [ ] BD con `seed_marathon_sports.sql` **y** `fase31_seed_demo_bloques_nuevos.sql` aplicados
+- [ ] Una terminal `psql` abierta en `mod_venta_inve` para las pruebas de integridad en BD
+- [ ] Navegador sin sesión previa
+- [ ] Credenciales de los 6 usuarios a mano (tabla al final)
 
 ---
 
-## Escena 1 — Login con cada rol (5 min)
+## Apertura — Seguridad por rol (5 min)
 
-**Objetivo:** mostrar que el sistema reconoce roles y adapta la UI.
+**Usuario: los 6, uno por uno.** Objetivo: mostrar que la UI se adapta al rol y que la restricción es real, no cosmética.
 
-- [ ] Iniciar sesión como `admin@marathon.com` / `Admin1234!`
-  - Mostrar menú completo: todos los módulos visibles
-  - Señalar el nombre del usuario y rol en el header
-- [ ] Cerrar sesión — iniciar como `supervisor@marathon.com` / `Demo1234!`
-  - Mostrar que solo ve Dashboard, Pedidos y Reportes
-- [ ] Cerrar sesión — iniciar como `bodega@marathon.com` / `Demo1234!`
-  - Mostrar que ve Inventario, Picking y Empaque
-- [ ] Cerrar sesión — iniciar como `pedidos@marathon.com` / `Demo1234!`
-  - Mostrar que ve Pedidos y Clientes
-- [ ] Volver a iniciar como `admin@marathon.com` para el resto de la demo
+- [ ] Entrar como `admin@marathon.com` / `Admin1234!` → navbar completo, todos los módulos
+- [ ] Entrar como `compras@marathon.com` / `Demo1234!` → navbar con Compras, Cuentas por Pagar y Materia Prima; **el dashboard NO muestra KPIs de ventas**, muestra los de compras
+- [ ] Entrar como `produccion@marathon.com` / `Demo1234!` → navbar con Manufactura; dashboard con KPIs de producción y accesos rápidos propios
+- [ ] **Prueba clave:** con `produccion@marathon.com` escribir a mano en la barra de direcciones `http://localhost:4200/usuarios`
+  - El `rolGuard` bloquea y redirige a `/dashboard?acceso=denegado` con el aviso "No tienes acceso a esta sección"
+- [ ] Explicar la **doble capa**: el guard evita la pantalla, pero la defensa efectiva es `SecurityConfig` en el backend. Mostrar `MATRIZ_ROLES.md` como la auditoría de esa correspondencia.
+- [ ] Volver a `admin@marathon.com`
 
 ---
 
-## Escena 2 — Crear un pedido completo desde cero (5 min)
+## CICLO 1 — Order-to-Cash (10 min)
 
-**Objetivo:** demostrar el ciclo de creación con validaciones.
+### 1.1 Crear el pedido · usuario `pedidos@marathon.com`
+- [ ] **Pedidos → Nuevo Pedido**
+- [ ] Seleccionar un cliente del seed
+- [ ] Agregar 2 productos; observar que el subtotal de cada línea se calcula solo
+- [ ] Ingresar un **descuento** (ej. 15.00) y ver bajar el total
+- [ ] Marcar **Pedido Especial** → tipo "regalo" → nota
+- [ ] Guardar → el pedido aparece como **pendiente**
 
-- [ ] Ir a **Pedidos → Nuevo Pedido**
-- [ ] Seleccionar un cliente existente (ej. buscar por nombre)
-- [ ] Agregar 2 o 3 productos del catálogo
-  - Observar que el subtotal se calcula automáticamente
-  - Ingresar un descuento (ej. $10.00) y observar cómo baja el total
-- [ ] Marcar como **Pedido Especial** → tipo "regalo" → agregar nota
-- [ ] Guardar el pedido
-- [ ] Verificar que el pedido aparece en la lista con estado **pendiente**
-- [ ] Señalar que el `total` fue calculado por trigger en BD (no por la app)
+### 1.2 Demostrar el trigger de integridad · terminal `psql`
+Este es el momento fuerte de la demo desde el punto de vista de administración de BD.
 
----
+```sql
+-- El total lo calculó el trigger, no la aplicación:
+SELECT id_pedido, total, descuento FROM pedido ORDER BY id_pedido DESC LIMIT 1;
 
-## Escena 3 — Flujo completo de estados (5 min)
+-- Intentar falsear el total: la BD lo rechaza
+UPDATE pedido SET total = 9999 WHERE id_pedido = <id>;
+-- ERROR: pedido.total es calculado automaticamente por trigger y no puede modificarse manualmente
 
-**Objetivo:** mostrar la transición de estados con validaciones de negocio.
+-- Pero el recálculo legítimo sí funciona: cambiar el descuento
+UPDATE pedido SET descuento = 30 WHERE id_pedido = <id>;
+SELECT id_pedido, total, descuento FROM pedido WHERE id_pedido = <id>;
+-- el total bajó solo, en neto
+```
 
-- [ ] Abrir el pedido recién creado
-- [ ] Cambiar estado a **Procesado** — observar la confirmación
-- [ ] Ir a **Picking → Lista de Pedidos**
-  - Localizar el pedido y hacer clic en **Ejecutar Picking**
-  - Confirmar las líneas de productos una a una (o todas)
-  - Guardar el picking completado
-- [ ] Ir a **Empaque → Lista para Empacar**
-  - Localizar el pedido
-  - Ingresar número HU, transportista y región destino
-  - Confirmar empaque → el estado cambia a **Enviado**
-- [ ] Volver al pedido → cambiar a **Entregado**
-- [ ] Mostrar que no se puede hacer más transiciones (estado final)
+- [ ] Señalar que esta protección se **corrigió en la Fase 32**: antes usaba `pg_trigger_depth() = 0`, condición que dentro de un trigger vale 1 y por tanto nunca se cumplía. El trigger existía pero no protegía nada. Ahora compara contra el valor real recalculado.
 
----
+### 1.3 Picking · usuario `bodega@marathon.com`
+- [ ] Cambiar el pedido a **Procesado**
+- [ ] **Picking → Ejecutar Picking** → confirmar las líneas → guardar
 
-## Escena 4 — Generar y descargar comprobante PDF (3 min)
+### 1.4 Empaque y despacho · usuario `bodega@marathon.com`
+- [ ] **Empaque → Lista para Empacar**
+- [ ] Ingresar número HU, transportista y región destino → confirmar
+- [ ] El estado pasa a **Enviado** y el stock baja en la bodega
 
-**Objetivo:** mostrar la generación de comprobante con total neto.
-
-- [ ] Desde el detalle del pedido, hacer clic en **Generar Comprobante**
-- [ ] Observar el número de comprobante generado (ej. COMP-2026-000001)
-- [ ] Hacer clic en **Descargar PDF**
-- [ ] Abrir el PDF y señalar:
-  - Datos del cliente
-  - Tabla de productos con subtotales
-  - Línea de descuento aplicado
-  - **TOTAL NETO** = subtotal − descuento
-- [ ] Ir a **Comprobantes** para ver el listado general
+### 1.5 Entrega y comprobante · usuario `supervisor@marathon.com`
+- [ ] Cambiar a **Entregado** (estado final, sin más transiciones)
+- [ ] **Generar Comprobante** → observar el número (`COMP-2026-00000X`)
+- [ ] **Descargar PDF** y señalar: datos del cliente, líneas con subtotal, descuento y **TOTAL NETO** que cuadra con `pedido.total`
 
 ---
 
-## Escena 5 — Dashboard con KPIs reales (3 min)
+## CICLO 2 — Procure-to-Pay (10 min)
 
-**Objetivo:** mostrar el valor analítico del sistema.
+### 2.1 Crear la orden · usuario `compras@marathon.com`
+- [ ] **Compras → Nueva Orden de Compra**
+- [ ] Seleccionar proveedor
+- [ ] Agregar una línea de **producto** y una de **materia prima**
+  - Explicar la **asociación polimórfica exclusiva**: cada línea es producto O materia prima, nunca ambos ni ninguno, garantizado por el CHECK `chk_oc_detalle_item_exclusivo` en la BD
+- [ ] Guardar → estado **borrador** → **Enviar a aprobación**
+- [ ] **Intentar aprobar la propia orden** → el sistema lo rechaza: **separación de funciones**
 
-- [ ] Ir a **Dashboard**
-- [ ] Señalar los KPIs en tiempo real:
-  - Total de pedidos del día / semana
-  - Pedidos por estado (gráfico de dona)
-  - Top productos más vendidos
-  - Ventas por día (gráfico de línea)
-- [ ] Cambiar el rango de días del gráfico de ventas
-- [ ] Destacar que los datos son de la BD real (seed data + pedido recién creado)
+### 2.2 Aprobar · usuario `admin@marathon.com`
+- [ ] **Compras** → abrir la orden → **Aprobar**
+- [ ] Señalar que `total` lo calculó el trigger `fn_recalcular_total_orden_compra_stmt`
 
----
+### 2.3 Recibir mercancía · usuario `bodega@marathon.com`
+- [ ] **Compras → Recepción** sobre la orden aprobada
+- [ ] Recibir **parcialmente** (ej. la mitad de una línea) y declarar alguna unidad **defectuosa**
+- [ ] Ver la orden pasar a **recibida_parcial**; recibir el resto → **recibida_completa**
+- [ ] Explicar: solo entra al stock `cantidad_buena = recibida − defectuosa`; la defectuosa alimenta el ciclo 4
+- [ ] **Materia Prima** → mostrar el **costo promedio ponderado** actualizado por la recepción
 
-## Escena 6 — Generar reporte y exportar a Excel (3 min)
+```sql
+-- Verificación del promedio ponderado
+SELECT nombre, stock_actual, costo_unitario_promedio FROM materia_prima ORDER BY id_materia_prima DESC LIMIT 3;
+```
 
-**Objetivo:** mostrar capacidades de reporting y exportación.
-
-- [ ] Ir a **Reportes**
-- [ ] Seleccionar tipo de reporte: **Pedidos**
-- [ ] Aplicar filtros de fecha (ej. mes actual)
-- [ ] Hacer clic en **Vista Previa** — mostrar la tabla de resultados
-- [ ] Hacer clic en **Exportar Excel** — verificar descarga del archivo `.xlsx`
-- [ ] Opcionalmente exportar en PDF
-- [ ] Cambiar a reporte de **Ventas por Producto** y mostrar otro filtro
-
----
-
-## Escena 7 — Consulta al Asistente IA (3 min)
-
-**Objetivo:** mostrar la integración con Claude AI para consultas en lenguaje natural.
-
-- [ ] Ir a **Asistente IA**
-- [ ] Escribir una consulta en lenguaje natural, por ejemplo:
-  - "¿Cuáles son los 5 productos más vendidos este mes?"
-  - "¿Cuántos pedidos están pendientes?"
-  - "¿Qué clientes tienen más pedidos?"
-- [ ] Mostrar la respuesta del asistente con los datos reales
-- [ ] Señalar que el asistente solo ejecuta SELECT (no puede modificar datos)
-
-> **Nota:** requiere API key de Anthropic configurada en `application-local.properties`
+### 2.4 Factura, cuenta por pagar y pago · usuario `compras@marathon.com`
+- [ ] **Compras → Registrar Factura** sobre la orden recibida (subtotal + impuesto)
+  - `total` es columna **GENERATED**: la app no la escribe
+  - Al guardar se genera automáticamente la **cuenta por pagar**
+- [ ] **Cuentas por Pagar** → abrir la cuenta → **Registrar Pago** por el saldo completo
+- [ ] Observar: `saldo_pendiente` llega a **0.00**, la cuenta pasa a **pagada** y **la factura también**, por cascada del trigger `fn_recalcular_monto_pagado_cxp`
+- [ ] Intentar un pago mayor al saldo → rechazado con mensaje claro
 
 ---
 
-## Escena 8 — Auditoría de cambio de stock (2 min)
+## CICLO 3 — Manufactura (12 min)
 
-**Objetivo:** demostrar la trazabilidad completa de movimientos.
+Es el bloque que distingue al proyecto. Vale la pena no apurarlo.
 
-- [ ] Ir a **Inventario**
-- [ ] Seleccionar un producto y registrar un movimiento de **entrada** (ej. 10 unidades)
-- [ ] Ir a **Auditoría**
-- [ ] Seleccionar la pestaña **Historial de Inventario**
-- [ ] Filtrar por el producto o la bodega usada
-- [ ] Mostrar el registro del cambio: stock anterior, stock nuevo, usuario y fecha
-- [ ] Señalar que el historial lo genera el trigger `fn_trg_historial_inventario` en PostgreSQL
+### 3.1 BOM · usuario `admin@marathon.com`
+- [ ] **Productos** → filtrar por **Origen = fabricado** → abrir uno de los 3 productos de marca propia
+- [ ] Mostrar la sección **Lista de Materiales (BOM)**: qué materias primas y cuánto para producir 1 unidad
+- [ ] Mostrar el panel de **costo estimado** por BOM, con margen bruto sobre el precio de venta
+- [ ] **Prueba de integridad:** intentar cambiar el origen a "comprado" con BOM activo → rechazado por el trigger `trg_validar_cambio_origen_producto`
+- [ ] Opcional en `psql`, el trigger recíproco:
+
+```sql
+-- Intentar dar BOM a un producto comprado
+INSERT INTO lista_materiales (id_producto, id_materia_prima, cantidad_necesaria) VALUES (1, 1, 1);
+-- ERROR: solo los productos con origen 'fabricado' pueden tener lista de materiales
+```
+
+### 3.2 Crear la orden de producción · usuario `produccion@marathon.com`
+- [ ] **Manufactura → Producción → Nueva Orden**
+- [ ] Elegir el producto fabricado y una cantidad
+- [ ] Mostrar el **panel de disponibilidad en vivo**: calcula el consumo teórico según el BOM y avisa cuánto se puede producir con el stock actual
+- [ ] Guardar → estado **planificada**. Señalar que **todavía no se consumió nada**
+
+### 3.3 Iniciar (consumo real) · usuario `produccion@marathon.com`
+- [ ] **Iniciar** la orden → estado **en_proceso**
+- [ ] Explicar lo que acaba de pasar:
+  - Se **re-verificó** la disponibilidad (otra orden pudo consumir stock entre planificar e iniciar)
+  - Se descontó la materia prima y se registró en el **kardex** (`salida_produccion`)
+  - Se capturó el **snapshot inmutable** del costo unitario de cada material
+- [ ] **Materia Prima → Kardex** → mostrar los movimientos de salida
+- [ ] Señalar por qué el snapshot importa: si mañana sube el precio del material, el costo de esta orden **no cambia**. Es contabilidad correcta.
+
+### 3.4 Completar (producción y costeo) · usuario `produccion@marathon.com`
+- [ ] **Completar** declarando una cantidad producida **menor** a la planificada y algún **consumo real distinto** al teórico
+- [ ] Mostrar el panel de costos:
+  - **Merma** por línea (columna GENERATED = real − teórico)
+  - `costo_materia_prima` + `costo_mano_obra` + `costo_indirecto` = **costo_total** (GENERATED)
+  - **costo_unitario_producido** (GENERATED)
+- [ ] **Inventario** → el producto terminado entró en la bodega destino
+- [ ] Demostrar la protección del costo en `psql`:
+
+```sql
+-- Intentar falsear el costo de materia prima de la orden
+UPDATE orden_produccion SET costo_materia_prima = 1 WHERE id_orden_produccion = <id>;
+-- ERROR: costo_materia_prima solo puede fijarse con el valor real de los consumos
+```
+
+### 3.5 Analítica · usuario `produccion@marathon.com`
+- [ ] **Dashboard de Producción**: 7 KPIs, top-3 productos fabricados, dona por estado y **semáforo de merma** (verde <5%, amarillo 5–15%, rojo >15%)
+- [ ] **Análisis de Costos** → comparativa **fabricar vs comprar**
+- [ ] **Reportes** → pestañas "Consumo de Materia Prima" y "Eficiencia de Producción" → vista previa → **exportar Excel y PDF**
 
 ---
 
-## Puntos Clave a Destacar
+## CICLO 4 — Calidad / devoluciones (8 min)
 
-1. **Integridad en BD:** `pedido.total` es GENERADO por trigger, la app no puede modificarlo directamente
-2. **Seguridad JWT:** cada request lleva el token; roles limitan el acceso por endpoint
-3. **Trazabilidad:** todos los cambios de inventario quedan auditados con usuario y timestamp
-4. **PDF profesional:** comprobantes generados server-side con iText, sin dependencias de cliente
-5. **IA integrada:** consultas en SQL generado por Claude AI, con validación SELECT-only
+### 4.1 Solicitud de devolución · usuario `pedidos@marathon.com`
+- [ ] **Devoluciones → Nueva Solicitud**
+- [ ] Elegir el pedido **entregado** del ciclo 1 (solo los entregados son elegibles)
+- [ ] Seleccionar 2 líneas, cantidad 1 cada una, motivo "producto defectuoso"
+- [ ] Guardar → estado **solicitada**
+
+### 4.2 Inspección · usuario `bodega@marathon.com`
+- [ ] **Devoluciones** → abrir la solicitud → **Iniciar Inspección** → estado **en_inspeccion**
+- [ ] Inspeccionar indicando la bodega destino y el resultado de cada línea:
+  - línea 1 → **apto_reventa**
+  - línea 2 → **defectuoso**
+- [ ] Guardar → estado **completada**
+- [ ] **Inventario** → el producto apto **volvió al stock**; el defectuoso **no**
+- [ ] **Auditoría → Historial de Inventario** → mostrar el registro con stock anterior, stock nuevo y **el usuario de bodega**, puesto por el trigger `fn_trg_historial_inventario` gracias a `SET LOCAL app.current_user_id`
+
+### 4.3 Devolución a proveedor · usuario `compras@marathon.com`
+- [ ] **Devoluciones a Proveedor → Items disponibles**
+- [ ] Mostrar que la bandeja reúne **dos orígenes**: el defectuoso del RMA (ciclo 4) y las unidades defectuosas de la recepción (ciclo 2)
+- [ ] Seleccionar el item del RMA → crear la devolución → estado **pendiente**
+- [ ] Cambiar a **enviada** → **Resolver** con tipo "reembolso" y monto
+- [ ] **Prueba de integridad:** intentar crear otra devolución con el mismo item → rechazado ("El item RMA #N ya fue incluido en otra devolución a proveedor"), garantizado por constraints UNIQUE en la BD
+- [ ] Cerrar la idea: **el ciclo de calidad queda completo** — el cliente devuelve, bodega inspecciona, compras devuelve al proveedor y el proveedor resuelve
 
 ---
 
-## Tiempo Total Estimado: 25-30 minutos
+## Cierre — Asistente IA y auditoría (4 min)
+
+### Asistente IA · usuario `admin@marathon.com`
+- [ ] **Asistente IA** → consultar en lenguaje natural, por ejemplo:
+  - "¿Cuáles son los 5 productos más vendidos?"
+  - "¿Cuántas órdenes de producción se completaron?"
+- [ ] Señalar la mitigación de riesgo: el servicio **valida que el SQL generado sea solo SELECT** y limita a 500 filas. Se documenta explícitamente como riesgo conocido: se ejecuta SQL generado por IA.
+
+> Requiere API key de Anthropic en `application-local.properties`. Si no está configurada, saltar esta parte.
+
+### Auditoría
+- [ ] **Auditoría → Log de Acciones** → mostrar la traza de las operaciones de esta demo, con usuario, módulo, acción e IP
+
+---
+
+## Puntos clave para el jurado
+
+1. **La base de datos es la fuente de verdad, no la aplicación.** Los totales, subtotales, saldos, mermas y costos son columnas GENERATED o los calculan triggers. La aplicación tiene prohibido escribirlos y la BD lo hace cumplir.
+2. **Los triggers de protección comparan contra el valor real recalculado.** El patrón `pg_trigger_depth() = 0` que se usaba en un trigger heredado **no funciona** (dentro de un trigger vale 1, nunca 0): se detectó en F29, se demostró explotable y se corrigió en F32. Un trigger que parece proteger y no protege es peor que no tenerlo.
+3. **Costeo contablemente correcto.** Promedio ponderado que solo se recalcula al comprar, y snapshot inmutable al consumir: el costo histórico de una orden nunca cambia retroactivamente.
+4. **Asociaciones polimórficas exclusivas** resueltas con CHECK constraints, no con lógica de aplicación (líneas de orden de compra y de devolución a proveedor).
+5. **Trazabilidad completa de stock:** todo cambio de inventario queda en `historial_inventario` con usuario y timestamp, vía trigger alimentado por `SET LOCAL app.current_user_id`.
+6. **Triple capa de seguridad:** `rolGuard` en el frontend, `SecurityConfig` en el backend, constraints y triggers en la BD.
+7. **Deuda técnica documentada y priorizada** por fase, con lo pospuesto declarado y justificado en `DEUDA_TECNICA.md`. El criterio en la fase final fue estabilidad para la demo sobre cerrar el 100 %.
+
+---
+
+## Credenciales
+
+| Correo | Contraseña | Rol | Usado en |
+|--------|-----------|-----|----------|
+| `admin@marathon.com` | `Admin1234!` | Administrador | Apertura, aprobación de OC, BOM, IA, auditoría |
+| `supervisor@marathon.com` | `Demo1234!` | Supervisor E-Commerce | Entrega y comprobante (ciclo 1) |
+| `bodega@marathon.com` | `Demo1234!` | Operador de Bodega | Picking, empaque, recepción, inspección |
+| `pedidos@marathon.com` | `Demo1234!` | Operador de Pedidos | Crear pedido, crear RMA |
+| `compras@marathon.com` | `Demo1234!` | Encargado de Compras | Orden de compra, factura, CxP, devolución a proveedor |
+| `produccion@marathon.com` | `Demo1234!` | Encargado de Producción | Órdenes de producción, costos, dashboard |

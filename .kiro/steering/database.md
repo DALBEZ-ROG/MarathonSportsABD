@@ -20,13 +20,19 @@
 | created_at | TIMESTAMP DEFAULT NOW() | |
 
 ### rol
+> ⚠️ **CORREGIDO EN F32:** `rol` **NO tiene columna `estado`**. Son solo 4 columnas.
+
 | Columna | Tipo | Notas |
 |---------|------|-------|
-| id_rol | SERIAL PK | |
-| nombre | VARCHAR(50) NOT NULL UNIQUE | |
-| descripcion | TEXT | |
-| estado | VARCHAR(20) DEFAULT 'activo' | |
+| id_rol | SERIAL PK | Los 6 roles ocupan los ids 5–10 |
+| nombre | VARCHAR NOT NULL UNIQUE | |
+| descripcion | VARCHAR | |
 | created_at | TIMESTAMP DEFAULT NOW() | |
+
+> **Nota de estado real (F32):** solo `Administrador` (49) y `Encargado de Compras` (5)
+> tienen filas en `rol_permiso`; los otros 4 roles tienen 0. No rompe nada porque la
+> autorización efectiva es por **nombre de rol** en `SecurityConfig`, no por permisos
+> granulares. Anotado como trabajo futuro en `DEUDA_TECNICA.md`.
 
 ### unidad_medida
 | Columna | Tipo | Notas |
@@ -133,14 +139,19 @@
 | fecha_empaque | TIMESTAMP NULL | Fase 15 |
 
 ### inventario
+> ⚠️ **CORREGIDO EN F32 contra el catálogo real.** La versión anterior de este doc
+> decía `cantidad` y `updated_at`; los nombres reales son `stock_actual`,
+> `stock_minimo` y `fecha_actualizacion`.
+
 | Columna | Tipo | Notas |
 |---------|------|-------|
 | id_inventario | SERIAL PK | |
 | id_producto | INT FK → producto | |
 | id_bodega | INT FK → bodega | |
-| cantidad | INT NOT NULL DEFAULT 0 | |
+| stock_actual | INT NOT NULL DEFAULT 0 | **NO** se llama `cantidad`. Antes de modificarlo: `SET LOCAL app.current_user_id` |
+| stock_minimo | INT DEFAULT 0 | Umbral de alerta de stock bajo |
+| fecha_actualizacion | TIMESTAMP DEFAULT NOW() | **NO** se llama `updated_at` |
 | UNIQUE(id_producto, id_bodega) | | Un producto por bodega |
-| updated_at | TIMESTAMP DEFAULT NOW() | |
 
 ### producto_proveedor
 | Columna | Tipo | Notas |
@@ -171,17 +182,21 @@
 | cantidad_recogida | INTEGER NOT NULL DEFAULT 0 | Fase 14 — CHECK >= 0 |
 
 ### comprobante_interno
+> ⚠️ **CORREGIDO EN F32 contra el catálogo real.** La versión anterior describía
+> un comprobante de movimiento entre bodegas (`tipo`, `id_bodega_origen`,
+> `id_bodega_destino`, `observaciones`). En realidad el comprobante está ligado
+> a un **pedido** y lleva su **total**.
+
 | Columna | Tipo | Notas |
 |---------|------|-------|
 | id_comprobante | SERIAL PK | |
-| numero_comprobante | VARCHAR(20) NOT NULL UNIQUE | Generado por trigger |
-| tipo | VARCHAR(30) NOT NULL | entrada/salida/transferencia |
-| id_bodega_origen | INT FK → bodega | NULL si es entrada |
-| id_bodega_destino | INT FK → bodega | NULL si es salida |
-| id_usuario | INT FK → usuario | |
-| fecha | TIMESTAMP DEFAULT NOW() | |
-| observaciones | TEXT | |
+| id_pedido | INT FK → pedido | El comprobante documenta un pedido |
+| id_usuario | INT FK → usuario | Quien lo emite |
+| numero_comprobante | VARCHAR NOT NULL UNIQUE | Formato `COMP-AAAA-NNNNNN` |
+| fecha_emision | TIMESTAMP DEFAULT NOW() | **NO** se llama `fecha` |
+| total | NUMERIC | Debe cuadrar con `pedido.total` (neto). Validado por `fn_validar_total_comprobante` |
 | estado | VARCHAR(20) DEFAULT 'activo' | |
+| created_at | TIMESTAMP DEFAULT NOW() | |
 
 ### rol_permiso
 | Columna | Tipo | Notas |
@@ -192,27 +207,62 @@
 | UNIQUE(id_rol, id_permiso) | | |
 
 ### movimiento_inventario
+> ⚠️ **CORREGIDO EN F32 contra el catálogo real.** La versión anterior decía que
+> referenciaba `id_producto` + `id_bodega`. **NO es así:** referencia
+> `id_inventario` (que ya lleva producto y bodega). Para filtrar por producto hay
+> que hacer `JOIN inventario`. También faltaban 4 columnas.
+
 | Columna | Tipo | Notas |
 |---------|------|-------|
 | id_movimiento | SERIAL PK | |
-| id_comprobante | INT FK → comprobante_interno | |
-| id_producto | INT FK → producto | |
-| id_bodega | INT FK → bodega | |
-| tipo_movimiento | VARCHAR(20) NOT NULL | entrada/salida |
+| id_inventario | INT FK → inventario NOT NULL | **NO** hay `id_producto` ni `id_bodega` |
+| id_usuario | INT FK → usuario NOT NULL | Quien ejecuta |
+| id_proveedor | INT FK → proveedor NULL | Opcional |
+| id_pedido | INT FK → pedido NULL | Si el movimiento viene de un despacho |
+| id_comprobante | INT FK → comprobante_interno NULL | |
+| tipo_movimiento | VARCHAR NOT NULL | entrada/salida |
 | cantidad | INT NOT NULL CHECK(>0) | |
-| id_usuario | INT FK → usuario | |
-| fecha | TIMESTAMP DEFAULT NOW() | |
+| fecha | TIMESTAMP NOT NULL DEFAULT NOW() | |
+| observacion | TEXT | Texto descriptivo del origen del movimiento |
+| id_inventario_destino | INT FK → inventario NULL | Para transferencias entre bodegas |
+| created_at | TIMESTAMP NOT NULL DEFAULT NOW() | |
+
+> Es **solo bitácora**: NO existe trigger que aplique el movimiento al stock. El
+> stock se actualiza explícitamente en el servicio. Insertar aquí no mueve stock
+> (verificado en F22 para evitar doble conteo).
 
 ### historial_inventario
+> ⚠️ **CORREGIDO EN F32 contra el catálogo real.** La versión anterior decía
+> `cantidad_anterior`, `cantidad_nueva`, `fecha_cambio` y `tipo_operacion`.
+> Ninguna de esas columnas existe.
+
 | Columna | Tipo | Notas |
 |---------|------|-------|
 | id_historial | SERIAL PK | |
-| id_inventario | INT FK → inventario | |
-| cantidad_anterior | INT | |
-| cantidad_nueva | INT | |
-| id_usuario | INT | Registrado via SET app.current_user_id |
-| fecha_cambio | TIMESTAMP DEFAULT NOW() | |
-| tipo_operacion | VARCHAR(20) | INSERT/UPDATE/DELETE |
+| id_inventario | INT FK → inventario NOT NULL | |
+| id_usuario | INT NULL | Lo pone el trigger leyendo `app.current_user_id` |
+| stock_anterior | INT NOT NULL | **NO** se llama `cantidad_anterior` |
+| stock_nuevo | INT NOT NULL | **NO** se llama `cantidad_nueva` |
+| motivo | VARCHAR NOT NULL | Ej. `actualizacion_stock`. **NO** se llama `tipo_operacion` |
+| fecha | TIMESTAMP NOT NULL DEFAULT NOW() | **NO** se llama `fecha_cambio` |
+
+> Lo alimenta el trigger `trg_historial_inventario` / `fn_trg_historial_inventario`.
+> Si el servicio no ejecuta `SET LOCAL app.current_user_id` antes del UPDATE,
+> `id_usuario` queda NULL y se pierde la autoría.
+
+### log_accion (Fase 19b — auditoría)
+> ⚠️ **AGREGADA AL DOC EN F32.** Existe desde F19b pero **no estaba documentada**;
+> era la tabla 37 que faltaba en este inventario.
+
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id_log | SERIAL PK | |
+| id_usuario | INT FK → usuario | Quién ejecutó la acción |
+| modulo | VARCHAR | Ej. `pedidos`, `compras` |
+| accion | VARCHAR | Ej. `crear`, `editar`, `cambiar_estado` |
+| descripcion | TEXT | Detalle legible |
+| ip_address | VARCHAR | IP de origen de la petición |
+| fecha | TIMESTAMP DEFAULT NOW() | |
 
 ### materia_prima (Fase 21)
 | Columna | Tipo | Notas |
@@ -224,6 +274,7 @@
 | estado | VARCHAR(20) NOT NULL DEFAULT 'activo' | CHECK activo/inactivo |
 | stock_actual | NUMERIC(12,3) NOT NULL DEFAULT 0 | (F22) CHECK stock_actual >= 0. Stock GLOBAL sin bodega |
 | stock_minimo | NUMERIC(12,3) NOT NULL DEFAULT 0 | (F22) |
+| costo_unitario_promedio | NUMERIC(12,4) NOT NULL DEFAULT 0 | (F29) CHECK >= 0 (`chk_mp_costo`). **Costo promedio ponderado**, recalculado SOLO al recibir compra |
 | created_at | TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP | |
 
 > Catálogo + stock global (F22). NUMERIC porque se mide en metros/kg/litros. Sin kardex/movimientos aún — eso llega en F26 Manufactura.
@@ -432,7 +483,13 @@
 | fecha_inicio | TIMESTAMP NULL | Se setea al iniciar (consumo de MP) |
 | fecha_fin | TIMESTAMP NULL | Se setea al completar |
 | observaciones | TEXT | |
+| costo_materia_prima | NUMERIC(14,2) NOT NULL DEFAULT 0 | (F29) **Calculado por el servicio** vía `fn_set_costo_materia_prima_op(id)` = SUM(costo_linea). Protegido por `trg_proteger_costo_materia_prima_op`. NO es GENERATED (PostgreSQL no admite subconsultas) |
+| costo_mano_obra | NUMERIC(14,2) NOT NULL DEFAULT 0 | (F29) Monto global por orden, capturado al completar |
+| costo_indirecto | NUMERIC(14,2) NOT NULL DEFAULT 0 | (F29) Monto global por orden |
+| costo_total | NUMERIC(14,2) GENERATED ALWAYS AS (costo_materia_prima + costo_mano_obra + costo_indirecto) STORED | (F29) **NUNCA insertar/actualizar** |
+| costo_unitario_producido | NUMERIC(14,4) GENERATED ALWAYS AS (CASE WHEN cantidad_producida IS NULL OR = 0 THEN 0 ELSE total / cantidad_producida END) STORED | (F29) **NUNCA insertar/actualizar** |
 
+> CHECK `chk_op_costos`: los tres costos base >= 0.
 > Trigger `trg_validar_op_producto_fabricado` (BEFORE INSERT/UPDATE): solo productos con `origen='fabricado'` admiten órdenes de producción. El consumo de MP ocurre al INICIAR; el alta del producto terminado, al COMPLETAR.
 
 ### orden_produccion_consumo (Fase 28)
@@ -444,6 +501,8 @@
 | cantidad_teorica | NUMERIC(12,3) NOT NULL | CHECK > 0. bom.cantidad_necesaria × unidades |
 | cantidad_real | NUMERIC(12,3) NULL | CHECK NULL o >= 0. Se declara al completar |
 | merma | NUMERIC(12,3) GENERATED ALWAYS AS (COALESCE(cantidad_real, cantidad_teorica) - cantidad_teorica) STORED | **NUNCA insertar/actualizar**. En JPA con `@Generated(INSERT,UPDATE)` |
+| costo_unitario_snapshot | NUMERIC(12,4) NOT NULL DEFAULT 0 | (F29) **Snapshot inmutable** del `costo_unitario_promedio` capturado al INICIAR la OP |
+| costo_linea | NUMERIC(14,4) GENERATED ALWAYS AS (COALESCE(cantidad_real, cantidad_teorica) * costo_unitario_snapshot) STORED | (F29) **NUNCA insertar/actualizar**. En JPA con `@Generated(INSERT,UPDATE)` |
 
 > UNIQUE `uq_opc_orden_materia (id_orden_produccion, id_materia_prima)`. Merma positiva = se gastó de más; negativa = sobró.
 
@@ -536,41 +595,100 @@
 
 ## Funciones y Triggers
 
-### Funciones (13)
-1. **fn_generar_numero_pedido()** — Genera número secuencial para pedidos (PED-000001)
-2. **fn_actualizar_total_pedido()** — Recalcula pedido.total sumando subtotales de detalles
-3. **fn_generar_numero_comprobante()** — Genera número secuencial para comprobantes (COMP-000001)
-4. **fn_registrar_historial_inventario()** — Registra cambios en historial cuando se modifica inventario
-5. **fn_aplicar_movimiento_inventario()** — Actualiza cantidad en inventario al insertar movimiento
-6. **fn_validar_stock_pedido()** — Valida que haya stock suficiente antes de crear detalle_pedido
-7. **fn_recalcular_total_orden_compra_stmt()** (F21) — Recalcula orden_compra.total sumando subtotales (statement-level)
-8. **fn_proteger_total_orden_compra()** (F21) — Impide UPDATE manual de orden_compra.total
-9. **fn_recalcular_monto_pagado_cxp()** (F23) — Recalcula cuenta_por_pagar.monto_pagado tras cada pago; si pagada, marca factura también
-10. **fn_proteger_monto_pagado_cxp()** (F23) — Impide UPDATE manual de cuenta_por_pagar.monto_pagado
-11. **fn_validar_bom_producto_fabricado()** (F27) — Impide insertar/actualizar líneas de `lista_materiales` si el producto no tiene origen='fabricado'
-12. **fn_validar_cambio_origen_producto()** (F27) — Impide cambiar `producto.origen` a 'comprado' si el producto tiene BOM activo
-13. **fn_validar_op_producto_fabricado()** (F28) — Impide crear/actualizar `orden_produccion` si el producto no tiene origen='fabricado'
+> ⚠️ **VERIFICADO CONTRA LA BD REAL (F32).** Esta lista se corrigió consultando
+> `pg_proc` y `pg_trigger`. La versión anterior arrastraba nombres heredados que
+> **no existen** en la base (`fn_generar_numero_pedido`, `fn_actualizar_total_pedido`,
+> `fn_generar_numero_comprobante`, `fn_registrar_historial_inventario`,
+> `fn_aplicar_movimiento_inventario`, `fn_validar_stock_pedido`) y omitía 6 que sí
+> existen. Totales reales: **17 funciones y 24 triggers**.
 
-### Triggers (22)
-1. **trg_numero_pedido** → BEFORE INSERT ON pedido → fn_generar_numero_pedido
-2. **trg_actualizar_total_insert** → AFTER INSERT ON detalle_pedido → fn_actualizar_total_pedido
-3. **trg_actualizar_total_update** → AFTER UPDATE ON detalle_pedido → fn_actualizar_total_pedido
-4. **trg_actualizar_total_delete** → AFTER DELETE ON detalle_pedido → fn_actualizar_total_pedido
-5. **trg_numero_comprobante** → BEFORE INSERT ON comprobante_interno → fn_generar_numero_comprobante
-6. **trg_historial_inventario_insert** → AFTER INSERT ON inventario → fn_registrar_historial_inventario
-7. **trg_historial_inventario_update** → AFTER UPDATE ON inventario → fn_registrar_historial_inventario
-8. **trg_historial_inventario_delete** → AFTER DELETE ON inventario → fn_registrar_historial_inventario
-9. **trg_aplicar_movimiento** → AFTER INSERT ON movimiento_inventario → fn_aplicar_movimiento_inventario
-10. **trg_validar_stock_insert** → BEFORE INSERT ON detalle_pedido → fn_validar_stock_pedido
-11. **trg_validar_stock_update** → BEFORE UPDATE ON detalle_pedido → fn_validar_stock_pedido
-12. **trg_oc_total_insert** (F21) → AFTER INSERT ON orden_compra_detalle → fn_recalcular_total_orden_compra_stmt
-13. **trg_oc_total_update** (F21) → AFTER UPDATE ON orden_compra_detalle → fn_recalcular_total_orden_compra_stmt
-14. **trg_oc_total_delete** (F21) → AFTER DELETE ON orden_compra_detalle → fn_recalcular_total_orden_compra_stmt
-15. **trg_proteger_total_oc** (F21) → BEFORE UPDATE ON orden_compra → fn_proteger_total_orden_compra
-16. **trg_cxp_pagado_insert** (F23) → AFTER INSERT ON pago_proveedor → fn_recalcular_monto_pagado_cxp
-17. **trg_cxp_pagado_update** (F23) → AFTER UPDATE ON pago_proveedor → fn_recalcular_monto_pagado_cxp
-18. **trg_cxp_pagado_delete** (F23) → AFTER DELETE ON pago_proveedor → fn_recalcular_monto_pagado_cxp
-19. **trg_proteger_monto_pagado_cxp** (F23) → BEFORE UPDATE ON cuenta_por_pagar → fn_proteger_monto_pagado_cxp
-20. **trg_validar_bom_producto_fabricado** (F27) → BEFORE INSERT OR UPDATE ON lista_materiales → fn_validar_bom_producto_fabricado
-21. **trg_validar_cambio_origen_producto** (F27) → BEFORE UPDATE OF origen ON producto → fn_validar_cambio_origen_producto
-22. **trg_validar_op_producto_fabricado** (F28) → BEFORE INSERT OR UPDATE ON orden_produccion → fn_validar_op_producto_fabricado
+### Funciones (17)
+
+**Base F1–F20 (7)**
+1. **fn_recalcular_total_pedido()** — Recalcula `pedido.total` sumando subtotales de detalles
+2. **fn_recalcular_total_pedido_stmt()** — Versión statement-level, usada por los triggers de INSERT/UPDATE de `detalle_pedido`
+3. **fn_recalcular_total_pedido_delete()** — Recálculo tras DELETE de `detalle_pedido`
+4. **fn_recalcular_total_por_descuento()** — Recalcula el total del pedido cuando cambia el descuento
+5. **fn_proteger_total_pedido()** — Impide UPDATE manual de `pedido.total` (**corregido en F32**; antes usaba `pg_trigger_depth() = 0` y no protegía)
+6. **fn_trg_historial_inventario()** — Registra en `historial_inventario` los cambios de `inventario` (lee `app.current_user_id`)
+7. **fn_set_updated_at()** — Setea `updated_at` en cliente, pedido, producto, proveedor y usuario
+8. **fn_validar_total_comprobante()** — Valida el total del comprobante interno
+
+**Bloques nuevos F21–F29 (9)**
+9. **fn_recalcular_total_orden_compra_stmt()** (F21) — Recalcula orden_compra.total sumando subtotales (statement-level)
+10. **fn_proteger_total_orden_compra()** (F21) — Impide UPDATE manual de orden_compra.total
+11. **fn_recalcular_monto_pagado_cxp()** (F23) — Recalcula cuenta_por_pagar.monto_pagado tras cada pago; si pagada, marca factura también
+12. **fn_proteger_monto_pagado_cxp()** (F23) — Impide UPDATE manual de cuenta_por_pagar.monto_pagado
+13. **fn_validar_bom_producto_fabricado()** (F27) — Impide insertar/actualizar líneas de `lista_materiales` si el producto no tiene origen='fabricado'
+14. **fn_validar_cambio_origen_producto()** (F27) — Impide cambiar `producto.origen` a 'comprado' si el producto tiene BOM activo
+15. **fn_validar_op_producto_fabricado()** (F28) — Impide crear/actualizar `orden_produccion` si el producto no tiene origen='fabricado'
+16. **fn_proteger_costo_materia_prima_op()** (F29) — Solo permite escribir `orden_produccion.costo_materia_prima` si coincide con SUM(costo_linea) de sus consumos
+17. **fn_set_costo_materia_prima_op(id)** (F29) — Función usada por el servicio: calcula SUM(costo_linea) y actualiza `costo_materia_prima` (satisface el trigger por construcción)
+
+### Triggers (24)
+
+**Base F1–F20 (11)**
+1. **trg_recalcular_total_pedido_insert** → AFTER INSERT ON detalle_pedido → fn_recalcular_total_pedido_stmt
+2. **trg_recalcular_total_pedido_update** → AFTER UPDATE ON detalle_pedido → fn_recalcular_total_pedido_stmt
+3. **trg_recalcular_total_pedido_delete** → AFTER DELETE ON detalle_pedido → fn_recalcular_total_pedido_delete
+4. **trg_recalcular_total_por_descuento** → ON pedido → fn_recalcular_total_por_descuento
+5. **trg_proteger_total_pedido** → BEFORE UPDATE ON pedido → fn_proteger_total_pedido (**corregido en F32**)
+6. **trg_historial_inventario** → ON inventario → fn_trg_historial_inventario
+7. **trg_validar_total_comprobante** → ON comprobante_interno → fn_validar_total_comprobante
+8. **trg_cliente_updated_at** → ON cliente → fn_set_updated_at
+9. **trg_pedido_updated_at** → ON pedido → fn_set_updated_at
+10. **trg_producto_updated_at** → ON producto → fn_set_updated_at
+11. **trg_proveedor_updated_at** → ON proveedor → fn_set_updated_at
+12. **trg_usuario_updated_at** → ON usuario → fn_set_updated_at
+
+**Bloques nuevos F21–F29 (12)**
+13. **trg_oc_total_insert** (F21) → AFTER INSERT ON orden_compra_detalle → fn_recalcular_total_orden_compra_stmt
+14. **trg_oc_total_update** (F21) → AFTER UPDATE ON orden_compra_detalle → fn_recalcular_total_orden_compra_stmt
+15. **trg_oc_total_delete** (F21) → AFTER DELETE ON orden_compra_detalle → fn_recalcular_total_orden_compra_stmt
+16. **trg_proteger_total_oc** (F21) → BEFORE UPDATE ON orden_compra → fn_proteger_total_orden_compra
+17. **trg_cxp_pagado_insert** (F23) → AFTER INSERT ON pago_proveedor → fn_recalcular_monto_pagado_cxp
+18. **trg_cxp_pagado_update** (F23) → AFTER UPDATE ON pago_proveedor → fn_recalcular_monto_pagado_cxp
+19. **trg_cxp_pagado_delete** (F23) → AFTER DELETE ON pago_proveedor → fn_recalcular_monto_pagado_cxp
+20. **trg_proteger_monto_pagado_cxp** (F23) → BEFORE UPDATE ON cuenta_por_pagar → fn_proteger_monto_pagado_cxp
+21. **trg_validar_bom_producto_fabricado** (F27) → BEFORE INSERT OR UPDATE ON lista_materiales → fn_validar_bom_producto_fabricado
+22. **trg_validar_cambio_origen_producto** (F27) → BEFORE UPDATE OF origen ON producto → fn_validar_cambio_origen_producto
+23. **trg_validar_op_producto_fabricado** (F28) → BEFORE INSERT OR UPDATE ON orden_produccion → fn_validar_op_producto_fabricado
+24. **trg_proteger_costo_materia_prima_op** (F29) → BEFORE UPDATE OF costo_materia_prima ON orden_produccion → fn_proteger_costo_materia_prima_op
+
+> **Patrón de los triggers de protección (F32):** todos comparan el nuevo valor contra
+> el **valor real recalculado** y rechazan si difiere. NO usan `pg_trigger_depth() = 0`,
+> porque dentro de una función de trigger esa función devuelve 1 (nunca 0) y por tanto
+> la condición jamás se cumple: la protección no protegería nada. Este bug afectaba a
+> `fn_proteger_total_pedido` y se corrigió en la Fase 32.
+
+### Corrección aplicada en F32 — `fn_proteger_total_pedido`
+
+Script: **`marathon-backend/sql/fase32_fixes.sql`** (idempotente, con autoverificación).
+
+**Antes** (roto): la excepción estaba condicionada a `pg_trigger_depth() = 0`, así que
+`UPDATE pedido SET total = 9999` pasaba sin error. Comprobado empíricamente.
+
+**Ahora** (correcto): compara contra el total real recalculado.
+
+```sql
+IF NEW.total IS DISTINCT FROM OLD.total THEN
+    SELECT GREATEST(COALESCE(SUM(d.subtotal), 0) - COALESCE(NEW.descuento, 0), 0)
+      INTO v_total_real
+    FROM detalle_pedido d WHERE d.id_pedido = NEW.id_pedido;
+
+    IF NEW.total IS DISTINCT FROM v_total_real THEN
+        RAISE EXCEPTION 'El campo pedido.total es calculado automáticamente ...';
+    END IF;
+END IF;
+```
+
+> ⚠️ **La fórmula de referencia es NETA de descuento**, igual que
+> `fn_recalcular_total_por_descuento`: `GREATEST(SUM(subtotal) − descuento, 0)`.
+> Comparar contra la suma bruta de subtotales haría que el propio trigger de recálculo
+> legítimo fuera rechazado en **todo pedido con descuento**, rompiendo el sistema.
+> Si alguna vez hay que volver a tocar este trigger, ese es el detalle que importa.
+
+**Estado verificado en F32:** de las 17 funciones de `public`, **ninguna** contiene
+`pg_trigger_depth`. Los otros 6 protectores ya usaban el patrón correcto y no se
+modificaron. La secuencia de instalación exige aplicar `fase32_fixes.sql` como último
+paso (ver `SETUP_COMPLETO.md`); sin él la BD queda con el bug.

@@ -65,7 +65,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
 
       <!-- KPI Grid -->
       <section class="kpi-grid" *ngIf="kpis">
-        <div class="kpi-card">
+        <div class="kpi-card" *ngIf="verKpisPedidos">
           <div class="kpi-icon kpi-icon-blue">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
           </div>
@@ -74,7 +74,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">Pedidos hoy</span>
           </div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card" *ngIf="verKpisPedidos">
           <div class="kpi-icon kpi-icon-green">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
           </div>
@@ -83,7 +83,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">Entregados</span>
           </div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card" *ngIf="verKpisPedidos">
           <div class="kpi-icon kpi-icon-orange">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
           </div>
@@ -92,7 +92,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">Enviados</span>
           </div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card" *ngIf="verKpisPedidos">
           <div class="kpi-icon kpi-icon-amber">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           </div>
@@ -101,7 +101,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">Pendientes</span>
           </div>
         </div>
-        <div class="kpi-card kpi-wide">
+        <div class="kpi-card kpi-wide" *ngIf="verKpisVentas">
           <div class="kpi-icon kpi-icon-gold">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
           </div>
@@ -110,7 +110,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">Ventas hoy</span>
           </div>
         </div>
-        <div class="kpi-card kpi-wide">
+        <div class="kpi-card kpi-wide" *ngIf="verKpisVentas">
           <div class="kpi-icon kpi-icon-gold">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
           </div>
@@ -119,7 +119,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">Ventas del mes</span>
           </div>
         </div>
-        <div class="kpi-card clickable" (click)="irA('/inventario')">
+        <div class="kpi-card clickable" *ngIf="verKpisPedidos || isCompras" (click)="irA('/inventario')">
           <div class="kpi-icon kpi-icon-red">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           </div>
@@ -128,7 +128,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">Stock bajo</span>
           </div>
         </div>
-        <div class="kpi-card clickable" (click)="irA('/pedidos/especiales')">
+        <div class="kpi-card clickable" *ngIf="verKpisPedidos" (click)="irA('/pedidos/especiales')">
           <div class="kpi-icon kpi-icon-purple">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           </div>
@@ -137,7 +137,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">Especiales</span>
           </div>
         </div>
-        <div class="kpi-card clickable" *ngIf="isAdmin" (click)="irA('/compras')">
+        <div class="kpi-card clickable" *ngIf="verKpisCompras" (click)="irA('/compras')">
           <div class="kpi-icon kpi-icon-orange">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
           </div>
@@ -146,7 +146,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">OC por aprobar</span>
           </div>
         </div>
-        <div class="kpi-card clickable" *ngIf="isAdmin || isSupervisor" (click)="irA('/cuentas-por-pagar')">
+        <div class="kpi-card clickable" *ngIf="verKpisCompras" (click)="irA('/cuentas-por-pagar')">
           <div class="kpi-icon kpi-icon-red">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
           </div>
@@ -164,7 +164,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">Dev. pendientes insp.</span>
           </div>
         </div>
-        <div class="kpi-card clickable" *ngIf="isAdmin || isProduccion" (click)="irA('/productos')">
+        <div class="kpi-card clickable" *ngIf="verKpisProduccion" (click)="irA('/productos')">
           <div class="kpi-icon kpi-icon-green">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
           </div>
@@ -173,7 +173,16 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">Productos fabricados</span>
           </div>
         </div>
-        <div class="kpi-card clickable" *ngIf="isAdmin || isProduccion" (click)="irA('/produccion')">
+        <div class="kpi-card clickable" *ngIf="verKpisProduccion" (click)="irA('/materia-prima')">
+          <div class="kpi-icon kpi-icon-red">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-value">{{ mpStockBajo }}</span>
+            <span class="kpi-label">Materia prima bajo mínimo</span>
+          </div>
+        </div>
+        <div class="kpi-card clickable" *ngIf="verKpisProduccion" (click)="irA('/produccion')">
           <div class="kpi-icon kpi-icon-orange">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20"/><path d="M4 20V8l6 4V8l6 4V8l4 3v9"/></svg>
           </div>
@@ -182,7 +191,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">OP en proceso</span>
           </div>
         </div>
-        <div class="kpi-card kpi-wide clickable" *ngIf="isAdmin || isSupervisor" (click)="irA('/produccion/costos')">
+        <div class="kpi-card kpi-wide clickable" *ngIf="isAdmin || isSupervisor || isProduccion" (click)="irA('/produccion/costos')">
           <div class="kpi-icon kpi-icon-gold">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
           </div>
@@ -193,8 +202,36 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
         </div>
       </section>
 
-      <!-- Charts Row -->
-      <section class="charts-row">
+      <!-- F32 — aviso cuando el rolGuard bloquea una ruta -->
+      <div class="acceso-denegado" *ngIf="accesoDenegado">
+        <span>🔒 No tienes acceso a esa sección con tu rol actual.</span>
+        <button (click)="accesoDenegado = false">Entendido</button>
+      </div>
+
+      <!-- Resumen compacto de Manufactura (F30) -->
+      <section class="glass-card manuf-strip" *ngIf="(isAdmin || isSupervisor || isProduccion) && resumenManuf">
+        <div class="manuf-head">
+          <h3>Producción</h3>
+          <button class="manuf-link" (click)="irA('/produccion/dashboard')">Ver dashboard de producción →</button>
+        </div>
+        <div class="manuf-kpis">
+          <div class="manuf-kpi">
+            <span class="manuf-label">OP en proceso</span>
+            <span class="manuf-value">{{ resumenManuf.ordenesEnProceso }}</span>
+          </div>
+          <div class="manuf-kpi">
+            <span class="manuf-label">Unidades producidas (mes)</span>
+            <span class="manuf-value">{{ resumenManuf.unidadesProducidasMes }}</span>
+          </div>
+          <div class="manuf-kpi">
+            <span class="manuf-label">Merma promedio (mes)</span>
+            <span class="manuf-value" [ngClass]="claseMermaManuf()">{{ resumenManuf.mermaPromedioMes | number:'1.2-2' }} %</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Charts Row (solo roles comerciales — F31) -->
+      <section class="charts-row" *ngIf="verKpisPedidos">
         <div class="glass-card chart-card">
           <div class="card-head">
             <h3>Ventas por día</h3>
@@ -215,8 +252,8 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
         </div>
       </section>
 
-      <!-- Top Products -->
-      <section class="glass-card">
+      <!-- Top Products (solo roles comerciales — F31) -->
+      <section class="glass-card" *ngIf="verKpisPedidos">
         <div class="card-head">
           <h3>Top productos vendidos</h3>
           <select [value]="limiteTop" (change)="cambiarLimite($event)">
@@ -278,6 +315,21 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <button class="quick-btn" (click)="irA('/pedidos/nuevo')">Nuevo Pedido</button>
             <button class="quick-btn" (click)="irA('/clientes')">Clientes</button>
             <button class="quick-btn" (click)="irA('/pedidos/especiales')">Especiales</button>
+          </ng-container>
+          <!-- F31 — accesos rápidos de los roles nuevos -->
+          <ng-container *ngIf="isCompras">
+            <button class="quick-btn" (click)="irA('/compras')">Órdenes de Compra</button>
+            <button class="quick-btn" (click)="irA('/compras/nueva')">Nueva Orden</button>
+            <button class="quick-btn" (click)="irA('/cuentas-por-pagar')">Cuentas por Pagar</button>
+            <button class="quick-btn" (click)="irA('/devoluciones-proveedor')">Dev. a Proveedor</button>
+            <button class="quick-btn" (click)="irA('/materia-prima')">Materia Prima</button>
+          </ng-container>
+          <ng-container *ngIf="isProduccion">
+            <button class="quick-btn" (click)="irA('/produccion')">Órdenes de Producción</button>
+            <button class="quick-btn" (click)="irA('/produccion/nueva')">Nueva Orden</button>
+            <button class="quick-btn" (click)="irA('/produccion/dashboard')">Dashboard Producción</button>
+            <button class="quick-btn" (click)="irA('/produccion/costos')">Análisis de Costos</button>
+            <button class="quick-btn" (click)="irA('/materia-prima')">Materia Prima</button>
           </ng-container>
           <button class="quick-btn btn-ia" *ngIf="isAdmin || isSupervisor" (click)="irA('/ia')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
@@ -394,6 +446,31 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
     }
     .toggle-auto input:checked + .toggle-slider { background: rgba(201,168,76,0.3); }
     .toggle-auto input:checked + .toggle-slider::after { left: 18px; background: #C9A84C; }
+
+    /* ── Aviso de acceso denegado (F32) ── */
+    .acceso-denegado {
+      position: relative; z-index: 2;
+      display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+      background: rgba(220,38,38,0.12); border: 1px solid rgba(220,38,38,0.35);
+      color: #fca5a5; border-radius: 10px; padding: .85rem 1.1rem; margin-bottom: 1.5rem;
+    }
+    .acceso-denegado button {
+      background: none; border: 1px solid rgba(252,165,165,0.4); color: #fca5a5;
+      padding: .35rem .8rem; border-radius: 6px; cursor: pointer;
+    }
+
+    /* ── Resumen Manufactura (F30) ── */
+    .manuf-strip { position: relative; z-index: 1; margin-bottom: 2rem; }
+    .manuf-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: .75rem; }
+    .manuf-head h3 { margin: 0; }
+    .manuf-link { background: none; border: none; color: #C9A84C; cursor: pointer; font-size: .85rem; }
+    .manuf-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; }
+    .manuf-kpi { display: flex; flex-direction: column; gap: .3rem; }
+    .manuf-label { font-size: .7rem; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.45); }
+    .manuf-value { font-size: 1.35rem; font-weight: 700; }
+    .manuf-ok { color: #4ade80; }
+    .manuf-media { color: #fbbf24; }
+    .manuf-alta { color: #f87171; }
 
     /* ── KPI Grid ── */
     .kpi-grid {
@@ -578,8 +655,30 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   isOperadorBodega = false;
   isOperadorPedidos = false;
   isProduccion = false;
+  isCompras = false;
+
+  /**
+   * F31 — Visibilidad por rol en el dashboard.
+   * Los roles de Compras y Producción NO ven KPIs comerciales (pedidos/ventas),
+   * porque no son de su competencia.
+   */
+  get verKpisPedidos(): boolean {
+    return this.isAdmin || this.isSupervisor || this.isOperadorPedidos || this.isOperadorBodega;
+  }
+  /** Los importes de ventas son información sensible: solo Admin y Supervisor. */
+  get verKpisVentas(): boolean {
+    return this.isAdmin || this.isSupervisor;
+  }
+  get verKpisCompras(): boolean {
+    return this.isAdmin || this.isCompras || this.isSupervisor;
+  }
+  get verKpisProduccion(): boolean {
+    return this.isAdmin || this.isProduccion;
+  }
 
   kpis: DashboardKpis | null = null;
+  resumenManuf: any = null;
+  accesoDenegado = false;
   topProductos: TopProducto[] = [];
   totalPedidos = 0;
   cargando = false;
@@ -611,6 +710,8 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   constructor(private http: HttpClient, private authService: AuthService, private router: Router) {}
 
   ngOnInit(): void {
+    // F32 — el rolGuard redirige aquí con ?acceso=denegado al bloquear una ruta
+    this.accesoDenegado = new URLSearchParams(window.location.search).get('acceso') === 'denegado';
     const user = this.authService.getCurrentUser();
     if (user) {
       this.userName = `${user.nombre} ${user.apellido}`;
@@ -623,10 +724,13 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     this.isOperadorBodega = this.authService.hasRol('Operador de Bodega');
     this.isOperadorPedidos = this.authService.hasRol('Operador de Pedidos');
     this.isProduccion = this.authService.hasRol('Encargado de Producción');
+    this.isCompras = this.authService.hasRol('Encargado de Compras');
+    if (this.isAdmin || this.isSupervisor || this.isProduccion) { this.cargarResumenManufactura(); }
     this.cargarKpis();
     this.cargarTopProductos();
-    if (this.isAdmin) { this.cargarOcPendientes(); }
-    if (this.isAdmin || this.isSupervisor) { this.cargarCxpVencidas(); }
+    // F31 — cada rol carga solo lo que le compete
+    if (this.verKpisCompras) { this.cargarOcPendientes(); this.cargarCxpVencidas(); }
+    if (this.verKpisProduccion) { this.cargarMpStockBajo(); }
   }
 
   cargarOcPendientes(): void {
@@ -648,6 +752,21 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       next: res => { this.devPendientesInspeccion = res.totalElements || 0; },
       error: () => { }
     });
+  }
+
+  // F30 — resumen compacto de manufactura
+  cargarResumenManufactura(): void {
+    this.http.get<any>(`${this.apiUrl}/dashboard/manufactura`).subscribe({
+      next: res => { this.resumenManuf = res; },
+      error: () => { }
+    });
+  }
+
+  claseMermaManuf(): string {
+    const m = this.resumenManuf?.mermaPromedioMes ?? 0;
+    if (m < 5) { return 'manuf-ok'; }
+    if (m <= 15) { return 'manuf-media'; }
+    return 'manuf-alta';
   }
 
   cargarMpStockBajo(): void {
@@ -695,14 +814,15 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   cargarVentas(): void {
-    if (!this.viewReady) { return; }
+    // F31 — los gráficos comerciales no se renderizan para Compras/Producción
+    if (!this.viewReady || !this.verKpisPedidos) { return; }
     this.http.get<VentaDia[]>(`${this.apiUrl}/dashboard/ventas-por-dia?dias=${this.diasVentas}`).subscribe({
       next: res => { this.renderVentas(res); }
     });
   }
 
   cargarEstados(): void {
-    if (!this.viewReady) { return; }
+    if (!this.viewReady || !this.verKpisPedidos) { return; }
     this.http.get<EstadoPedido[]>(`${this.apiUrl}/dashboard/pedidos-por-estado`).subscribe({
       next: res => { this.renderEstados(res); }
     });

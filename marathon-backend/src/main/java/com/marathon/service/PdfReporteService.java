@@ -76,6 +76,121 @@ public class PdfReporteService {
         return baos.toByteArray();
     }
 
+    // ===================== CONSUMO DE MATERIA PRIMA (F30) =====================
+    public byte[] exportarConsumoMateriaPrimaPDF(
+            List<com.marathon.dto.reporte.ReporteConsumoMateriaPrimaDTO> datos,
+            FiltroReporteDTO filtro, String nombreUsuario) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfWriter writer = new PdfWriter(baos);
+        PdfDocument pdf = new PdfDocument(writer);
+        Document doc = new Document(pdf, PageSize.A4.rotate());
+        doc.setMargins(30, 30, 30, 30);
+
+        encabezado(doc, "MARATHON SPORTS — Consumo de Materia Prima", filtro);
+
+        Table tabla = new Table(UnitValue.createPercentArray(new float[]{4f, 2f, 2.5f, 2.5f, 2f}))
+                .useAllAvailableWidth().setMarginTop(6);
+        tabla.addHeaderCell(headerCell("Materia Prima"));
+        tabla.addHeaderCell(headerCell("Unidad"));
+        tabla.addHeaderCell(headerCell("Cant. Consumida"));
+        tabla.addHeaderCell(headerCell("Costo Consumido"));
+        tabla.addHeaderCell(headerCell("# Órdenes"));
+
+        BigDecimal totalCosto = BigDecimal.ZERO;
+        int i = 0;
+        for (com.marathon.dto.reporte.ReporteConsumoMateriaPrimaDTO d : datos) {
+            boolean top = (i < 3); // resalta los 3 materiales más consumidos
+            tabla.addCell(bodyCellResaltado(nz(d.getNombreMateriaPrima()), top));
+            tabla.addCell(bodyCellResaltado(nz(d.getUnidadMedida()), top));
+            tabla.addCell(bodyCellResaltadoRight(d.getCantidadConsumidaTotal() != null
+                    ? d.getCantidadConsumidaTotal().toPlainString() : "0", top));
+            tabla.addCell(bodyCellResaltadoRight("$ " + fmt(d.getCostoConsumidoTotal()), top));
+            tabla.addCell(bodyCellResaltadoRight(d.getNumeroOrdenes() != null
+                    ? d.getNumeroOrdenes().toString() : "0", top));
+            if (d.getCostoConsumidoTotal() != null) {
+                totalCosto = totalCosto.add(d.getCostoConsumidoTotal());
+            }
+            i++;
+        }
+        doc.add(tabla);
+
+        Paragraph total = new Paragraph("Costo total consumido: $ " + fmt(totalCosto)
+                + "   |   Materiales: " + datos.size())
+                .setBold().setFontColor(MARATHON_GREEN).setFontSize(11).setMarginTop(8)
+                .setTextAlignment(TextAlignment.RIGHT);
+        doc.add(total);
+
+        pie(doc, nombreUsuario);
+        doc.close();
+        return baos.toByteArray();
+    }
+
+    // ===================== EFICIENCIA DE PRODUCCIÓN (F30) =====================
+    public byte[] exportarEficienciaProduccionPDF(
+            List<com.marathon.dto.reporte.ReporteEficienciaProduccionDTO> datos,
+            FiltroReporteDTO filtro, String nombreUsuario) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfWriter writer = new PdfWriter(baos);
+        PdfDocument pdf = new PdfDocument(writer);
+        Document doc = new Document(pdf, PageSize.A4.rotate());
+        doc.setMargins(30, 30, 30, 30);
+
+        encabezado(doc, "MARATHON SPORTS — Eficiencia de Producción", filtro);
+
+        Table tabla = new Table(UnitValue.createPercentArray(
+                new float[]{1f, 3.2f, 1.6f, 1.6f, 1.8f, 1.6f, 2f, 2f, 2f}))
+                .useAllAvailableWidth().setMarginTop(6);
+        tabla.addHeaderCell(headerCell("OP #"));
+        tabla.addHeaderCell(headerCell("Producto"));
+        tabla.addHeaderCell(headerCell("Planif."));
+        tabla.addHeaderCell(headerCell("Producida"));
+        tabla.addHeaderCell(headerCell("Eficiencia"));
+        tabla.addHeaderCell(headerCell("Merma MP"));
+        tabla.addHeaderCell(headerCell("Costo Total"));
+        tabla.addHeaderCell(headerCell("C. Unitario"));
+        tabla.addHeaderCell(headerCell("Fecha Fin"));
+
+        BigDecimal totalCosto = BigDecimal.ZERO;
+        // Las 3 órdenes más eficientes se resaltan
+        List<Integer> topIds = datos.stream()
+                .sorted((a, b) -> nvl(b.getEficienciaProduccion()).compareTo(nvl(a.getEficienciaProduccion())))
+                .limit(3)
+                .map(com.marathon.dto.reporte.ReporteEficienciaProduccionDTO::getIdOrdenProduccion)
+                .toList();
+
+        for (com.marathon.dto.reporte.ReporteEficienciaProduccionDTO d : datos) {
+            boolean top = topIds.contains(d.getIdOrdenProduccion());
+            tabla.addCell(bodyCellResaltado(str(d.getIdOrdenProduccion()), top));
+            tabla.addCell(bodyCellResaltado(nz(d.getProducto()), top));
+            tabla.addCell(bodyCellResaltadoRight(d.getCantidadPlanificada() != null ? d.getCantidadPlanificada().toString() : "0", top));
+            tabla.addCell(bodyCellResaltadoRight(d.getCantidadProducida() != null ? d.getCantidadProducida().toString() : "0", top));
+            tabla.addCell(bodyCellResaltadoRight(fmt(d.getEficienciaProduccion()) + " %", top));
+            tabla.addCell(bodyCellResaltadoRight(d.getMermaTotalMateriaPrima() != null ? d.getMermaTotalMateriaPrima().toPlainString() : "0", top));
+            tabla.addCell(bodyCellResaltadoRight("$ " + fmt(d.getCostoTotal()), top));
+            tabla.addCell(bodyCellResaltadoRight("$ " + fmt(d.getCostoUnitario()), top));
+            tabla.addCell(bodyCellResaltado(d.getFechaFin() != null ? d.getFechaFin().toString() : "-", top));
+            if (d.getCostoTotal() != null) {
+                totalCosto = totalCosto.add(d.getCostoTotal());
+            }
+        }
+        doc.add(tabla);
+
+        Paragraph total = new Paragraph("Costo total: $ " + fmt(totalCosto)
+                + "   |   Órdenes: " + datos.size()
+                + "   |   (resaltadas: 3 más eficientes)")
+                .setBold().setFontColor(MARATHON_GREEN).setFontSize(11).setMarginTop(8)
+                .setTextAlignment(TextAlignment.RIGHT);
+        doc.add(total);
+
+        pie(doc, nombreUsuario);
+        doc.close();
+        return baos.toByteArray();
+    }
+
+    private static BigDecimal nvl(BigDecimal v) {
+        return v != null ? v : BigDecimal.ZERO;
+    }
+
     // ===================== COSTOS DE PRODUCCIÓN (F29) =====================
     public byte[] exportarCostosProduccionPDF(
             List<com.marathon.dto.reporte.ReporteCostosProduccionItemDTO> datos,

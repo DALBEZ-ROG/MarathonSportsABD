@@ -226,6 +226,15 @@ public class SecurityConfig {
                     "/api/materia-prima/**"
                 ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE PRODUCCIÓN")
 
+                // --- Reportes y Dashboard de Manufactura (F30) ---
+                //   Debe ir ANTES de las reglas generales de /api/reportes/** y
+                //   /api/dashboard/** (que son solo Admin + Supervisor).
+                .requestMatchers("/api/reportes/manufactura/**")
+                    .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_SUPERVISOR E-COMMERCE", "ROLE_ENCARGADO DE PRODUCCIÓN")
+                .requestMatchers(org.springframework.http.HttpMethod.GET,
+                    "/api/dashboard/manufactura"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_SUPERVISOR E-COMMERCE", "ROLE_ENCARGADO DE PRODUCCIÓN")
+
                 // --- Análisis de Costos (F29): Admin, Supervisor, Encargado de Producción ---
                 .requestMatchers("/api/analisis-costos/**")
                     .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_SUPERVISOR E-COMMERCE", "ROLE_ENCARGADO DE PRODUCCIÓN")

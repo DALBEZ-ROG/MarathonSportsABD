@@ -13,16 +13,27 @@ import com.marathon.dto.dashboard.EstadoPedidoDTO;
 import com.marathon.dto.dashboard.MovimientoResumenDTO;
 import com.marathon.dto.dashboard.TopProductoDTO;
 import com.marathon.dto.dashboard.VentaDiaDTO;
+import com.marathon.dto.reporte.ResumenManufacturaDTO;
 import com.marathon.service.DashboardService;
+import com.marathon.service.ReporteManufacturaService;
 
 @RestController
 @RequestMapping("/api/dashboard")
 public class DashboardController {
 
     private final DashboardService dashboardService;
+    private final ReporteManufacturaService reporteManufacturaService;
 
-    public DashboardController(DashboardService dashboardService) {
+    public DashboardController(DashboardService dashboardService,
+                               ReporteManufacturaService reporteManufacturaService) {
         this.dashboardService = dashboardService;
+        this.reporteManufacturaService = reporteManufacturaService;
+    }
+
+    /** F30 — Resumen del dashboard de manufactura. */
+    @GetMapping("/manufactura")
+    public ResponseEntity<ResumenManufacturaDTO> getResumenManufactura() {
+        return ResponseEntity.ok(reporteManufacturaService.resumenManufactura());
     }
 
     @GetMapping("/kpis")

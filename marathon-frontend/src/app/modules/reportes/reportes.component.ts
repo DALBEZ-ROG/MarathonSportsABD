@@ -14,6 +14,8 @@ interface FiltroReporte {
   idCategoria?: number | null;
   regionDestino?: string | null;
   idBodega?: number | null;
+  idMateriaPrima?: number | null;
+  idProducto?: number | null;
   limite?: number;
 }
 
@@ -30,6 +32,21 @@ interface MovimientoItem {
   idMovimiento: number; tipoMovimiento: string; cantidad: number; fecha: string;
   observacion: string; producto: string; bodega: string; bodegaDestino: string; usuario: string;
 }
+interface CostoProduccionItem {
+  idOrdenProduccion: number; producto: string; cantidadProducida: number;
+  costoMateriaPrima: number; costoManoObra: number; costoIndirecto: number;
+  costoTotal: number; costoUnitario: number; fecha: string;
+}
+interface ConsumoMpItem {
+  idMateriaPrima: number; nombreMateriaPrima: string; unidadMedida: string;
+  cantidadConsumidaTotal: number; costoConsumidoTotal: number; numeroOrdenes: number;
+}
+interface EficienciaItem {
+  idOrdenProduccion: number; producto: string; cantidadPlanificada: number; cantidadProducida: number;
+  eficienciaProduccion: number; mermaTotalMateriaPrima: number;
+  costoTotal: number; costoUnitario: number; fechaFin: string;
+}
+interface MateriaPrimaOpt { idMateriaPrima: number; nombre: string; }
 
 @Component({
   selector: 'app-reportes',
@@ -43,6 +60,9 @@ interface MovimientoItem {
         <button [class.active]="tab==='pedidos'" (click)="cambiarTab('pedidos')">Reporte de Pedidos</button>
         <button [class.active]="tab==='ventas'" (click)="cambiarTab('ventas')">Ventas por Producto</button>
         <button [class.active]="tab==='movimientos'" (click)="cambiarTab('movimientos')">Movimientos de Inventario</button>
+        <button [class.active]="tab==='costos'" (click)="cambiarTab('costos')">Costos de Producción</button>
+        <button [class.active]="tab==='consumoMp'" (click)="cambiarTab('consumoMp')">Consumo de Materia Prima</button>
+        <button [class.active]="tab==='eficiencia'" (click)="cambiarTab('eficiencia')">Eficiencia de Producción</button>
       </div>
 
       <!-- ===================== PANEL DE FILTROS ===================== -->
@@ -101,6 +121,36 @@ interface MovimientoItem {
                 <option value="salida">Salida</option>
                 <option value="ajuste">Ajuste</option>
                 <option value="traslado">Traslado</option>
+              </select>
+            </div>
+          </ng-container>
+
+          <ng-container *ngIf="tab==='costos'">
+            <div class="campo">
+              <label>Categoría</label>
+              <select [(ngModel)]="idCategoria">
+                <option [ngValue]="null">Todas</option>
+                <option *ngFor="let c of categorias" [ngValue]="c.idCategoria">{{ c.nombre }}</option>
+              </select>
+            </div>
+          </ng-container>
+
+          <ng-container *ngIf="tab==='consumoMp'">
+            <div class="campo">
+              <label>Materia Prima</label>
+              <select [(ngModel)]="idMateriaPrima">
+                <option [ngValue]="null">Todas</option>
+                <option *ngFor="let m of materiasPrimas" [ngValue]="m.idMateriaPrima">{{ m.nombre }}</option>
+              </select>
+            </div>
+          </ng-container>
+
+          <ng-container *ngIf="tab==='eficiencia'">
+            <div class="campo">
+              <label>Categoría</label>
+              <select [(ngModel)]="idCategoria">
+                <option [ngValue]="null">Todas</option>
+                <option *ngFor="let c of categorias" [ngValue]="c.idCategoria">{{ c.nombre }}</option>
               </select>
             </div>
           </ng-container>
@@ -216,6 +266,95 @@ interface MovimientoItem {
           </tbody>
         </table>
 
+        <!-- COSTOS DE PRODUCCIÓN (F29) -->
+        <table class="tabla" *ngIf="tab==='costos' && costos.length > 0">
+          <thead>
+            <tr>
+              <th>OP #</th><th>Producto</th><th class="num">Cant. Producida</th>
+              <th class="num">Costo MP</th><th class="num">Mano de Obra</th><th class="num">Indirectos</th>
+              <th class="num">Costo Total</th><th class="num">Costo Unitario</th><th>Fecha</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let c of costos.slice(0, 100)">
+              <td>{{ c.idOrdenProduccion }}</td>
+              <td>{{ c.producto }}</td>
+              <td class="num">{{ c.cantidadProducida }}</td>
+              <td class="num">{{ c.costoMateriaPrima | currency:'USD':'symbol':'1.2-2' }}</td>
+              <td class="num">{{ c.costoManoObra | currency:'USD':'symbol':'1.2-2' }}</td>
+              <td class="num">{{ c.costoIndirecto | currency:'USD':'symbol':'1.2-2' }}</td>
+              <td class="num">{{ c.costoTotal | currency:'USD':'symbol':'1.2-2' }}</td>
+              <td class="num">{{ c.costoUnitario | currency:'USD':'symbol':'1.2-4' }}</td>
+              <td>{{ c.fecha | date:'dd/MM/yyyy HH:mm' }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="6" class="num"><strong>TOTAL</strong></td>
+              <td class="num"><strong>{{ totalCostoProduccion | currency:'USD':'symbol':'1.2-2' }}</strong></td>
+              <td colspan="2"></td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <!-- CONSUMO DE MATERIA PRIMA (F30) -->
+        <table class="tabla" *ngIf="tab==='consumoMp' && consumoMp.length > 0">
+          <thead>
+            <tr>
+              <th>#</th><th>Materia Prima</th><th>Unidad</th>
+              <th class="num">Cantidad Consumida</th><th class="num">Costo Consumido</th><th class="num"># Órdenes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let m of consumoMp.slice(0, 100); let i = index">
+              <td>{{ i + 1 }}</td>
+              <td>{{ m.nombreMateriaPrima }}</td>
+              <td>{{ m.unidadMedida }}</td>
+              <td class="num">{{ m.cantidadConsumidaTotal | number:'1.0-3' }}</td>
+              <td class="num">{{ m.costoConsumidoTotal | currency:'USD':'symbol':'1.2-2' }}</td>
+              <td class="num">{{ m.numeroOrdenes }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="4" class="num"><strong>TOTAL</strong></td>
+              <td class="num"><strong>{{ totalCostoConsumido | currency:'USD':'symbol':'1.2-2' }}</strong></td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <!-- EFICIENCIA DE PRODUCCIÓN (F30) -->
+        <table class="tabla" *ngIf="tab==='eficiencia' && eficiencia.length > 0">
+          <thead>
+            <tr>
+              <th>OP #</th><th>Producto</th><th class="num">Planificada</th><th class="num">Producida</th>
+              <th class="num">Eficiencia</th><th class="num">Merma MP</th>
+              <th class="num">Costo Total</th><th class="num">Costo Unitario</th><th>Fecha Fin</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let e of eficiencia.slice(0, 100)">
+              <td>{{ e.idOrdenProduccion }}</td>
+              <td>{{ e.producto }}</td>
+              <td class="num">{{ e.cantidadPlanificada }}</td>
+              <td class="num">{{ e.cantidadProducida }}</td>
+              <td class="num" [ngClass]="claseEficiencia(e.eficienciaProduccion)">{{ e.eficienciaProduccion | number:'1.2-2' }} %</td>
+              <td class="num">{{ e.mermaTotalMateriaPrima | number:'1.0-3' }}</td>
+              <td class="num">{{ e.costoTotal | currency:'USD':'symbol':'1.2-2' }}</td>
+              <td class="num">{{ e.costoUnitario | currency:'USD':'symbol':'1.2-4' }}</td>
+              <td>{{ e.fechaFin | date:'dd/MM/yyyy' }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="6" class="num"><strong>TOTAL</strong></td>
+              <td class="num"><strong>{{ totalCostoEficiencia | currency:'USD':'symbol':'1.2-2' }}</strong></td>
+              <td colspan="2"></td>
+            </tr>
+          </tfoot>
+        </table>
+
         <div class="empty" *ngIf="sinDatos">No hay datos para los filtros seleccionados.</div>
       </div>
 
@@ -227,13 +366,16 @@ interface MovimientoItem {
   `,
   styles: [`
     /* Inherits global dark theme from styles.scss */
+    .ef-alta { color: #4ade80; font-weight: 600; }
+    .ef-media { color: #fbbf24; font-weight: 600; }
+    .ef-baja { color: #f87171; font-weight: 600; }
   `]
 })
 export class ReportesComponent implements OnInit {
 
   private apiUrl = environment.apiUrl;
 
-  tab: 'pedidos' | 'ventas' | 'movimientos' = 'pedidos';
+  tab: 'pedidos' | 'ventas' | 'movimientos' | 'costos' | 'consumoMp' | 'eficiencia' = 'pedidos';
 
   // filtros
   desde: string | null = null;
@@ -253,6 +395,11 @@ export class ReportesComponent implements OnInit {
   pedidos: PedidoItem[] = [];
   ventas: VentaProductoItem[] = [];
   movimientos: MovimientoItem[] = [];
+  costos: CostoProduccionItem[] = [];
+  consumoMp: ConsumoMpItem[] = [];
+  eficiencia: EficienciaItem[] = [];
+  materiasPrimas: MateriaPrimaOpt[] = [];
+  idMateriaPrima: number | null = null;
 
   cargando = false;
   generando = false;
@@ -266,6 +413,20 @@ export class ReportesComponent implements OnInit {
   ngOnInit(): void {
     this.cargarCategorias();
     this.cargarBodegas();
+    this.cargarMateriasPrimas();
+  }
+
+  cargarMateriasPrimas(): void {
+    this.http.get<any>(`${this.apiUrl}/materia-prima?page=0&size=1000&estado=activo`).subscribe({
+      next: res => { this.materiasPrimas = res?.content ?? []; },
+      error: () => { /* puede no tener permiso de lectura de materia prima */ }
+    });
+  }
+
+  claseEficiencia(v: number): string {
+    if (v >= 95) { return 'ef-alta'; }
+    if (v >= 80) { return 'ef-media'; }
+    return 'ef-baja';
   }
 
   cargarCategorias(): void {
@@ -280,11 +441,14 @@ export class ReportesComponent implements OnInit {
     });
   }
 
-  cambiarTab(t: 'pedidos' | 'ventas' | 'movimientos'): void {
+  cambiarTab(t: 'pedidos' | 'ventas' | 'movimientos' | 'costos' | 'consumoMp' | 'eficiencia'): void {
     this.tab = t;
     this.pedidos = [];
     this.ventas = [];
     this.movimientos = [];
+    this.costos = [];
+    this.consumoMp = [];
+    this.eficiencia = [];
     this.aviso = '';
     this.mensaje = '';
     this.sinDatos = false;
@@ -298,6 +462,15 @@ export class ReportesComponent implements OnInit {
   }
   get totalIngresos(): number {
     return this.ventas.reduce((acc, v) => acc + (v.totalIngresos || 0), 0);
+  }
+  get totalCostoProduccion(): number {
+    return this.costos.reduce((acc, c) => acc + (c.costoTotal || 0), 0);
+  }
+  get totalCostoConsumido(): number {
+    return this.consumoMp.reduce((acc, m) => acc + (m.costoConsumidoTotal || 0), 0);
+  }
+  get totalCostoEficiencia(): number {
+    return this.eficiencia.reduce((acc, e) => acc + (e.costoTotal || 0), 0);
   }
 
   private construirFiltro(): FiltroReporte {
@@ -313,6 +486,12 @@ export class ReportesComponent implements OnInit {
     } else if (this.tab === 'movimientos') {
       filtro.idBodega = this.idBodega ?? null;
       filtro.estado = this.tipoMovimiento || null;
+    } else if (this.tab === 'costos') {
+      filtro.idCategoria = this.idCategoria ?? null;
+    } else if (this.tab === 'consumoMp') {
+      filtro.idMateriaPrima = this.idMateriaPrima ?? null;
+    } else if (this.tab === 'eficiencia') {
+      filtro.idCategoria = this.idCategoria ?? null;
     }
     return filtro;
   }
@@ -336,6 +515,9 @@ export class ReportesComponent implements OnInit {
         const datos = res ?? [];
         if (this.tab === 'pedidos') { this.pedidos = datos; }
         else if (this.tab === 'ventas') { this.ventas = datos; }
+        else if (this.tab === 'costos') { this.costos = datos; }
+        else if (this.tab === 'consumoMp') { this.consumoMp = datos; }
+        else if (this.tab === 'eficiencia') { this.eficiencia = datos; }
         else { this.movimientos = datos; }
         this.cargando = false;
         this.sinDatos = datos.length === 0;
@@ -373,12 +555,20 @@ export class ReportesComponent implements OnInit {
   private endpointTipo(): string {
     if (this.tab === 'pedidos') { return 'pedidos'; }
     if (this.tab === 'ventas') { return 'ventas-producto'; }
+    if (this.tab === 'costos') { return 'costos-produccion'; }
+    // F30 — viven bajo /api/reportes/manufactura/
+    if (this.tab === 'consumoMp') { return 'manufactura/consumo-materia-prima'; }
+    if (this.tab === 'eficiencia') { return 'manufactura/eficiencia-produccion'; }
     return 'movimientos';
   }
 
   private nombreArchivo(formato: 'excel' | 'pdf'): string {
     const ext = formato === 'excel' ? 'xlsx' : 'pdf';
-    const base = this.tab === 'ventas' ? 'reporte-ventas-producto' : `reporte-${this.tab}`;
+    let base = `reporte-${this.tab}`;
+    if (this.tab === 'ventas') { base = 'reporte-ventas-producto'; }
+    else if (this.tab === 'costos') { base = 'reporte-costos-produccion'; }
+    else if (this.tab === 'consumoMp') { base = 'reporte-consumo-materia-prima'; }
+    else if (this.tab === 'eficiencia') { base = 'reporte-eficiencia-produccion'; }
     return `${base}.${ext}`;
   }
 

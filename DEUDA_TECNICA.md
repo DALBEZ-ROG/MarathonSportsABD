@@ -223,3 +223,333 @@ Corazón del módulo de Manufactura: fabricar un producto 'fabricado' consumiend
 
 ### Pendiente para próximas fases
 - **F29 — Costeo de Producción:** agregar `materia_prima.costo_unitario_estimado`, calcular costo de la OP (suma de consumos reales × costo) y costo unitario del producto fabricado; completar `CostoProduccionEstimadoDTO` de F27.
+
+
+## Fase 29 — Costeo de Producción (2026-07-23)
+
+Calcula el costo real de fabricar cada orden de producción con **costo promedio ponderado** de la materia prima consumida, más mano de obra e indirectos. Permite comparar fabricar vs comprar.
+
+### DEUDA RESUELTA de F27 — campo de costo en materia_prima
+- F27 dejó anotado que `materia_prima` no tenía un campo de costo, por lo que `CostoProduccionEstimadoDTO.costoMateriaPrimaUnitario` retornaba **null**. **Resuelto en esta fase**: se agregó `materia_prima.costo_unitario_promedio NUMERIC(12,4)` (costo promedio ponderado) y `ListaMaterialesService.calcularCostoEstimado()` ya calcula el costo real del BOM, con precio de venta, margen bruto y porcentaje. El DTO se completó con `materiales`, `precioVenta`, `margenBruto`, `margenPorcentaje` y `advertencia`. **Deuda cerrada.**
+
+### BUG CORREGIDO — columnas GENERATED sin `@Generated` (JPA leía valores stale)
+- `DetallePedido.subtotal`, `OrdenCompraDetalle.subtotal`, `FacturaCompra.total` y `CuentaPorPagar.saldoPendiente` estaban mapeadas solo con `@Column(insertable=false, updatable=false)`, **sin** `@Generated`. Consecuencia: si en la MISMA transacción se escribe la fila y luego se lee la columna generada, JPA devuelve el valor viejo (o null) en vez del calculado por la BD. No se había manifestado porque esos flujos leen el valor en una petición posterior, pero era un bug latente. **Se agregó `@Generated(event = {INSERT, UPDATE})` a las cuatro.** Mismo fix que se aplicó a `merma` en F28 y ahora a `costo_linea`, `costo_total` y `costo_unitario_producido`.
+
+### BUG DETECTADO (NO corregido — fase anterior) — `fn_proteger_total_pedido` nunca protege
+- `fn_proteger_total_pedido` (de las fases base F1–F20) condiciona la excepción a `pg_trigger_depth() = 0`. **Dentro de una función de trigger `pg_trigger_depth()` vale 1, nunca 0**, por lo que esa condición JAMÁS se cumple y el trigger **no protege nada**: hoy se puede hacer `UPDATE pedido SET total = 9999` sin error. Se verificó empíricamente al implementar el trigger de F29 (que originalmente iba a usar el mismo patrón).
+  - **No se corrigió** por la restricción de no modificar lógica de fases anteriores. Queda como deuda: cambiar la condición a `pg_trigger_depth() <= 1` o, mejor, adoptar el patrón de F21/F23 (comparar contra el valor real recalculado), que sí funciona.
+  - Los triggers de F21 (`fn_proteger_total_orden_compra`) y F23 (`fn_proteger_monto_pagado_cxp`) **NO** tienen este problema porque comparan contra el valor real en vez de usar `pg_trigger_depth()`.
+
+### Decisiones de diseño
+- **Costo promedio ponderado** recalculado SOLO al recibir materia prima de una compra (retrofit en `RecepcionMercanciaService`, F22): `nuevo = ((stock_ant × costo_ant) + (cantidad_buena × precio_compra)) / (stock_ant + cantidad_buena)`, con escala 4 y HALF_UP. Si el total posterior es 0, el nuevo costo es el precio de compra. Se actualiza en el mismo `save` donde ya se sumaba el stock; no se tocó la lógica de stock ni de kardex.
+- **Snapshot inmutable del costo al consumir.** `orden_produccion_consumo.costo_unitario_snapshot` se captura al INICIAR la OP (leyendo `costo_unitario_promedio` antes de descontar). Esto es contabilidad correcta: el costo histórico de una orden no se altera retroactivamente cuando el promedio cambia por compras posteriores.
+- **`costo_linea` es GENERATED** = `COALESCE(cantidad_real, cantidad_teorica) * costo_unitario_snapshot`. Al declarar consumo real al completar, el costo de línea se recalcula solo.
+- **`costo_materia_prima` NO es GENERATED** (PostgreSQL no permite subconsultas en columnas generadas). Lo calcula la función SQL dedicada `fn_set_costo_materia_prima_op(id)`, que suma los `costo_linea` y hace el UPDATE. El trigger `trg_proteger_costo_materia_prima_op` **permite el UPDATE solo si el valor coincide con la suma real** de los consumos (patrón de F21/F23), rechazando cualquier otro valor con mensaje en español. Se descartó el enfoque de `pg_trigger_depth() = 0` del enunciado por el bug descrito arriba (no habría protegido nada); esta es la vía documentada y verificada.
+- **`costo_total` y `costo_unitario_producido` son GENERATED** en la BD (`MP + MO + IND` y `total / cantidad_producida`, con 0 si no hay producción). Nunca se escriben desde la app.
+
+### Simplificaciones / alcance limitado de esta fase
+- **Las órdenes de producción anteriores a esta fase quedan con costo 0.** No hay recálculo retroactivo, y **es lo contablemente correcto**: no existía snapshot de costo al momento en que se consumió esa materia prima, y aplicarle el promedio actual falsearía el histórico.
+- **El costo de mano de obra es un monto global por orden, no por hora trabajada.** No hay tarifas por operario, ni registro de horas, ni asignación por estación de trabajo. Igual para los indirectos: un monto global capturado al completar, sin bases de asignación (ni por horas máquina, ni por unidades, ni prorrateo).
+- **El análisis "fabricar vs comprar" usa una referencia aproximada.** `costoPromedioCompraCategoria` es el promedio de `producto_proveedor.precio_compra` de los productos con `origen='comprado'` de la MISMA categoría — una referencia de mercado, no el precio de un producto equivalente exacto. Conclusión válida como orientación, no como decisión de compra formal.
+- **`costoPromedioFabricacion` es un promedio simple** de `costo_unitario_producido` de las OP completadas, no ponderado por cantidad producida. Con órdenes de tamaños muy distintos, el promedio puede sesgarse.
+- **El costo estimado por BOM no incluye mano de obra ni indirectos** (son específicos de cada orden). El DTO lo indica explícitamente en `advertencia`, junto con el aviso si algún material aún no tiene costo (nunca se recibió por compra).
+- **Sin variaciones de costo ni análisis de desviaciones** (costo estándar vs real, variación de precio vs variación de cantidad). Sería el siguiente paso natural de un módulo de costos maduro.
+
+### Pendiente para próximas fases
+- **F30 — Reportes de Manufactura:** dashboards y reportes consolidados del bloque de manufactura.
+- Corregir `fn_proteger_total_pedido` (bug descrito arriba).
+- Mano de obra por horas/tarifa y bases de asignación de indirectos.
+
+
+## Fase 30 — Reportes de Manufactura y Dashboard de Producción (2026-07-23)
+
+Cierra el bloque de Manufactura con la capa analítica: reportes de consumo de materia prima y eficiencia de producción (mermas), más un dashboard dedicado. **Fase de solo lectura**: no crea tablas ni escribe datos de negocio, solo consultas agregadas (SELECT), endpoints de consulta, componentes de visualización y exportables.
+
+### Decisiones de diseño
+- **Reutilización total de la infraestructura existente.** Los exportables usan `ExcelService` y `PdfReporteService` de F17 (mismos estilos: encabezado verde, filas alternadas, totales, hoja Resumen, resaltado top-3) y el dashboard usa Chart.js de F16. No se duplicó infraestructura.
+- **Consultas nativas agregadas** en `ReporteManufacturaService` en vez de JPQL, porque los reportes requieren `GROUP BY` con subconsultas correlacionadas y `LIMIT` que JPQL no expresa cómodamente. Todas son SELECT puros.
+- **Valorización del consumo de materia prima:** se usa el `costo_unitario_snapshot` de `orden_produccion_consumo` cuando existe (costo histórico correcto, F29) y, como respaldo, el `costo_unitario_promedio` actual de la materia prima. Un `LEFT JOIN` cubre movimientos sin OP asociada.
+- **El reporte de consumo agrupa 'salida_produccion' y 'merma'**, que es el consumo real total de materia prima por producción. Los 'ajuste' (devolución de sobrante) NO se incluyen para no restar del consumo.
+- **Se agregaron `idMateriaPrima` e `idProducto` a `FiltroReporteDTO`** en lugar de reutilizar `idBodega` para otro propósito (que habría sido confuso). Solo añade campos; no rompe los 3 reportes de F17 ni el de F29.
+- **Merma promedio del mes** = SUM(mermas positivas) / SUM(cantidad_teorica) × 100 sobre las OP completadas del mes. Semáforo en UI: verde <5%, amarillo 5–15%, rojo >15%.
+- **Seguridad:** las reglas de `/api/reportes/manufactura/**` y `GET /api/dashboard/manufactura` se declararon **antes** de las reglas generales de `/api/reportes/**` y `/api/dashboard/**` (que son solo Admin + Supervisor), para que el Encargado de Producción tenga acceso. El orden importa en Spring Security (gana la primera coincidencia).
+
+### Simplificaciones / alcance limitado de esta fase
+- **`costoPromedioFabricacion` y la merma promedio son promedios simples**, no ponderados por cantidad producida. Con órdenes de tamaños muy dispares el promedio puede sesgarse (deuda ya anotada en F29 y que aplica también a los KPIs de este dashboard).
+- **La distribución de OP por estado es histórica completa**, no filtrada por período. Es intencional (da la foto actual del taller), pero no permite ver la evolución mensual.
+- **Sin tendencia temporal.** No hay series de tiempo (producción/costo/merma por mes). El dashboard muestra el mes en curso y el top-3; una gráfica de evolución sería el siguiente paso.
+- **El "top 3 productos fabricados" usa `LIMIT 3` en SQL nativo.** Si se quisiera parametrizable (top N) habría que exponerlo como parámetro; hoy está fijo en 3 según el DTO acordado.
+- **Reportes limitados a 1000 registros** (`getLimiteEfectivo()` de F17), consistente con los reportes existentes.
+- **No hay caché.** Cada carga del dashboard ejecuta ~8 consultas agregadas. Para el volumen académico es irrelevante; con muchas OP conviene cachear el resumen o materializar una vista.
+
+### Hallazgos
+- **Discrepancia de numeración de bloque.** El enunciado de esta fase se refiere a "Bloque 10 (Manufactura)", pero en `project.md` el bloque de Manufactura (F27–F30) está documentado como **Bloque 9** desde la F27. Se mantuvo **Bloque 9** por coherencia con lo ya escrito en el steering; no se renumeró para no invalidar las notas de F27/F28/F29.
+
+- **INCIDENTE de limpieza (corregido) — se borró un registro del seed.** El script de limpieza de las pruebas de F30 incluía `DELETE FROM inventario WHERE id_producto = 3 AND id_bodega = 1` asumiendo que ese registro lo había creado la prueba de producción. **Era incorrecto:** el seed sí lo trae (`INSERT INTO inventario ... VALUES (3, 1, 48, 9)`); la prueba solo le sumó stock. Se detectó al verificar el estado final (`inventario` = 264 en vez de 265) y **se restauró** con sus valores originales del seed (stock_actual=48, stock_minimo=9), quedando de nuevo en 265 filas. El INSERT de restauración dejó una fila adicional en `historial_inventario` (por el trigger `trg_historial_inventario`), que documenta la corrección.
+  - **Lección aplicable a futuras fases:** antes de borrar filas de tablas que el seed puebla (`inventario`, `producto_proveedor`, etc.), verificar contra `seed_marathon_sports.sql` si el registro preexistía, en vez de inferirlo por el contexto de la prueba. En F28 y F29 la misma limpieza sí fue correcta porque `inventario(1,1)` e `inventario(2,1)` no están en el seed (verificado).
+
+### Pendiente para próximas fases
+- **F31 — Consolidación.**
+- Series temporales (evolución mensual de producción, costo y merma) y KPIs ponderados por volumen.
+- Caché o vista materializada del resumen de manufactura si crece el volumen de órdenes.
+
+
+## Fase 31 — Consolidación (2026-07-23)
+
+Integra los bloques nuevos (Compras, Devoluciones, Manufactura) al sistema como un todo: seed de demostración permanente, dashboard adaptado por rol y auditoría de navegación (ver `MATRIZ_ROLES.md`).
+
+### Decisiones de diseño
+- **Seed demo idempotente.** `fase31_seed_demo_bloques_nuevos.sql` usa `ON CONFLICT (nombre) DO NOTHING` para catálogos y un guard (`IF EXISTS ... orden_compra LIKE 'DEMO F31%' THEN RETURN`) para el bloque transaccional. Verificado ejecutándolo dos veces: la segunda no inserta nada.
+- **Recepciones sembradas en SQL (Opción A) sin riesgo de descuadre.** Se replicó la lógica de `RecepcionMercanciaService`, pero cada materia prima parte de `stock 0 / costo 0` y recibe **una sola vez**, de modo que el promedio ponderado se reduce a `((0×0)+(cant×precio))/(0+cant) = precio`: exacto, sin redondeos. Verificado: los 7 materiales recibidos tienen `costo_unitario_promedio` idéntico a su `precio_unitario` de compra.
+- **Productos fabricados nuevos, no conversión de existentes.** Se crearon 3 productos de marca propia en lugar de convertir productos del seed base, para no alterar su inventario ni su historial de pedidos.
+- **Se respetaron todas las columnas calculadas:** no se escribieron `orden_compra.total`, `factura_compra.total`, `cuenta_por_pagar.monto_pagado/saldo_pendiente`, `merma`, `costo_linea`, `costo_total` ni `costo_unitario_producido`. `orden_produccion.costo_materia_prima` se fijó con `fn_set_costo_materia_prima_op()`. La cascada del trigger F23 marcó sola la factura 1 como `pagada`.
+- **Dashboard segmentado por rol** con getters (`verKpisPedidos`, `verKpisVentas`, `verKpisCompras`, `verKpisProduccion`) en vez de condiciones sueltas repetidas, para que la intención quede explícita y sea fácil de auditar.
+
+### Hallazgos corregidos en esta fase
+Ocho desalineaciones entre navbar, guards de ruta y backend. El detalle completo está en `MATRIZ_ROLES.md`; en resumen: el dashboard mostraba KPIs comerciales a Compras y Producción; las tarjetas de OC/CxP excluían al Encargado de Compras pese a tener permiso; el costo de producción excluía al Encargado de Producción; los datos solo se cargaban para Administrador; faltaban accesos rápidos de los dos roles nuevos; el navbar no mostraba Materia Prima al Encargado de Compras; y `/picking` no tenía `rolGuard` (cualquier rol entraba y recibía 403).
+
+---
+
+# INVENTARIO DE DEUDA TÉCNICA — estado para la Fase 32
+
+Panorama consolidado de toda la deuda acumulada (F21–F31), separando lo resuelto de lo pendiente.
+
+## 🔴 PENDIENTE — PRIORIDAD ALTA (para F32)
+
+| # | Deuda | Origen | Detalle |
+|---|-------|--------|---------|
+| 1 | **`fn_proteger_total_pedido` no protege nada** | F29 (detectado) | Usa `pg_trigger_depth() = 0`, condición que **nunca** se cumple dentro de un trigger (allí vale 1). Hoy `UPDATE pedido SET total = 9999` pasa sin error, violando la regla de negocio #1 del proyecto. **Corrección propuesta:** adoptar el patrón de F21/F23/F29 (comparar contra el total real recalculado) o usar `pg_trigger_depth() <= 1`. No se corrigió antes por la restricción de no tocar lógica de fases anteriores. |
+| 2 | **Falta `costo_unitario_estimado` real en el costeo estimado** | F27 → resuelto parcialmente en F29 | Resuelto con `costo_unitario_promedio`, pero el estimado por BOM **no incluye mano de obra ni indirectos** (son por orden). Documentado en el campo `advertencia` del DTO. Mejora: costos estándar por producto. |
+| 3 | **Rutas frontend con solo `authGuard`** | F1–F20 | `/inventario`, `/clientes`, `/pedidos`, `/comprobantes`, `/empaque`, `/despachos`, `/devoluciones` no tienen `rolGuard`. El backend sí restringe (no es agujero de seguridad), pero la navegación ofrece pantallas que luego fallan. En F31 se corrigió `/picking` como referencia; replicar el patrón. |
+
+## 🟡 PENDIENTE — PRIORIDAD MEDIA
+
+| # | Deuda | Origen | Detalle |
+|---|-------|--------|---------|
+| 4 | `fase00_ddl_base.sql` no es un baseline F20 "puro" | Setup | Es un snapshot con `producto.origen` y el trigger de F27 ya incluidos. Inofensivo (F27 es idempotente), pero no representa el estado histórico exacto de la F20. |
+| 5 | Promedios simples, no ponderados | F29, F30 | `costoPromedioFabricacion` y la merma promedio son promedios aritméticos de órdenes, no ponderados por cantidad producida. Con lotes de tamaños dispares el indicador se sesga. |
+| 6 | Recálculo de CxP vencidas bajo demanda | F23 | Se actualizan al listar, no con un job programado (`@Scheduled`). |
+| 7 | Sin anulación de pagos ni de recepciones | F22, F23 | Una vez registrados no se pueden revertir desde la aplicación; corrección manual en BD. |
+| 8 | Reembolso por devolución a proveedor no acredita la CxP | F25 | `monto_reembolso` se registra pero no genera nota de crédito ni reduce el saldo de ninguna cuenta por pagar. |
+| 9 | Sin series temporales en dashboards de manufactura | F30 | Solo mes en curso y top-3; falta evolución mensual de producción, costo y merma. |
+| 10 | Concurrencia optimista no forzada en producción | F28 | Dos OP planificadas pueden competir por el mismo stock; mitigado con re-verificación al iniciar, pero sin bloqueo pesimista. |
+
+## 🟢 PENDIENTE — PRIORIDAD BAJA
+
+| # | Deuda | Origen |
+|---|-------|--------|
+| 11 | Sin número secuencial formal de OC (tipo `OC-000001`) | F21 |
+| 12 | `<select>` con hasta 1000 registros en vez de autocomplete remoto | F21, F27 |
+| 13 | Consultas con `findAll()` + filtro en memoria (stock bajo, bandeja de items defectuosos) | F25, F26 |
+| 14 | Budget de estilos de Angular excedido en varios componentes | F21 |
+| 15 | Sin caché del resumen de manufactura (~8 consultas por carga) | F30 |
+| 16 | Sin producción parcial / por lotes ni estaciones de trabajo | F28 |
+| 17 | Mano de obra como monto global por orden, sin horas ni tarifas | F29 |
+| 18 | Validación de `cantidad_devuelta` sin acumulado de devoluciones previas | F24 |
+
+## ✅ RESUELTAS
+
+| Deuda | Origen | Resuelta en |
+|-------|--------|-------------|
+| FK faltante de `movimiento_materia_prima.id_orden_produccion` | F26 | **F28** (retrofit aplicado) |
+| Falta de campo de costo en `materia_prima` | F27 | **F29** (`costo_unitario_promedio` + costeo estimado real) |
+| Columnas GENERATED sin `@Generated` (valores stale en JPA) | F9, F21, F23 | **F29** (`DetallePedido.subtotal`, `OrdenCompraDetalle.subtotal`, `FacturaCompra.total`, `CuentaPorPagar.saldoPendiente`) |
+| No existía DDL base de las 20 tablas F1–F20 | Setup | **F27/Setup** (`fase00_ddl_base.sql` generado y validado en BD vacía) |
+| Módulos nuevos sin datos de demostración | F21–F30 | **F31** (seed demo permanente e idempotente) |
+| Dashboard sin integración de los roles nuevos | F21 | **F31** (segmentación por rol + accesos rápidos) |
+| Desalineaciones navbar / guard / backend | F1–F30 | **F31** (8 correcciones; ver `MATRIZ_ROLES.md`) |
+| Limpieza que borró un registro del seed (`inventario 3,1`) | F30 | **F30** (restaurado a 48/9; lección documentada) |
+
+### Recomendación de orden para F32
+1. Corregir `fn_proteger_total_pedido` (#1) — es una regla de negocio crítica hoy sin protección efectiva.
+2. Añadir `rolGuard` a las rutas heredadas (#3) — mejora la coherencia de navegación.
+3. Verificación integral final: los 3 ciclos de negocio end-to-end con los 6 roles.
+
+
+## Fase 32 — Cierre de Deuda Técnica y Verificación Integral Final (2026-08-01)
+
+Última fase. A diferencia de todas las anteriores, aquí **sí** se modificó lógica de fases previas — es su propósito. Cada cambio fue quirúrgico y verificado con prueba de que rechaza lo inválido **y** permite lo legítimo.
+
+### BUG CRÍTICO RESUELTO — `fn_proteger_total_pedido` no protegía nada (deuda #1)
+
+**Antes fallaba:** la función condicionaba su excepción a `pg_trigger_depth() = 0`. Dentro de una función de trigger `pg_trigger_depth()` devuelve 1, nunca 0, así que la condición **jamás se cumplía**. El trigger existía, aparecía en `pg_trigger` y no protegía nada. Reproducido empíricamente: `UPDATE pedido SET total = 9999 WHERE id_pedido = 26` pasó sin error, llevando el total de 478.93 a 9999.00 y violando la regla de negocio #1 del proyecto.
+
+**Ahora funciona:** reimplementada con el patrón validado en F21/F23/F29 — comparar el valor entrante contra el valor real recalculado y rechazar si difiere.
+
+**Detalle crítico de la corrección:** el valor de referencia es el **total NETO**, `GREATEST(SUM(detalle_pedido.subtotal) − pedido.descuento, 0)`, no la suma bruta de subtotales. Comparar contra el bruto habría hecho que **todo pedido con descuento fuera rechazado** por el propio trigger de recálculo legítimo, rompiendo el sistema entero. Se detectó al diseñar el fix, antes de aplicarlo.
+
+**Pruebas ejecutadas sobre el pedido #26:**
+
+| Prueba | Resultado esperado | Resultado real |
+|---|---|---|
+| `UPDATE pedido SET total = 9999` | rechazado | ✅ rechazado con mensaje en español |
+| INSERT de un `detalle_pedido` | total recalculado a 578.93 | ✅ 578.93 |
+| DELETE de ese detalle | total vuelve a 478.93 | ✅ 478.93 |
+| `UPDATE pedido SET descuento = 20` | total neto 458.93 | ✅ 458.93 |
+
+Corrección guardada en `marathon-backend/sql/fase32_fixes.sql` (idempotente, `CREATE OR REPLACE FUNCTION`).
+
+### AUDITORÍA de los demás triggers de protección (deuda #1, alcance ampliado)
+
+Se revisaron **todos** los triggers de protección de la base de datos buscando el mismo defecto:
+
+| Función | Origen | Patrón usado | Estado |
+|---|---|---|---|
+| `fn_proteger_total_pedido` | F1–F20 | `pg_trigger_depth() = 0` | 🔴 **tenía el bug** → corregido |
+| `fn_proteger_total_orden_compra` | F21 | compara contra suma real | ✅ correcto |
+| `fn_proteger_monto_pagado_cxp` | F23 | compara contra suma real | ✅ correcto |
+| `fn_proteger_costo_materia_prima_op` | F29 | compara contra suma real | ✅ correcto |
+| `fn_validar_bom_producto_fabricado` | F27 | valida origen del producto | ✅ correcto |
+| `fn_validar_cambio_origen_producto` | F27 | valida existencia de BOM activo | ✅ correcto |
+| `fn_validar_op_producto_fabricado` | F28 | valida origen del producto | ✅ correcto |
+
+**Solo uno tenía el defecto.** Verificación final sobre el catálogo: de las 17 funciones de `public`, **ninguna** contiene `pg_trigger_depth` en su definición. Cada protector se probó rechazando un valor falso y aceptando el recálculo legítimo.
+
+### RESUELTO — rutas frontend sin `rolGuard` (deuda #3)
+
+12 rutas heredadas tenían solo `authGuard`, de modo que cualquier rol autenticado podía navegar a pantallas que luego fallaban con 403 del backend. No era un agujero de seguridad (el backend sí restringía) sino una incoherencia de navegación que producía errores inexplicables para el usuario.
+
+Se aplicó `rolGuard` con los roles de `MATRIZ_ROLES.md` a las 12 rutas, usando `/picking` (corregida en F31) como patrón. Además se mejoró el guard: al bloquear redirige a `/dashboard?acceso=denegado` y el dashboard muestra el aviso "No tienes acceso a esta sección". El navbar quedó alineado (solo Dashboard y Mi Perfil visibles a todos los roles). Verificado ruta por ruta contra la matriz; el frontend compila.
+
+**Incidente durante la aplicación:** un primer intento con variables interpoladas en un comando PowerShell inline expandió cadenas vacías y dejó `canActivate: ,` en `app.routes.ts`, rompiendo el build. Se reparó ejecutando el reemplazo desde un archivo `.ps1` en lugar de inline. Lección: para ediciones masivas de código, script en archivo, nunca comando inline con interpolación.
+
+### BUG CRÍTICO ADICIONAL encontrado durante la verificación — `?origen=fabricado` daba error 500
+
+No estaba en el plan de la fase; apareció al ejecutar el ciclo 3.
+
+**Antes fallaba:** `GET /api/productos?origen=fabricado` devolvía **500** con `ERROR: no existe la función lower(bytea)`. PostgreSQL no lograba inferir el tipo de los parámetros que llegaban NULL en el query JPQL unificado `buscarConFiltros` (introducido en F27) y los trataba como `bytea`.
+
+**Impacto real:** habría roto en vivo los desplegables del módulo de Producción durante la demo, porque son precisamente los que filtran por `origen=fabricado`. Es el tipo de bug que no aparece en pruebas parciales porque solo se manifiesta cuando ese filtro llega solo, sin acompañantes.
+
+**Ahora funciona:** se envolvieron los parámetros con `CAST(:param AS string)` en `ProductoRepository.buscarConFiltros`. Verificado: devuelve los 3 productos fabricados, los filtros combinados siguen operando y no hay regresión (los 108 productos se listan igual que antes).
+
+### RESUELTO — promedio ponderado en KPI de fabricación (deuda #5, parcial)
+
+`costoPromedioFabricacion` era un promedio aritmético de `costo_unitario_producido` entre órdenes completadas, sesgado cuando los lotes son de tamaños dispares. Pasó a **promedio ponderado**: `SUM(costo_total) / SUM(cantidad_producida)`. Es el mismo dato que se muestra en el análisis fabricar-vs-comprar, así que el sesgo afectaba una decisión visible en pantalla.
+
+La merma promedio del dashboard de manufactura **ya estaba ponderada** correctamente (`SUM(mermas positivas) / SUM(cantidad_teorica)`), así que la deuda #5 queda cerrada en su parte de costos y no aplicaba en la de mermas.
+
+### VERIFICACIÓN — deuda que el documento reportaba y ya estaba resuelta
+
+`administracion_usuarios_roles_privilegios.sql` figuraba como pendiente por usar nombres de objetos desactualizados. Al revisarlo, **ya usaba los nombres correctos**: la deuda estaba resuelta y solo el registro seguía marcándola. Corregido el registro.
+
+### POSPUESTO con justificación — mano de obra e indirectos en el costo estimado por BOM (deuda #2)
+
+El costo estimado por BOM (`GET /api/productos/{id}/costo-estimado`) calcula correctamente el costo de materia prima con el promedio ponderado real, pero **no incluye mano de obra ni indirectos**, porque hoy esos costos se capturan por orden de producción, no por producto.
+
+**Por qué se pospone:**
+- Requiere una **tabla nueva de costos estándar por producto** (tarifa de mano de obra y tasa de indirectos), es decir un cambio de esquema con su script de fase, entidad, servicio, endpoints y UI.
+- Es **funcionalidad nueva, no un bug**. El comportamiento actual es correcto y honesto: el DTO ya lo declara explícitamente en su campo `advertencia`.
+- El riesgo de introducir un cambio de esquema y de lógica de costeo a pocos días de la entrega no compensa la ganancia.
+
+**Criterio aplicado:** la estabilidad para la demo pesa más que cerrar el 100 % de la deuda. Queda en trabajo futuro con el diseño ya esbozado.
+
+### VERIFICACIÓN INTEGRAL de los 4 ciclos de negocio
+
+Ejecutados end-to-end contra el backend real vía HTTP con los usuarios de cada rol, sobre la BD con datos del seed, usando **datos nuevos de prueba** (el seed no se tocó).
+
+| Ciclo | Evidencia | Resultado |
+|---|---|---|
+| **1. Order-to-Cash** | Pedido #26 total **235.00** (250 − 15 de descuento, neto correcto), picking 2/2 líneas, empaque HU-F32-001 → estado `enviado`, entregado, comprobante `COMP-2026-000001` con total 235.00 que **cuadra** con el pedido | ✅ |
+| **2. Procure-to-Pay** | OC #9 total **800.00** puesto por trigger; separación de funciones respetada (compras crea → admin aprueba, autoaprobación rechazada); recepción #6 → stock MP 100.000 y `costo_unitario_promedio` = **8.0000** exacto, orden a `recibida_completa`; factura #3 total **920.00** (GENERATED = 800 + 120); CxP #3 pagada con `saldo_pendiente` **0.00** y factura marcada `pagada` por cascada del trigger | ✅ |
+| **3. Manufactura** | OP #11 sobre producto fabricado con BOM; disponibilidad máxima calculada 365 uds; iniciada con `costo_materia_prima` 60.60 y snapshots capturados; completada 9 de 10 con merma de tela **1.500** → MP 67.35 + MO 90 + IND 30 = **187.35** total, unitario **20.8167**; producto terminado dado de alta en la bodega destino | ✅ |
+| **4. Calidad** | RMA #6 sobre el pedido entregado del ciclo 1 → inspección con `idBodega` en la raíz: línea `apto_reventa` subió stock del producto 10 en bodega 1 de **1 → 2** (movimiento #12 tipo `entrada`, historial con `id_usuario=3` puesto por el trigger vía `SET LOCAL`), línea `defectuoso` **no** tocó stock; la bandeja `/items-disponibles` mostró el item; devolución a proveedor #2 creada, `enviada` y `resuelta` con reembolso 100.00; **segundo intento con el mismo item rechazado** por la constraint UNIQUE | ✅ |
+
+**Hallazgos de contrato de API detectados al verificar** (útiles para quien consuma la API): en `PUT /api/devoluciones/{id}/inspeccionar` el campo `idBodega` va en la **raíz** del cuerpo, no dentro de cada item; el detalle de pedido se expone como `productoId`, no `idProducto`; y en `POST /api/devoluciones-proveedor` los items usan `origen` + `idOrigenDetalle` (sin `idProducto`, que el servicio resuelve solo).
+
+**Precaución de limpieza aplicada:** antes de revertir el stock se verificó el origen de `inventario(producto 10, bodega 1)`. Resultó provenir del **seed demo de F31** (movimiento #7, "DEMO F31 - Devolución apto reventa RMA #1"), no de las pruebas de esta fase. Se ajustó solo el incremento causado por la prueba, sin borrar la fila. Es exactamente el error que se cometió en F30 y esta vez se evitó aplicando la lección documentada entonces.
+
+### VERIFICACIÓN de integridad de la base de datos
+
+| Verificación | Resultado |
+|---|---|
+| Tablas en `public` | **37** ✅ |
+| Usuarios demo activos, cada uno con su rol | **6 / 6** ✅ |
+| Hash de contraseñas (BCrypt) | 60 caracteres en los 6 ✅ |
+| FKs revalidadas fila por fila con `VALIDATE CONSTRAINT` | **70 / 70, 0 huérfanos** ✅ |
+| `pedido.total` = neto recalculado | 0 incoherencias ✅ |
+| `orden_compra.total` = suma de detalles | 0 incoherencias ✅ |
+| `cuenta_por_pagar.monto_pagado` = suma de pagos | 0 incoherencias ✅ |
+| `orden_produccion.costo_materia_prima` = suma de `costo_linea` | 0 incoherencias ✅ |
+| BOM sobre productos no fabricados | 0 ✅ |
+| Órdenes de producción sobre productos no fabricados | 0 ✅ |
+| Stock negativo en `inventario` y `materia_prima` | 0 ✅ |
+| Funciones PL/pgSQL | **17** ✅ |
+| Triggers | **24** ✅ |
+| Funciones que aún usan `pg_trigger_depth` | **0** ✅ |
+| Seed base intacto | 88 ciudades, 108 productos, 40 clientes, 20 bodegas ✅ |
+
+La validación de integridad referencial no fue un conteo de huérfanos por consulta, sino un `ALTER TABLE ... VALIDATE CONSTRAINT` sobre las 70 FKs dentro de un bloque `DO`, que hace a PostgreSQL revalidar cada fila y aborta si encuentra una referencia rota. Es una comprobación más fuerte que un `LEFT JOIN ... IS NULL` por tabla.
+
+### HALLAZGOS NUEVOS de esta fase (deuda de documentación)
+
+Al verificar contra el catálogo real aparecieron discrepancias en `.kiro/steering/database.md` que venían arrastrándose:
+
+1. **Cuatro tablas base documentadas con columnas que no existen.** Lo real es:
+   - `inventario`: `stock_actual`, `stock_minimo`, `fecha_actualizacion` — el doc decía `cantidad` y `updated_at`.
+   - `movimiento_inventario`: referencia `id_inventario` (no `id_producto` + `id_bodega`) y tiene además `id_proveedor`, `id_pedido`, `observacion`, `id_inventario_destino`, `created_at`.
+   - `historial_inventario`: `stock_anterior`, `stock_nuevo`, `motivo`, `fecha` — el doc decía `cantidad_anterior`, `cantidad_nueva`, `fecha_cambio`, `tipo_operacion`.
+   - `comprobante_interno`: ligado a `id_pedido`, con `total` y `fecha_emision` — el doc describía bodegas origen/destino, `tipo` y `observaciones`.
+   - `rol` **no tiene** columna `estado`.
+2. **`log_accion` (F19b, 82 filas) no estaba documentada.** Era la tabla 37 que faltaba en el inventario del esquema.
+3. **Cuatro de los seis roles tienen 0 filas en `rol_permiso`** (solo Administrador con 49 y Encargado de Compras con 5). No rompe nada porque la autorización efectiva es por nombre de rol en `SecurityConfig`, pero la tabla de permisos granulares está incompleta y es inconsistente con lo que el modelo de datos sugiere.
+
+Los puntos 1 y 2 se corrigieron en el steering en esta misma fase. El punto 3 queda en trabajo futuro.
+
+### Cómo quedó el registro de deuda
+
+| # | Deuda | Prioridad | Estado |
+|---|---|---|---|
+| 1 | `fn_proteger_total_pedido` no protege | 🔴 Alta | ✅ **Resuelta en F32** |
+| 2 | Costo estimado por BOM sin mano de obra ni indirectos | 🔴 Alta | ⏸️ **Pospuesta con justificación** |
+| 3 | Rutas frontend con solo `authGuard` | 🔴 Alta | ✅ **Resuelta en F32** |
+| 4 | `fase00_ddl_base.sql` no es baseline F20 puro | 🟡 Media | ⏸️ Trabajo futuro |
+| 5 | Promedios simples, no ponderados | 🟡 Media | ✅ **Resuelta en F32** |
+| 6 | CxP vencidas recalculadas bajo demanda | 🟡 Media | ⏸️ Trabajo futuro |
+| 7 | Sin anulación de pagos ni recepciones | 🟡 Media | ⏸️ Trabajo futuro |
+| 8 | Reembolso a proveedor no acredita la CxP | 🟡 Media | ⏸️ Trabajo futuro |
+| 9 | Sin series temporales en dashboards | 🟡 Media | ⏸️ Trabajo futuro |
+| 10 | Concurrencia optimista no forzada en producción | 🟡 Media | ⏸️ Trabajo futuro |
+| 11–18 | Ver tabla de prioridad baja del inventario | 🟢 Baja | ⏸️ Trabajo futuro |
+| — | `?origen=fabricado` daba error 500 (`lower(bytea)`) | 🔴 Crítica (nueva) | ✅ **Resuelta en F32** |
+| — | Nombres desactualizados en script de privilegios | 🟡 Media | ✅ Ya estaba resuelta; registro corregido |
+| — | Esquema mal documentado de 4 tablas base + `log_accion` | 🟡 Media (nueva) | ✅ **Resuelta en F32** |
+| — | 4 de 6 roles sin filas en `rol_permiso` | 🟡 Media (nueva) | ⏸️ Trabajo futuro |
+
+---
+
+# TRABAJO FUTURO
+
+Lo que se pospuso conscientemente, con el motivo. Un proyecto honesto documenta sus límites.
+
+## Alta prioridad si el sistema siguiera evolucionando
+
+**Costos estándar por producto.** Tabla nueva con tarifa de mano de obra y tasa de indirectos por producto, para que el costo estimado por BOM sea comparable con el costo real de una orden. Hoy el estimado solo cubre materia prima y lo declara en el campo `advertencia`. Pospuesto por ser cambio de esquema + funcionalidad nueva a pocos días de la entrega.
+
+**Completar `rol_permiso` para los seis roles.** La autorización efectiva es por nombre de rol en `SecurityConfig`, así que el sistema funciona, pero cuatro roles tienen cero permisos granulares registrados. Si se quisiera autorización por permiso (`modulo:accion`) en vez de por rol, habría que poblar la tabla y cambiar `SecurityConfig` para consultarla. Es un refactor de seguridad: exactamente lo que no conviene tocar antes de una entrega.
+
+**Nota de crédito automática al resolver una devolución a proveedor con reembolso.** Hoy `monto_reembolso` se registra pero no abona ninguna cuenta por pagar. Cerrar ese lazo conectaría el ciclo de calidad con el contable.
+
+## Media prioridad
+
+- **Job programado (`@Scheduled`)** para marcar cuentas por pagar vencidas, en vez del recálculo bajo demanda al listar.
+- **Anulación / reversión** de pagos y de recepciones de mercancía. Hoy son irreversibles desde la aplicación porque revertir implica deshacer stock, `cantidad_recibida` acumulada y costo promedio ponderado; hacerlo bien requiere un modelo de asientos de reversión, no un DELETE.
+- **Series temporales** en los dashboards de manufactura (evolución mensual de producción, costo y merma). Hoy se muestra el mes en curso y el top-3.
+- **Bloqueo pesimista** (`SELECT ... FOR UPDATE`) en el consumo de materia prima. Dos órdenes planificadas pueden competir por el mismo stock; hoy se mitiga re-verificando al iniciar, suficiente para el volumen actual.
+- **Baseline F20 puro.** `fase00_ddl_base.sql` es un snapshot que ya incluye `producto.origen` y el trigger de F27. Es inofensivo porque F27 es idempotente, pero no representa el estado histórico exacto de la F20.
+- **Validar `cantidad_devuelta` contra el acumulado** de devoluciones previas de la misma línea de pedido, no solo contra la cantidad original.
+
+## Baja prioridad
+
+- Número secuencial formal de orden de compra (`OC-000001`), como ya tienen pedidos y comprobantes.
+- Reemplazar los `<select>` de hasta 1000 registros por autocomplete con búsqueda remota.
+- Sustituir los `findAll()` + filtro en memoria por consultas nativas (stock bajo de materia prima, bandeja de items defectuosos).
+- Subir el budget de estilos de Angular o extraer estilos a `styles.scss` (varios componentes lo exceden en build de producción).
+- Caché o vista materializada del resumen de manufactura (~8 consultas agregadas por carga del dashboard).
+- Producción parcial / por lotes y estaciones de trabajo con ruteo de operaciones.
+- Mano de obra por horas y tarifas en vez de monto global por orden.
+- Análisis de desviaciones de costo (estándar vs real, variación de precio vs variación de cantidad).
+
+## Riesgo conocido que se asume
+
+**El asistente IA ejecuta SQL generado por un modelo de lenguaje.** La mitigación es la validación SELECT-only (rechaza INSERT/UPDATE/DELETE/DROP/TRUNCATE/ALTER/CREATE) más el límite de 500 filas. Es una mitigación razonable, no una garantía formal: un endurecimiento real pasaría por ejecutar con un rol de PostgreSQL de solo lectura sobre vistas específicas, en lugar de filtrar la cadena SQL. Queda documentado como riesgo aceptado y no como problema resuelto.

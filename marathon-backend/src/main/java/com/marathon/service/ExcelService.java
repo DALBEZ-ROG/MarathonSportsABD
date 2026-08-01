@@ -31,6 +31,119 @@ public class ExcelService {
     private static final byte[] VERDE = new byte[]{(byte) 45, (byte) 90, (byte) 39};
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
+    // ===================== CONSUMO DE MATERIA PRIMA (F30) =====================
+    public byte[] exportarConsumoMateriaPrimaExcel(
+            List<com.marathon.dto.reporte.ReporteConsumoMateriaPrimaDTO> datos, FiltroReporteDTO filtro) {
+        XSSFWorkbook wb = new XSSFWorkbook();
+        try {
+            Sheet sheet = wb.createSheet("Consumo Materia Prima");
+            CellStyle header = headerStyle(wb);
+            CellStyle filaBlanca = bodyStyle(wb, false);
+            CellStyle filaGris = bodyStyle(wb, true);
+            CellStyle moneda = monedaStyle(wb, false);
+            CellStyle monedaGris = monedaStyle(wb, true);
+            CellStyle totalStyle = totalStyle(wb);
+            CellStyle totalMoneda = totalMonedaStyle(wb);
+
+            String[] cols = {"#", "Materia Prima", "Unidad", "Cantidad Consumida", "Costo Consumido", "# Órdenes"};
+            Row headerRow = sheet.createRow(0);
+            for (int i = 0; i < cols.length; i++) {
+                Cell c = headerRow.createCell(i);
+                c.setCellValue(cols[i]);
+                c.setCellStyle(header);
+            }
+
+            BigDecimal totalCosto = BigDecimal.ZERO;
+            int r = 1;
+            int idx = 1;
+            for (com.marathon.dto.reporte.ReporteConsumoMateriaPrimaDTO d : datos) {
+                boolean gris = (r % 2 == 0);
+                CellStyle txt = gris ? filaGris : filaBlanca;
+                CellStyle mon = gris ? monedaGris : moneda;
+                Row row = sheet.createRow(r++);
+                setCell(row, 0, String.valueOf(idx++), txt);
+                setCell(row, 1, nz(d.getNombreMateriaPrima()), txt);
+                setCell(row, 2, nz(d.getUnidadMedida()), txt);
+                setCell(row, 3, d.getCantidadConsumidaTotal() != null ? d.getCantidadConsumidaTotal().toPlainString() : "0", txt);
+                setNumber(row, 4, d.getCostoConsumidoTotal(), mon);
+                setCell(row, 5, d.getNumeroOrdenes() != null ? d.getNumeroOrdenes().toString() : "0", txt);
+                if (d.getCostoConsumidoTotal() != null) {
+                    totalCosto = totalCosto.add(d.getCostoConsumidoTotal());
+                }
+            }
+
+            Row totalRow = sheet.createRow(r);
+            setCell(totalRow, 3, "TOTAL", totalStyle);
+            setNumber(totalRow, 4, totalCosto, totalMoneda);
+
+            for (int i = 0; i < cols.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+            crearHojaResumen(wb, filtro, datos.size(), "Costo consumido", totalCosto);
+            return toBytes(wb);
+        } finally {
+            cerrar(wb);
+        }
+    }
+
+    // ===================== EFICIENCIA DE PRODUCCIÓN (F30) =====================
+    public byte[] exportarEficienciaProduccionExcel(
+            List<com.marathon.dto.reporte.ReporteEficienciaProduccionDTO> datos, FiltroReporteDTO filtro) {
+        XSSFWorkbook wb = new XSSFWorkbook();
+        try {
+            Sheet sheet = wb.createSheet("Eficiencia Producción");
+            CellStyle header = headerStyle(wb);
+            CellStyle filaBlanca = bodyStyle(wb, false);
+            CellStyle filaGris = bodyStyle(wb, true);
+            CellStyle moneda = monedaStyle(wb, false);
+            CellStyle monedaGris = monedaStyle(wb, true);
+            CellStyle totalStyle = totalStyle(wb);
+            CellStyle totalMoneda = totalMonedaStyle(wb);
+
+            String[] cols = {"OP #", "Producto", "Planificada", "Producida", "Eficiencia %",
+                    "Merma MP", "Costo Total", "Costo Unitario", "Fecha Fin"};
+            Row headerRow = sheet.createRow(0);
+            for (int i = 0; i < cols.length; i++) {
+                Cell c = headerRow.createCell(i);
+                c.setCellValue(cols[i]);
+                c.setCellStyle(header);
+            }
+
+            BigDecimal totalCosto = BigDecimal.ZERO;
+            int r = 1;
+            for (com.marathon.dto.reporte.ReporteEficienciaProduccionDTO d : datos) {
+                boolean gris = (r % 2 == 0);
+                CellStyle txt = gris ? filaGris : filaBlanca;
+                CellStyle mon = gris ? monedaGris : moneda;
+                Row row = sheet.createRow(r++);
+                setCell(row, 0, d.getIdOrdenProduccion() != null ? d.getIdOrdenProduccion().toString() : "", txt);
+                setCell(row, 1, nz(d.getProducto()), txt);
+                setCell(row, 2, d.getCantidadPlanificada() != null ? d.getCantidadPlanificada().toString() : "0", txt);
+                setCell(row, 3, d.getCantidadProducida() != null ? d.getCantidadProducida().toString() : "0", txt);
+                setCell(row, 4, d.getEficienciaProduccion() != null ? d.getEficienciaProduccion().toPlainString() + " %" : "0 %", txt);
+                setCell(row, 5, d.getMermaTotalMateriaPrima() != null ? d.getMermaTotalMateriaPrima().toPlainString() : "0", txt);
+                setNumber(row, 6, d.getCostoTotal(), mon);
+                setNumber(row, 7, d.getCostoUnitario(), mon);
+                setCell(row, 8, d.getFechaFin() != null ? d.getFechaFin().toString() : "", txt);
+                if (d.getCostoTotal() != null) {
+                    totalCosto = totalCosto.add(d.getCostoTotal());
+                }
+            }
+
+            Row totalRow = sheet.createRow(r);
+            setCell(totalRow, 5, "TOTAL", totalStyle);
+            setNumber(totalRow, 6, totalCosto, totalMoneda);
+
+            for (int i = 0; i < cols.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+            crearHojaResumen(wb, filtro, datos.size(), "Costo total", totalCosto);
+            return toBytes(wb);
+        } finally {
+            cerrar(wb);
+        }
+    }
+
     // ===================== COSTOS DE PRODUCCIÓN (F29) =====================
     public byte[] exportarCostosProduccionExcel(
             List<com.marathon.dto.reporte.ReporteCostosProduccionItemDTO> datos, FiltroReporteDTO filtro) {
