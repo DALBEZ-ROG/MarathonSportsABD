@@ -179,12 +179,9 @@ interface PageResp<T> { content: T[]; totalElements: number; totalPages: number;
 
     .audit-header h1 {
       font-size: 1.8rem;
-      font-weight: 300;
+      font-weight: 400;
       letter-spacing: 1px;
-      background: linear-gradient(135deg, #fff 0%, #C9A84C 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      color: #fff;
       margin-bottom: 0.3rem;
     }
 
@@ -292,8 +289,8 @@ interface PageResp<T> { content: T[]; totalElements: number; totalPages: number;
     }
 
     .audit-table th {
-      background: rgba(201,168,76,0.06);
-      color: #C9A84C;
+      background: rgba(255,255,255,0.03);
+      color: rgba(255,255,255,0.45);
       padding: 0.85rem 1rem;
       text-align: left;
       font-size: 0.7rem;

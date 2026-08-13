@@ -72,14 +72,7 @@ interface OrdenCompra {
     </div>
   `,
   styles: [`
-    .oc-badge { padding: .25rem .6rem; border-radius: 12px; font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: #fff; white-space: nowrap; }
-    .oc-borrador { background: #6b7280; }
-    .oc-pendiente_aprobacion { background: #d97706; }
-    .oc-aprobada { background: #16a34a; }
-    .oc-rechazada { background: #dc2626; }
-    .oc-recibida_parcial { background: #2563eb; }
-    .oc-recibida_completa { background: #14532d; }
-    .oc-cancelada { background: #7f1d1d; }
+    /* Inherits global dark theme from styles.scss */
   `]
 })
 export class OrdenesCompraComponent implements OnInit {

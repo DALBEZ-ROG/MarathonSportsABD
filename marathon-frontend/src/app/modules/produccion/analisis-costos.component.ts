@@ -61,13 +61,9 @@ import { ApiService } from '../../core/services/api.service';
     </div>
   `,
   styles: [`
-    .pos { color: #4ade80; font-weight: 600; }
-    .neg { color: #f87171; font-weight: 600; }
-    .cmp-row { display: flex; justify-content: space-between; padding: .4rem 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
-    .conclusion { margin-top: 1rem; padding: .75rem 1rem; border-radius: 8px; font-weight: 700; text-align: center; }
-    .conclusion.fab { background: #14532d; color: #bbf7d0; }
-    .conclusion.comp { background: #7c2d12; color: #fed7aa; }
-    .conclusion.neutro { background: #334155; color: #e2e8f0; }
+    .pos { color: #81C784; font-weight: 600; }
+    .neg { color: #E57373; font-weight: 600; }
+    .cmp-row { display: flex; justify-content: space-between; padding: .4rem 0; border-bottom: 1px solid var(--ms-border); }
   `]
 })
 export class AnalisisCostosComponent implements OnInit {

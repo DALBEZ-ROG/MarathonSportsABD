@@ -49,11 +49,7 @@ import { ApiService } from '../../core/services/api.service';
     </div>
   `,
   styles: [`
-    .dp-badge { padding: .25rem .6rem; border-radius: 12px; font-size: .72rem; font-weight: 600; text-transform: uppercase; color: #fff; }
-    .dp-pendiente { background: #6b7280; }
-    .dp-enviada { background: #2563eb; }
-    .dp-resuelta { background: #16a34a; }
-    .dp-rechazada { background: #dc2626; }
+    /* Inherits global dark theme from styles.scss */
   `]
 })
 export class DevolucionesProveedorListaComponent implements OnInit {

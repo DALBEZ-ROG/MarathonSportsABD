@@ -67,14 +67,6 @@ import { AuthService } from '../../core/services/auth.service';
     .detail-card.wide { grid-column: 1 / -1; }
     .detail-card .label { font-size: .7rem; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.4); }
     .detail-card .total { color: #C9A84C; font-size: 1.1rem; font-weight: 600; }
-    .dp-badge { padding: .25rem .6rem; border-radius: 12px; font-size: .72rem; font-weight: 600; text-transform: uppercase; color: #fff; width: fit-content; }
-    .dp-pendiente { background: #6b7280; }
-    .dp-enviada { background: #2563eb; }
-    .dp-resuelta { background: #16a34a; }
-    .dp-rechazada { background: #dc2626; }
-    .orig-badge { padding: .2rem .5rem; border-radius: 8px; font-size: .7rem; font-weight: 600; color: #fff; }
-    .orig-rma_cliente { background: #d97706; }
-    .orig-recepcion_compra { background: #2563eb; }
     .acciones { margin-top: 1.5rem; }
     .resolver-form { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.06); }
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }

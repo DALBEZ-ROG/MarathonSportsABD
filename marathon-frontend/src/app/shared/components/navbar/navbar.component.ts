@@ -10,6 +10,12 @@ interface NavItem {
   roles?: string[];
 }
 
+interface NavSection {
+  title: string;
+  items: NavItem[];
+  collapsed: boolean;
+}
+
 @Component({
   selector: 'app-navbar',
   standalone: true,
@@ -41,28 +47,48 @@ interface NavItem {
             <span class="brand-sub">Sports</span>
           </div>
         </div>
-        <button class="collapse-btn" (click)="isCollapsed = !isCollapsed" *ngIf="!isMobile">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline *ngIf="!isCollapsed" points="15 18 9 12 15 6"/>
-            <polyline *ngIf="isCollapsed" points="9 18 15 12 9 6"/>
-          </svg>
-        </button>
+        <div class="header-actions" *ngIf="!isMobile">
+          <button
+            class="collapse-btn"
+            (click)="toggleSidebar()"
+            [title]="isCollapsed ? 'Expandir menú' : 'Compactar menú'"
+            [attr.aria-label]="isCollapsed ? 'Expandir menú' : 'Compactar menú'"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline *ngIf="!isCollapsed" points="15 18 9 12 15 6"/>
+              <polyline *ngIf="isCollapsed" points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <!-- Navigation -->
       <nav class="sidebar-nav">
-        <div class="nav-section" *ngFor="let section of navSections">
-          <span class="section-label" *ngIf="!isCollapsed">{{ section.title }}</span>
-          <a *ngFor="let item of section.items"
-             [routerLink]="item.route"
-             routerLinkActive="active"
-             [routerLinkActiveOptions]="{exact: item.route === '/dashboard'}"
-             class="nav-item"
-             [title]="item.label"
-             (click)="closeMobile()">
-            <span class="nav-icon" [innerHTML]="item.icon"></span>
-            <span class="nav-label" *ngIf="!isCollapsed">{{ item.label }}</span>
-          </a>
+        <div class="nav-section" *ngFor="let section of navSections" [class.folded]="section.collapsed && !isCollapsed">
+          <button
+            type="button"
+            class="section-label"
+            *ngIf="!isCollapsed"
+            (click)="toggleSection(section)"
+            [attr.aria-expanded]="!section.collapsed"
+          >
+            <span>{{ section.title }}</span>
+            <svg class="section-chevron" [class.open]="!section.collapsed" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          <div class="section-items" *ngIf="isCollapsed || !section.collapsed">
+            <a *ngFor="let item of section.items"
+               [routerLink]="item.route"
+               routerLinkActive="active"
+               [routerLinkActiveOptions]="{exact: item.route === '/dashboard' || item.route === '/portal'}"
+               class="nav-item"
+               [title]="item.label"
+               (click)="closeMobile()">
+              <span class="nav-icon" [innerHTML]="item.icon"></span>
+              <span class="nav-label" *ngIf="!isCollapsed">{{ item.label }}</span>
+            </a>
+          </div>
         </div>
       </nav>
 
@@ -147,16 +173,17 @@ interface NavItem {
     .brand-area { display: flex; align-items: center; gap: .75rem; }
     .brand-text { display: flex; flex-direction: column; }
     .brand-name {
-      font-size: 1.05rem; font-weight: 400; letter-spacing: 1.5px;
-      background: linear-gradient(135deg, #fff, #C9A84C);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      font-size: 1.05rem; font-weight: 500; letter-spacing: 1.5px;
+      color: #fff;
     }
     .brand-sub { font-size: .7rem; color: rgba(255,255,255,0.3); letter-spacing: 2px; text-transform: uppercase; }
+
+    .header-actions { display: flex; align-items: center; gap: 2px; }
 
     .collapse-btn {
       background: none; border: none; color: rgba(255,255,255,0.3);
       cursor: pointer; padding: 6px; border-radius: 6px;
-      transition: all .2s;
+      transition: all .2s; line-height: 0;
     }
     .collapse-btn:hover { color: #C9A84C; background: rgba(255,255,255,0.04); }
 
@@ -168,13 +195,23 @@ interface NavItem {
       scrollbar-color: rgba(255,255,255,0.08) transparent;
     }
 
-    .nav-section { margin-bottom: 1rem; }
+    .nav-section { margin-bottom: .85rem; }
 
     .section-label {
-      display: block; padding: .4rem .75rem; margin-bottom: .25rem;
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%; padding: .4rem .75rem; margin-bottom: .15rem;
       font-size: .65rem; color: rgba(255,255,255,0.25);
       text-transform: uppercase; letter-spacing: 1.5px; font-weight: 500;
+      background: none; border: none; cursor: pointer; text-align: left;
+      border-radius: 8px; transition: color .2s, background .2s;
     }
+    .section-label:hover { color: #C9A84C; background: rgba(255,255,255,0.03); }
+
+    .section-chevron {
+      flex-shrink: 0; opacity: .5; transition: transform .2s ease;
+      transform: rotate(-90deg);
+    }
+    .section-chevron.open { transform: rotate(0deg); opacity: .8; }
 
     .nav-item {
       display: flex; align-items: center; gap: .75rem;
@@ -240,6 +277,7 @@ interface NavItem {
     /* ── Collapsed state ── */
     .sidebar.collapsed .brand-area { display: none; }
     .sidebar.collapsed .section-label { display: none; }
+    .sidebar.collapsed .header-actions { width: 100%; justify-content: center; }
     .sidebar.collapsed .nav-label { display: none; }
     .sidebar.collapsed .nav-item { justify-content: center; padding: .7rem; }
     .sidebar.collapsed .nav-item.active { border-left: none; padding-left: .7rem; }
@@ -272,9 +310,10 @@ export class NavbarComponent {
   isCollapsed = false;
   isMobile = false;
 
-  navSections: { title: string; items: NavItem[] }[] = [];
+  navSections: NavSection[] = [];
 
   private allItems: NavItem[] = [
+    { label: 'Portal', route: '/portal', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>' },
     { label: 'Dashboard', route: '/dashboard', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>' },
     { label: 'Datos Maestros', route: '/datos-maestros', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>', roles: ['Administrador'] },
     { label: 'Proveedores', route: '/proveedores', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>', roles: ['Administrador'] },
@@ -345,7 +384,7 @@ export class NavbarComponent {
     });
 
     // Group into sections
-    const main = filtered.filter(i => ['/dashboard'].includes(i.route));
+    const main = filtered.filter(i => ['/portal', '/dashboard'].includes(i.route));
     const gestion = filtered.filter(i => ['/datos-maestros', '/proveedores', '/productos', '/bodegas', '/inventario', '/clientes'].includes(i.route));
     const pedidos = filtered.filter(i => ['/pedidos', '/pedidos/especiales', '/comprobantes'].includes(i.route));
     const operaciones = filtered.filter(i => ['/picking', '/empaque', '/despachos', '/devoluciones'].includes(i.route));
@@ -357,15 +396,24 @@ export class NavbarComponent {
     const cuenta = filtered.filter(i => ['/usuarios', '/roles', '/perfil'].includes(i.route));
 
     this.navSections = [
-      { title: 'Principal', items: main },
-      ...(gestion.length ? [{ title: 'Gestión', items: gestion }] : []),
-      ...(pedidos.length ? [{ title: 'Pedidos', items: pedidos }] : []),
-      ...(operaciones.length ? [{ title: 'Operaciones', items: operaciones }] : []),
-      ...(compras.length ? [{ title: 'Compras', items: compras }] : []),
-      ...(manufactura.length ? [{ title: 'Manufactura', items: manufactura }] : []),
-      ...(analytics.length ? [{ title: 'Análisis', items: analytics }] : []),
-      ...(cuenta.length ? [{ title: 'Cuenta', items: cuenta }] : []),
+      { title: 'Principal', items: main, collapsed: false },
+      ...(gestion.length ? [{ title: 'Gestión', items: gestion, collapsed: true }] : []),
+      ...(pedidos.length ? [{ title: 'Pedidos', items: pedidos, collapsed: true }] : []),
+      ...(operaciones.length ? [{ title: 'Operaciones', items: operaciones, collapsed: true }] : []),
+      ...(compras.length ? [{ title: 'Compras', items: compras, collapsed: true }] : []),
+      ...(manufactura.length ? [{ title: 'Manufactura', items: manufactura, collapsed: true }] : []),
+      ...(analytics.length ? [{ title: 'Análisis', items: analytics, collapsed: true }] : []),
+      ...(cuenta.length ? [{ title: 'Cuenta', items: cuenta, collapsed: true }] : []),
     ];
+  }
+
+  toggleSection(section: NavSection): void {
+    section.collapsed = !section.collapsed;
+  }
+
+  toggleSidebar(): void {
+    this.isCollapsed = !this.isCollapsed;
+    document.body.classList.toggle('sidebar-narrow', this.isCollapsed);
   }
 
   closeMobile(): void {

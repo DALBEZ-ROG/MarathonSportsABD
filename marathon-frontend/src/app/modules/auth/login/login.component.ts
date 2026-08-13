@@ -140,7 +140,7 @@ import { AuthService } from '../../../core/services/auth.service';
       align-items: center;
       justify-content: center;
       min-height: 100vh;
-      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 25%, #16213e 50%, #0f3460 75%, #0a0a0a 100%);
+      background: linear-gradient(160deg, #0a0a0f 0%, #0f1623 40%, #0d0d14 100%);
       overflow: hidden;
       padding: 1.5rem;
     }
@@ -150,14 +150,14 @@ import { AuthService } from '../../../core/services/auth.service';
       position: absolute;
       border-radius: 50%;
       filter: blur(80px);
-      opacity: 0.4;
+      opacity: 0.22;
       animation: float 20s ease-in-out infinite;
     }
 
     .orb-1 {
       width: 500px;
       height: 500px;
-      background: radial-gradient(circle, #C9A84C 0%, transparent 70%);
+      background: radial-gradient(circle, #1a3a5c 0%, transparent 70%);
       top: -15%;
       right: -10%;
       animation-delay: 0s;
@@ -179,7 +179,7 @@ import { AuthService } from '../../../core/services/auth.service';
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      opacity: 0.15;
+      opacity: 0.08;
       animation-delay: -14s;
     }
 
@@ -213,8 +213,8 @@ import { AuthService } from '../../../core/services/auth.service';
     }
 
     .accent-line {
-      height: 3px;
-      background: linear-gradient(90deg, transparent, #C9A84C, #F4E28D, #C9A84C, transparent);
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(201, 168, 76, 0.7), transparent);
     }
 
     .card-content {
@@ -234,20 +234,17 @@ import { AuthService } from '../../../core/services/auth.service';
     }
 
     @keyframes pulse-glow {
-      0%, 100% { filter: drop-shadow(0 0 8px rgba(201, 168, 76, 0.3)); }
-      50% { filter: drop-shadow(0 0 16px rgba(201, 168, 76, 0.6)); }
+      0%, 100% { filter: drop-shadow(0 0 6px rgba(201, 168, 76, 0.15)); }
+      50% { filter: drop-shadow(0 0 10px rgba(201, 168, 76, 0.28)); }
     }
 
     .brand-name {
       font-family: 'Segoe UI', system-ui, sans-serif;
       font-size: 1.75rem;
-      font-weight: 300;
+      font-weight: 400;
       letter-spacing: 2px;
       text-transform: uppercase;
-      background: linear-gradient(135deg, #ffffff 0%, #C9A84C 50%, #F4E28D 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      color: #fff;
       margin-bottom: 0.4rem;
     }
 
@@ -279,7 +276,7 @@ import { AuthService } from '../../../core/services/auth.service';
     .input-icon {
       position: absolute;
       left: 1rem;
-      color: rgba(201, 168, 76, 0.6);
+      color: rgba(255, 255, 255, 0.35);
       pointer-events: none;
       transition: color 0.3s ease;
     }
@@ -336,7 +333,7 @@ import { AuthService } from '../../../core/services/auth.service';
     }
 
     .toggle-password:hover {
-      color: rgba(201, 168, 76, 0.8);
+      color: rgba(255, 255, 255, 0.7);
     }
 
     /* ── Error Toast ── */
@@ -499,7 +496,7 @@ export class LoginComponent {
 
   constructor(private authService: AuthService, private router: Router) {
     if (this.authService.isAuthenticated()) {
-      this.router.navigate(['/dashboard']);
+      this.router.navigate(['/portal']);
     }
   }
 
@@ -515,7 +512,7 @@ export class LoginComponent {
     this.authService.login(this.correo, this.password).subscribe({
       next: () => {
         this.loading = false;
-        this.router.navigate(['/dashboard']);
+        this.router.navigate(['/portal']);
       },
       error: (err) => {
         this.loading = false;

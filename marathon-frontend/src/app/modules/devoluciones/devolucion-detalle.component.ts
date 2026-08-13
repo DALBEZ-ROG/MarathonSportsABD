@@ -130,15 +130,6 @@ interface Solicitud {
     .detail-card.wide { grid-column: 1 / -1; }
     .detail-card .label { font-size: .7rem; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.4); }
     .detail-card .total { color: #C9A84C; font-size: 1.1rem; font-weight: 600; }
-    .dev-badge { padding: .25rem .6rem; border-radius: 12px; font-size: .72rem; font-weight: 600; text-transform: uppercase; color: #fff; width: fit-content; }
-    .dev-solicitada { background: #d97706; }
-    .dev-en_inspeccion { background: #2563eb; }
-    .dev-completada { background: #16a34a; }
-    .dev-rechazada { background: #dc2626; }
-    .res-badge { padding: .2rem .5rem; border-radius: 8px; font-size: .7rem; font-weight: 600; color: #fff; }
-    .res-apto_reventa { background: #16a34a; }
-    .res-defectuoso { background: #d97706; }
-    .res-rechazado { background: #dc2626; }
     .acciones { margin-top: 1.5rem; }
     .inspeccion-form { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.06); }
     .insp-items { display: flex; flex-direction: column; gap: .8rem; margin: 1rem 0; }

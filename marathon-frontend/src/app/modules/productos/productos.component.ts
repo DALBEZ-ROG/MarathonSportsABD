@@ -262,26 +262,29 @@ interface Producto {
     </div>
   `,
   styles: [`
-    /* Inherits global dark theme from styles.scss */
-    .badge-origen { padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
-    .badge-origen.comprado { background: #1e3a8a; color: #bfdbfe; }
-    .badge-origen.fabricado { background: #14532d; color: #bbf7d0; }
-    .bom-section { border: 1px solid #334155; border-radius: 8px; padding: 12px; margin: 10px 0; }
-    .bom-section h4 { margin: 0 0 4px; }
-    .bom-hint { font-size: 0.8rem; color: #94a3b8; margin: 0 0 10px; }
+    .bom-section, .costo-est {
+      border: 1px solid var(--ms-border);
+      border-radius: var(--ms-radius-sm);
+      padding: 12px;
+      margin: 10px 0;
+      background: rgba(255,255,255,0.02);
+    }
+    .bom-section h4, .costo-est h4 { margin: 0 0 8px; color: rgba(255,255,255,0.8); font-weight: 400; }
+    .bom-hint { font-size: 0.8rem; color: var(--ms-text-muted); margin: 0 0 10px; }
     .bom-linea { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
     .bom-mp { flex: 2; }
     .bom-cant { flex: 1; }
-    .bom-unidad { min-width: 60px; font-size: 0.8rem; color: #94a3b8; }
-    .btn-add-mat { background: #14532d; color: #bbf7d0; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
-    .costo-est { border: 1px solid #334155; border-radius: 8px; padding: 12px; margin: 10px 0; }
-    .costo-est h4 { margin: 0 0 8px; }
+    .bom-unidad { min-width: 60px; font-size: 0.8rem; color: var(--ms-text-muted); }
+    .btn-add-mat {
+      background: var(--ms-gold-dim); color: var(--ms-gold);
+      border: 1px solid rgba(201,168,76,0.3); padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    }
     .mini-table { width: 100%; font-size: 0.85rem; margin-bottom: 8px; }
     .mini-table th, .mini-table td { text-align: left; padding: 3px 6px; }
     .costo-est-row { display: flex; justify-content: space-between; padding: 2px 0; }
-    .margen-pos { color: #4ade80; font-weight: 600; }
-    .margen-neg { color: #f87171; font-weight: 600; }
-    .costo-adv { font-size: 0.75rem; color: #fbbf24; margin-top: 6px; }
+    .margen-pos { color: #81C784; font-weight: 600; }
+    .margen-neg { color: #E57373; font-weight: 600; }
+    .costo-adv { font-size: 0.75rem; color: #FFD54F; margin-top: 6px; }
   `]
 })
 export class ProductosComponent implements OnInit {

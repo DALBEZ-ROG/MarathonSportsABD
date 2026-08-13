@@ -140,15 +140,7 @@ interface Recepcion {
     .detail-card .total { color: #C9A84C; font-size: 1.1rem; font-weight: 600; }
     .acciones-estado { display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; }
     .factura-btn { background: rgba(201,168,76,0.15) !important; border-color: rgba(201,168,76,0.4) !important; color: #C9A84C !important; }
-    .pendiente-cero { color: #16a34a; font-weight: 600; }
-    .oc-badge { padding: .25rem .6rem; border-radius: 12px; font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: #fff; width: fit-content; }
-    .oc-borrador { background: #6b7280; }
-    .oc-pendiente_aprobacion { background: #d97706; }
-    .oc-aprobada { background: #16a34a; }
-    .oc-rechazada { background: #dc2626; }
-    .oc-recibida_parcial { background: #2563eb; }
-    .oc-recibida_completa { background: #14532d; }
-    .oc-cancelada { background: #7f1d1d; }
+    .pendiente-cero { color: #81C784; font-weight: 600; }
   `]
 })
 export class OrdenCompraDetalleComponent implements OnInit {

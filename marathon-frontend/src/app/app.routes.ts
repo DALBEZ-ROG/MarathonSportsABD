@@ -4,6 +4,7 @@ import { rolGuard } from './core/guards/rol.guard';
 
 export const routes: Routes = [
   { path: 'login', loadComponent: () => import('./modules/auth/login/login.component').then(m => m.LoginComponent) },
+  { path: 'portal', loadComponent: () => import('./modules/portal/portal.component').then(m => m.PortalComponent), canActivate: [authGuard] },
   { path: 'dashboard', loadComponent: () => import('./modules/dashboard/dashboard.component').then(m => m.DashboardComponent), canActivate: [authGuard] },
   { path: 'perfil', loadComponent: () => import('./modules/auth/perfil/perfil.component').then(m => m.PerfilComponent), canActivate: [authGuard] },
   {

@@ -40,42 +40,63 @@ interface ResumenManufactura {
       <ng-container *ngIf="!cargando && resumen">
         <section class="kpi-grid">
           <div class="kpi-card">
-            <span class="kpi-label">OP planificadas</span>
-            <span class="kpi-value">{{ resumen.ordenesPlanificadas }}</span>
+            <div class="kpi-icon kpi-icon-gray"><span class="kpi-dot"></span></div>
+            <div class="kpi-info">
+              <span class="kpi-value">{{ resumen.ordenesPlanificadas }}</span>
+              <span class="kpi-label">OP planificadas</span>
+            </div>
           </div>
           <div class="kpi-card">
-            <span class="kpi-label">OP en proceso</span>
-            <span class="kpi-value amber">{{ resumen.ordenesEnProceso }}</span>
+            <div class="kpi-icon kpi-icon-amber"><span class="kpi-dot"></span></div>
+            <div class="kpi-info">
+              <span class="kpi-value">{{ resumen.ordenesEnProceso }}</span>
+              <span class="kpi-label">OP en proceso</span>
+            </div>
           </div>
           <div class="kpi-card">
-            <span class="kpi-label">Completadas (mes)</span>
-            <span class="kpi-value green">{{ resumen.ordenesCompletadasMes }}</span>
+            <div class="kpi-icon kpi-icon-green"><span class="kpi-dot"></span></div>
+            <div class="kpi-info">
+              <span class="kpi-value">{{ resumen.ordenesCompletadasMes }}</span>
+              <span class="kpi-label">Completadas (mes)</span>
+            </div>
           </div>
           <div class="kpi-card">
-            <span class="kpi-label">Unidades producidas (mes)</span>
-            <span class="kpi-value">{{ resumen.unidadesProducidasMes }}</span>
+            <div class="kpi-icon kpi-icon-blue"><span class="kpi-dot"></span></div>
+            <div class="kpi-info">
+              <span class="kpi-value">{{ resumen.unidadesProducidasMes }}</span>
+              <span class="kpi-label">Unidades producidas (mes)</span>
+            </div>
           </div>
           <div class="kpi-card">
-            <span class="kpi-label">Costo producción (mes)</span>
-            <span class="kpi-value gold">{{ resumen.costoProduccionMes | currency:'USD':'symbol':'1.2-2' }}</span>
+            <div class="kpi-icon kpi-icon-gold"><span class="kpi-dot"></span></div>
+            <div class="kpi-info">
+              <span class="kpi-value gold-text">{{ resumen.costoProduccionMes | currency:'USD':'symbol':'1.2-2' }}</span>
+              <span class="kpi-label">Costo producción (mes)</span>
+            </div>
           </div>
           <div class="kpi-card">
-            <span class="kpi-label">Merma promedio (mes)</span>
-            <span class="kpi-value" [ngClass]="claseMerma()">{{ resumen.mermaPromedioMes | number:'1.2-2' }} %</span>
+            <div class="kpi-icon kpi-icon-orange"><span class="kpi-dot"></span></div>
+            <div class="kpi-info">
+              <span class="kpi-value" [ngClass]="claseMerma()">{{ resumen.mermaPromedioMes | number:'1.2-2' }} %</span>
+              <span class="kpi-label">Merma promedio (mes)</span>
+            </div>
           </div>
-          <div class="kpi-card clickable" routerLink="/materia-prima">
-            <span class="kpi-label">Materia prima bajo mínimo</span>
-            <span class="kpi-value" [class.red]="resumen.materiaPrimaBajoMinimo > 0">{{ resumen.materiaPrimaBajoMinimo }}</span>
+          <div class="kpi-card">
+            <div class="kpi-icon kpi-icon-red"><span class="kpi-dot"></span></div>
+            <div class="kpi-info">
+              <span class="kpi-value" [class.merma-alta]="resumen.materiaPrimaBajoMinimo > 0">{{ resumen.materiaPrimaBajoMinimo }}</span>
+              <span class="kpi-label">Materia prima bajo mínimo</span>
+            </div>
           </div>
         </section>
 
-        <section class="charts">
-          <div class="chart-card">
+        <section class="charts-row">
+          <div class="glass-card chart-card">
             <h3>Top 3 productos fabricados (mes)</h3>
             <canvas id="chartTopFab"></canvas>
             <p class="empty" *ngIf="resumen.top3ProductosFabricados.length === 0">Sin producción registrada este mes.</p>
           </div>
-          <div class="chart-card">
+          <div class="glass-card chart-card">
             <h3>Órdenes de producción por estado</h3>
             <canvas id="chartEstados"></canvas>
             <p class="empty" *ngIf="resumen.ordenesPorEstado.length === 0">Sin órdenes registradas.</p>
@@ -85,24 +106,17 @@ interface ResumenManufactura {
     </div>
   `,
   styles: [`
-    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
-    .kpi-card { display: flex; flex-direction: column; gap: .4rem; background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 1rem 1.1rem; }
-    .kpi-card.clickable { cursor: pointer; }
-    .kpi-label { font-size: .72rem; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.45); }
-    .kpi-value { font-size: 1.5rem; font-weight: 700; }
-    .kpi-value.green { color: #4ade80; }
-    .kpi-value.amber { color: #fbbf24; }
-    .kpi-value.red { color: #f87171; }
-    .kpi-value.gold { color: #C9A84C; }
-    .merma-ok { color: #4ade80; }
-    .merma-media { color: #fbbf24; }
-    .merma-alta { color: #f87171; }
-    .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    @media(max-width: 900px) { .charts { grid-template-columns: 1fr; } }
-    .chart-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 12px; padding: 1rem; }
-    .chart-card h3 { margin: 0 0 .75rem; font-size: .95rem; }
+    .kpi-icon-gray { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); }
+    .kpi-dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+    .merma-ok { color: #81C784; }
+    .merma-media { color: #FFD54F; }
+    .merma-alta { color: #E57373; }
+    .gold-text {
+      background: linear-gradient(135deg, #C9A84C, #F4E28D);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    @media(max-width: 900px) { .charts-row { grid-template-columns: 1fr; } }
     .chart-card canvas { max-height: 260px; }
   `]
 })
@@ -115,10 +129,10 @@ export class DashboardManufacturaComponent implements OnInit, AfterViewInit, OnD
   private viewReady = false;
 
   private readonly estadoColores: { [k: string]: string } = {
-    planificada: '#6b7280',
-    en_proceso: '#d97706',
-    completada: '#16a34a',
-    cancelada: '#dc2626'
+    planificada: 'rgba(255,255,255,0.35)',
+    en_proceso: '#FFB74D',
+    completada: '#81C784',
+    cancelada: '#E57373'
   };
 
   constructor(private api: ApiService) {}
@@ -157,6 +171,11 @@ export class DashboardManufacturaComponent implements OnInit, AfterViewInit, OnD
   private dibujar(): void {
     if (!this.viewReady || !this.resumen) { return; }
 
+    const axis = {
+      ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 11 } },
+      grid: { color: 'rgba(255,255,255,0.03)' }
+    };
+
     const top = this.resumen.top3ProductosFabricados ?? [];
     const canvasTop = document.getElementById('chartTopFab') as HTMLCanvasElement | null;
     if (canvasTop && top.length > 0) {
@@ -176,7 +195,10 @@ export class DashboardManufacturaComponent implements OnInit, AfterViewInit, OnD
         options: {
           responsive: true,
           plugins: { legend: { display: false } },
-          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+          scales: {
+            x: axis,
+            y: { beginAtZero: true, ticks: { ...axis.ticks, precision: 0 }, grid: axis.grid }
+          }
         }
       });
     }
@@ -191,10 +213,14 @@ export class DashboardManufacturaComponent implements OnInit, AfterViewInit, OnD
           labels: estados.map(e => e.estado),
           datasets: [{
             data: estados.map(e => e.cantidad),
-            backgroundColor: estados.map(e => this.estadoColores[e.estado] ?? '#64748b')
+            backgroundColor: estados.map(e => this.estadoColores[e.estado] ?? '#64748b'),
+            borderWidth: 0
           }]
         },
-        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'bottom', labels: { color: 'rgba(255,255,255,0.6)' } } }
+        }
       });
     }
   }

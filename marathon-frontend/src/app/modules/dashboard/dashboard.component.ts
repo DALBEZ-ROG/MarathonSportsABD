@@ -36,11 +36,6 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
   imports: [CommonModule, RouterLink, IAChatComponent],
   template: `
     <div class="dashboard">
-      <!-- Background Effects -->
-      <div class="bg-gradient"></div>
-      <div class="bg-orb orb-1"></div>
-      <div class="bg-orb orb-2"></div>
-
       <!-- Header -->
       <header class="dash-header">
         <div class="header-left">
@@ -119,7 +114,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">Ventas del mes</span>
           </div>
         </div>
-        <div class="kpi-card clickable" *ngIf="verKpisPedidos || isCompras" (click)="irA('/inventario')">
+        <div class="kpi-card" *ngIf="verKpisPedidos || isCompras">
           <div class="kpi-icon kpi-icon-red">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           </div>
@@ -128,7 +123,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">Stock bajo</span>
           </div>
         </div>
-        <div class="kpi-card clickable" *ngIf="verKpisPedidos" (click)="irA('/pedidos/especiales')">
+        <div class="kpi-card" *ngIf="verKpisPedidos">
           <div class="kpi-icon kpi-icon-purple">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           </div>
@@ -137,7 +132,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">Especiales</span>
           </div>
         </div>
-        <div class="kpi-card clickable" *ngIf="verKpisCompras" (click)="irA('/compras')">
+        <div class="kpi-card" *ngIf="verKpisCompras">
           <div class="kpi-icon kpi-icon-orange">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
           </div>
@@ -146,7 +141,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">OC por aprobar</span>
           </div>
         </div>
-        <div class="kpi-card clickable" *ngIf="verKpisCompras" (click)="irA('/cuentas-por-pagar')">
+        <div class="kpi-card" *ngIf="verKpisCompras">
           <div class="kpi-icon kpi-icon-red">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
           </div>
@@ -155,7 +150,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">CxP vencidas</span>
           </div>
         </div>
-        <div class="kpi-card clickable" *ngIf="isAdmin || isOperadorBodega" (click)="irA('/devoluciones')">
+        <div class="kpi-card" *ngIf="isAdmin || isOperadorBodega">
           <div class="kpi-icon kpi-icon-purple">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
           </div>
@@ -164,7 +159,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">Dev. pendientes insp.</span>
           </div>
         </div>
-        <div class="kpi-card clickable" *ngIf="verKpisProduccion" (click)="irA('/productos')">
+        <div class="kpi-card" *ngIf="verKpisProduccion">
           <div class="kpi-icon kpi-icon-green">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
           </div>
@@ -173,7 +168,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">Productos fabricados</span>
           </div>
         </div>
-        <div class="kpi-card clickable" *ngIf="verKpisProduccion" (click)="irA('/materia-prima')">
+        <div class="kpi-card" *ngIf="verKpisProduccion">
           <div class="kpi-icon kpi-icon-red">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           </div>
@@ -182,7 +177,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">Materia prima bajo mínimo</span>
           </div>
         </div>
-        <div class="kpi-card clickable" *ngIf="verKpisProduccion" (click)="irA('/produccion')">
+        <div class="kpi-card" *ngIf="verKpisProduccion">
           <div class="kpi-icon kpi-icon-orange">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20"/><path d="M4 20V8l6 4V8l6 4V8l4 3v9"/></svg>
           </div>
@@ -191,7 +186,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
             <span class="kpi-label">OP en proceso</span>
           </div>
         </div>
-        <div class="kpi-card kpi-wide clickable" *ngIf="isAdmin || isSupervisor || isProduccion" (click)="irA('/produccion/costos')">
+        <div class="kpi-card kpi-wide" *ngIf="isAdmin || isSupervisor || isProduccion">
           <div class="kpi-icon kpi-icon-gold">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
           </div>
@@ -235,11 +230,11 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
         <div class="glass-card chart-card">
           <div class="card-head">
             <h3>Ventas por día</h3>
-            <select [value]="diasVentas" (change)="cambiarDias($event)">
-              <option [value]="7">7 días</option>
-              <option [value]="15">15 días</option>
-              <option [value]="30">30 días</option>
-            </select>
+            <div class="period-toggle" role="group" aria-label="Periodo de ventas">
+              <button type="button" [class.active]="diasVentas === 7" (click)="cambiarDias(7)">7 días</button>
+              <button type="button" [class.active]="diasVentas === 15" (click)="cambiarDias(15)">15 días</button>
+              <button type="button" [class.active]="diasVentas === 30" (click)="cambiarDias(30)">30 días</button>
+            </div>
           </div>
           <div class="canvas-wrap"><canvas #ventasCanvas></canvas></div>
         </div>
@@ -256,10 +251,10 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
       <section class="glass-card" *ngIf="verKpisPedidos">
         <div class="card-head">
           <h3>Top productos vendidos</h3>
-          <select [value]="limiteTop" (change)="cambiarLimite($event)">
-            <option [value]="5">Top 5</option>
-            <option [value]="10">Top 10</option>
-          </select>
+          <div class="period-toggle" role="group" aria-label="Cantidad de productos">
+            <button type="button" [class.active]="limiteTop === 5" (click)="cambiarLimite(5)">Top 5</button>
+            <button type="button" [class.active]="limiteTop === 10" (click)="cambiarLimite(10)">Top 10</button>
+          </div>
         </div>
         <div class="table-wrap">
           <table class="top-table">
@@ -287,54 +282,6 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
               </tr>
             </tbody>
           </table>
-        </div>
-      </section>
-
-      <!-- Quick Access -->
-      <section class="glass-card">
-        <h3>Accesos rápidos</h3>
-        <div class="quick-grid">
-          <ng-container *ngIf="isAdmin">
-            <button class="quick-btn" (click)="irA('/usuarios')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Usuarios</button>
-            <button class="quick-btn" (click)="irA('/productos')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>Productos</button>
-            <button class="quick-btn" (click)="irA('/bodegas')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>Bodegas</button>
-            <button class="quick-btn" (click)="irA('/reportes')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Reportes</button>
-            <button class="quick-btn" (click)="irA('/auditoria')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Auditoría</button>
-          </ng-container>
-          <ng-container *ngIf="isSupervisor">
-            <button class="quick-btn" (click)="irA('/pedidos')">Pedidos</button>
-            <button class="quick-btn" (click)="irA('/despachos')">Despachos</button>
-            <button class="quick-btn" (click)="irA('/reportes')">Reportes</button>
-          </ng-container>
-          <ng-container *ngIf="isOperadorBodega">
-            <button class="quick-btn" (click)="irA('/inventario')">Inventario</button>
-            <button class="quick-btn" (click)="irA('/picking')">Picking</button>
-            <button class="quick-btn" (click)="irA('/empaque')">Empaque</button>
-          </ng-container>
-          <ng-container *ngIf="isOperadorPedidos">
-            <button class="quick-btn" (click)="irA('/pedidos/nuevo')">Nuevo Pedido</button>
-            <button class="quick-btn" (click)="irA('/clientes')">Clientes</button>
-            <button class="quick-btn" (click)="irA('/pedidos/especiales')">Especiales</button>
-          </ng-container>
-          <!-- F31 — accesos rápidos de los roles nuevos -->
-          <ng-container *ngIf="isCompras">
-            <button class="quick-btn" (click)="irA('/compras')">Órdenes de Compra</button>
-            <button class="quick-btn" (click)="irA('/compras/nueva')">Nueva Orden</button>
-            <button class="quick-btn" (click)="irA('/cuentas-por-pagar')">Cuentas por Pagar</button>
-            <button class="quick-btn" (click)="irA('/devoluciones-proveedor')">Dev. a Proveedor</button>
-            <button class="quick-btn" (click)="irA('/materia-prima')">Materia Prima</button>
-          </ng-container>
-          <ng-container *ngIf="isProduccion">
-            <button class="quick-btn" (click)="irA('/produccion')">Órdenes de Producción</button>
-            <button class="quick-btn" (click)="irA('/produccion/nueva')">Nueva Orden</button>
-            <button class="quick-btn" (click)="irA('/produccion/dashboard')">Dashboard Producción</button>
-            <button class="quick-btn" (click)="irA('/produccion/costos')">Análisis de Costos</button>
-            <button class="quick-btn" (click)="irA('/materia-prima')">Materia Prima</button>
-          </ng-container>
-          <button class="quick-btn btn-ia" *ngIf="isAdmin || isSupervisor" (click)="irA('/ia')">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-            Asistente IA
-          </button>
         </div>
       </section>
 
@@ -370,33 +317,8 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
       max-width: 1320px;
       margin: 0 auto;
       min-height: 100vh;
-      background: #0a0a0f;
+      background: transparent;
       overflow: hidden;
-    }
-
-    /* ── Background ── */
-    .bg-gradient {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: linear-gradient(160deg, #0a0a0f 0%, #0f1623 30%, #0a1628 60%, #0d0d14 100%);
-      z-index: 0;
-    }
-
-    .bg-orb {
-      position: fixed;
-      border-radius: 50%;
-      filter: blur(100px);
-      opacity: 0.25;
-      z-index: 0;
-      animation: float 25s ease-in-out infinite;
-    }
-    .orb-1 { width: 600px; height: 600px; background: radial-gradient(circle, #C9A84C, transparent 70%); top: -10%; right: -5%; }
-    .orb-2 { width: 400px; height: 400px; background: radial-gradient(circle, #1a5c3a, transparent 70%); bottom: -5%; left: -5%; animation-delay: -12s; }
-
-    @keyframes float {
-      0%, 100% { transform: translate(0, 0) scale(1); }
-      33% { transform: translate(20px, -20px) scale(1.03); }
-      66% { transform: translate(-15px, 15px) scale(0.97); }
     }
 
     /* ── Header ── */
@@ -409,9 +331,8 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
       border-bottom: 1px solid rgba(255,255,255,0.05);
     }
     .title {
-      font-size: 2rem; font-weight: 300; letter-spacing: 1px;
-      background: linear-gradient(135deg, #fff 0%, #C9A84C 100%);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      font-size: 2rem; font-weight: 400; letter-spacing: 1px;
+      color: #fff;
       margin: 0;
     }
     .subtitle { color: rgba(255,255,255,0.4); font-size: 0.85rem; margin: .3rem 0 0; font-weight: 300; }
@@ -490,7 +411,6 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
       transition: all .3s cubic-bezier(.4,0,.2,1);
     }
     .kpi-card:hover { background: rgba(255,255,255,0.05); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,.3); }
-    .kpi-card.clickable { cursor: pointer; }
 
     .kpi-icon {
       width: 48px; height: 48px; border-radius: 12px;
@@ -528,11 +448,29 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
       color: #fff; font-weight: 400; font-size: 1rem; letter-spacing: .5px; margin: 0 0 1rem;
     }
 
-    .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 1rem; }
     .card-head h3 { margin: 0; }
-    .card-head select {
-      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-      color: #fff; padding: .4rem .8rem; border-radius: 8px; font-size: .85rem;
+
+    .period-toggle {
+      display: flex;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .period-toggle button {
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.45);
+      padding: .4rem .75rem;
+      font-size: .78rem;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .period-toggle button:hover { color: rgba(255,255,255,0.8); }
+    .period-toggle button.active {
+      background: rgba(201,168,76,0.15);
+      color: #C9A84C;
     }
 
     .total-badge {
@@ -582,27 +520,6 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
       height: 100%; border-radius: 6px;
       transition: width .6s cubic-bezier(.4,0,.2,1);
     }
-
-    /* ── Quick Access ── */
-    .quick-grid { display: flex; flex-wrap: wrap; gap: .75rem; }
-
-    .quick-btn {
-      display: flex; align-items: center; gap: .5rem;
-      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-      color: rgba(255,255,255,0.7); padding: .65rem 1.2rem;
-      border-radius: 10px; cursor: pointer; font-weight: 400;
-      font-size: .85rem; transition: all .3s;
-    }
-    .quick-btn:hover { background: rgba(201,168,76,0.1); border-color: rgba(201,168,76,0.3); color: #C9A84C; }
-    .quick-btn svg { opacity: .6; }
-    .quick-btn:hover svg { opacity: 1; }
-
-    .btn-ia {
-      background: rgba(201,168,76,0.1) !important;
-      border-color: rgba(201,168,76,0.3) !important;
-      color: #C9A84C !important;
-    }
-    .btn-ia:hover { background: rgba(201,168,76,0.2) !important; }
 
     /* ── IA Section ── */
     .ia-card { border-color: rgba(201,168,76,0.15); }
@@ -891,13 +808,15 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     return Math.round((valor / max) * 100);
   }
 
-  cambiarDias(event: Event): void {
-    this.diasVentas = Number((event.target as HTMLSelectElement).value);
+  cambiarDias(dias: number): void {
+    if (this.diasVentas === dias) return;
+    this.diasVentas = dias;
     this.cargarVentas();
   }
 
-  cambiarLimite(event: Event): void {
-    this.limiteTop = Number((event.target as HTMLSelectElement).value);
+  cambiarLimite(limite: number): void {
+    if (this.limiteTop === limite) return;
+    this.limiteTop = limite;
     this.cargarTopProductos();
   }
 

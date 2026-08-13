@@ -1,32 +1,28 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink, RouterOutlet } from '@angular/router';
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 @Component({
   selector: 'app-datos-maestros',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterOutlet],
+  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
   template: `
-    <div class="layout">
-      <header class="header">
-        <h1>Marathon Sports</h1>
-        <a routerLink="/dashboard" class="btn-back">← Volver al Dashboard</a>
-      </header>
-      <div class="content-wrapper">
-        <nav class="sidebar">
-          <h3>Datos Maestros</h3>
-          <a routerLink="ciudades" routerLinkActive="active" class="nav-item">Ciudades</a>
-          <a routerLink="categorias" routerLinkActive="active" class="nav-item">Categorías</a>
-          <a routerLink="unidades-medida" routerLinkActive="active" class="nav-item">Unidades de Medida</a>
-        </nav>
-        <main class="main-content">
-          <router-outlet></router-outlet>
-        </main>
-      </div>
+    <div class="dm-shell">
+      <nav class="tabs">
+        <a routerLink="ciudades" routerLinkActive="active">Ciudades</a>
+        <a routerLink="categorias" routerLinkActive="active">Categorías</a>
+        <a routerLink="unidades-medida" routerLinkActive="active">Unidades de Medida</a>
+      </nav>
     </div>
+    <router-outlet></router-outlet>
   `,
   styles: [`
-    /* Inherits global dark theme from styles.scss */
+    .dm-shell {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1.5rem 2rem 0;
+    }
+    .tabs { margin-bottom: 0; }
   `]
 })
 export class DatosMaestrosComponent {}
