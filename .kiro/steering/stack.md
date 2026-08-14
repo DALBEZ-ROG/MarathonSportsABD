@@ -8,7 +8,7 @@
 | Build Backend | Maven | 3.9+ |
 | Frontend | Angular | 17 |
 | Lenguaje Frontend | TypeScript | 5.4 |
-| Base de Datos | PostgreSQL | 15 |
+| Base de Datos | PostgreSQL | 18.3 |
 | Autenticación | JWT (jjwt) | 0.11.5 |
 | Documentación API | SpringDoc OpenAPI | 2.3.0 |
 | Contenedores | Docker + Docker Compose | latest |
