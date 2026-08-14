@@ -14,8 +14,21 @@ $Global:PgBin      = 'C:\Program Files\PostgreSQL\18\bin'
 $Global:PgService  = 'postgresql-x64-18'
 $Global:PgHost     = 'localhost'
 $Global:PgPort     = 5432
-$Global:PgUser     = 'postgres'
 $Global:PgDatabase = 'mod_venta_inve'
+
+# --- Credencial de los respaldos ---------------------------------------------
+# ATENCION: los respaldos NO usan el usuario de la aplicacion.
+#
+# Desde que la aplicacion se conecta como usr_admin_marathon (ver la seccion
+# "Puesta en produccion" de SEGURIDAD_ROLES.md), DB_USER/DB_PASSWORD del .env
+# son la credencial de la APLICACION, y esa cuenta deliberadamente no tiene
+# privilegios de superusuario.
+#
+# pg_basebackup exige el atributo REPLICATION, que usr_admin_marathon no tiene
+# ni debe tener: darselo a la cuenta que atiende el trafico web permitiria a
+# quien la comprometa clonar la base entera. Por eso los respaldos leen sus
+# propias claves del .env, separadas de las de la aplicacion.
+$Global:PgUser = 'postgres'   # se sobrescribe con PG_SUPERUSER si esta en .env
 
 # --- Almacenamiento de respaldos ---------------------------------------------
 # DELIBERADAMENTE FUERA de la carpeta del proyecto: esta dentro de OneDrive y
@@ -59,11 +72,26 @@ function Initialize-Backup {
     if (-not (Test-Path $envFile)) {
         throw "No se encontro el archivo .env en $ProyectoRoot. Sin el no hay credencial de base de datos."
     }
-    $linea = Get-Content $envFile | Select-String '^DB_PASSWORD='
-    if (-not $linea) { throw "El .env no contiene DB_PASSWORD." }
+
+    $claves = @{}
+    foreach ($l in Get-Content $envFile) {
+        if ($l -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$') {
+            $claves[$matches[1]] = $matches[2].Trim()
+        }
+    }
+
+    if ($claves.ContainsKey('PG_SUPERUSER')) { $Global:PgUser = $claves['PG_SUPERUSER'] }
+
+    if (-not $claves.ContainsKey('PG_SUPERUSER_PASSWORD') -or
+        [string]::IsNullOrWhiteSpace($claves['PG_SUPERUSER_PASSWORD'])) {
+        throw ("El .env no contiene PG_SUPERUSER_PASSWORD. Los respaldos necesitan una " +
+               "cuenta con REPLICATION (postgres), que NO es la de la aplicacion. " +
+               "Agregar PG_SUPERUSER=postgres y PG_SUPERUSER_PASSWORD=<clave> al .env.")
+    }
+
     # La credencial se pasa por variable de entorno del proceso: no aparece en la
     # linea de comandos, asi que no queda visible en la lista de procesos.
-    $env:PGPASSWORD = (($linea -split '=', 2)[1]).Trim()
+    $env:PGPASSWORD = $claves['PG_SUPERUSER_PASSWORD']
 }
 
 function Write-Log {

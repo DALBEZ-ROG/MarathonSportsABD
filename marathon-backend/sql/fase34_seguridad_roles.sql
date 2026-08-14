@@ -70,12 +70,20 @@
 --     que heredan los privilegios por membresia.
 --
 -- ----------------------------------------------------------------------------
--- ADVERTENCIA OPERATIVA HONESTA: la aplicacion Spring Boot se conecta hoy como
--- el superusuario postgres (spring.datasource.username=postgres), que ignora
--- todos estos privilegios. Este modelo de roles NO esta protegiendo a la
--- aplicacion en su configuracion actual. Para que surta efecto hay que apuntar
--- la aplicacion a usr_admin_marathon (o al usuario que corresponda). Ver la
--- seccion "Puesta en produccion" de SEGURIDAD_ROLES.md.
+-- ESTADO OPERATIVO: la aplicacion Spring Boot YA se conecta como
+-- usr_admin_marathon, no como el superusuario postgres, asi que estos
+-- privilegios estan en el camino de ejecucion y no son solo declarativos.
+-- Verificado arrancando la aplicacion y ejercitando sus endpoints; el registro
+-- de auditoria de la F36 lo confirma con usuario=usr_admin_marathon.
+--
+-- Lo que sigue pendiente es una conexion por rol: hoy toda la aplicacion usa la
+-- misma cuenta, de modo que los otros cinco roles no intervienen en el trafico
+-- web. Ver la seccion 8 de SEGURIDAD_ROLES.md.
+--
+-- IMPORTANTE: los respaldos NO usan esta cuenta. pg_basebackup exige
+-- REPLICATION, que usr_admin_marathon no tiene ni debe tener; scripts/backup
+-- lee PG_SUPERUSER/PG_SUPERUSER_PASSWORD del .env, separadas de las de la
+-- aplicacion.
 -- ============================================================================
 
 \set ON_ERROR_STOP on

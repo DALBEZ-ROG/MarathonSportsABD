@@ -325,28 +325,103 @@ por bueno un despliegue a medias.
 
 ---
 
-## 8. Puesta en producción: lo que falta para que esto sirva de algo
+## 8. Puesta en producción: el modelo ya está en el camino de ejecución
 
-**La aplicación se conecta hoy como el superusuario `postgres`**
-(`spring.datasource.username=postgres` en `application.properties` y `.env`). Un
-superusuario **ignora todos** estos privilegios.
+Hasta esta fase la aplicación se conectaba como el superusuario `postgres`, y un
+superusuario **ignora todos** estos privilegios. El modelo estaba construido y
+verificado, pero no protegía nada porque no estaba en el camino de ejecución.
+**Ya lo está.**
 
-Dicho sin rodeos: en la configuración actual este modelo de roles **no está
-protegiendo a la aplicación**. Está correctamente construido y verificado, pero no
-está en el camino de ejecución.
+### 8.1 Qué se cambió
 
-Para activarlo:
+| Antes | Ahora |
+|---|---|
+| `spring.datasource.username=postgres` | `usr_admin_marathon` |
+| Superusuario: ignora todo GRANT | Hereda `rol_administrador` y queda sujeto al modelo |
+| Sin contraseña asignada a los `usr_*` | `usr_admin_marathon` con contraseña asignada |
 
-1. Asignar contraseñas a los usuarios `usr_*_marathon`.
-2. Cambiar la conexión de la aplicación a `usr_admin_marathon`.
-3. Probar los 4 ciclos de negocio completos. Es previsible que aparezcan
-   privilegios faltantes: el modelo se construyó desde el esquema, y la
-   aplicación puede tocar columnas que no se anticiparon. El hallazgo de la
-   sección 6 es la muestra de que eso pasa.
-4. Idealmente, una conexión distinta por rol, con el backend eligiendo el pool
-   según el rol del usuario autenticado. Eso es un cambio de arquitectura mayor y
-   no forma parte de esta fase.
+La contraseña se asignó con `ALTER ROLE`, **no** en un script versionado:
 
-Mientras eso no se haga, la defensa efectiva sigue siendo la de siempre:
-`rolGuard` en el frontend, `SecurityConfig` en el backend y los triggers en la
-base. Este modelo añade una cuarta capa que hoy está construida pero no conectada.
+```sql
+ALTER ROLE usr_admin_marathon WITH PASSWORD '<clave>';
+```
+
+Los archivos tocados son los dos que están en `.gitignore`
+(`application-local.properties`, que es el que manda porque el perfil activo es
+`local`, y `.env`). Ninguna credencial entra al repositorio.
+
+### 8.2 La credencial de los respaldos va aparte
+
+`pg_basebackup` exige el atributo `REPLICATION`, que `usr_admin_marathon` **no
+tiene ni debe tener**: concedérselo a la cuenta que atiende el tráfico web
+permitiría a quien la comprometa clonar la base entera. Por eso el `.env` ahora
+separa las dos credenciales:
+
+| Clave | Cuenta | La usa |
+|---|---|---|
+| `DB_USER` / `DB_PASSWORD` | `usr_admin_marathon` | La aplicación (Spring) |
+| `PG_SUPERUSER` / `PG_SUPERUSER_PASSWORD` | `postgres` | Los scripts de `scripts/backup` |
+
+`config.ps1` falla con un mensaje explícito si falta `PG_SUPERUSER_PASSWORD`, en
+lugar de intentar conectarse con la credencial de la aplicación y morir con un
+error de autenticación difícil de leer.
+
+### 8.3 Verificación: se probó, no se supuso
+
+La sección 6 avisaba de que era previsible encontrar privilegios faltantes al
+conectar la aplicación de verdad. Por eso no se dio por bueno el cambio hasta
+ejecutarlo:
+
+**1. Simulacro del trabajo de la aplicación** como `usr_admin_marathon`, dentro de
+una transacción revertida al final:
+
+| Operación | Resultado |
+|---|---|
+| Lecturas de productos, inventario, pedidos y cuentas por pagar | OK |
+| `INSERT` de pedido + detalle (usa `nextval` sobre secuencias) | OK |
+| Trigger que recalcula `pedido.total` escribiendo en otra tabla | OK — total 161,97 calculado |
+| `UPDATE` de inventario → dispara el `INSERT` en `historial_inventario` | OK — 1 fila escrita |
+| `INSERT` en `log_accion` y avance de estado del pedido | OK |
+
+El caso del inventario es el que más privilegios encadena: el `UPDATE` lo hace el
+usuario, pero la escritura en `historial_inventario` la hace un trigger **con los
+privilegios de quien disparó la sentencia** (el hallazgo de la sección 6). Si a
+`rol_administrador` le faltara el `INSERT` sobre esa tabla, el ajuste de stock
+fallaría en producción y no en las pruebas de la sección 7.
+
+**2. La aplicación real, arrancada y consultada:**
+
+```
+Started MarathonBackendApplication in 4.042 seconds
+POST /api/auth/login          -> 200, token emitido
+GET  /api/productos           -> 200
+GET  /api/inventario          -> 200
+GET  /api/pedidos             -> 200
+```
+
+**3. El rastro de auditoría de la F36 cerrando el círculo.** El login escribió en
+`log_accion` a través de la aplicación, y el registro de PostgreSQL lo atribuyó
+correctamente:
+
+```
+usuario=usr_admin_marathon base=mod_venta_inve origen=127.0.0.1
+app=PostgreSQL JDBC Driver  LOG:  ejecutar <unnamed>: insert into log_accion ...
+```
+
+Ya no dice `usuario=postgres`. Las tres fases quedan enlazadas: el usuario
+restringido de la F34 opera bajo el modelo de privilegios, y la auditoría de la
+F36 lo identifica por nombre.
+
+### 8.4 Lo que sigue sin hacerse
+
+Una **conexión distinta por rol**, con el backend eligiendo el pool según el rol
+del usuario autenticado. Hoy toda la aplicación se conecta como
+`usr_admin_marathon`, así que los otros cinco roles siguen sin estar en el camino
+de ejecución: un operador de bodega que use la web llega a la base con los
+privilegios del administrador, y lo que lo detiene es `SecurityConfig`, no la
+base. Es un cambio de arquitectura mayor y no forma parte de esta fase.
+
+Con lo hecho, la defensa efectiva es de cuatro capas —`rolGuard` en el frontend,
+`SecurityConfig` en el backend, los triggers, y ahora **sí** los privilegios de
+la base—, con la salvedad de que la cuarta capa distingue todavía a la aplicación
+del acceso directo, no a un rol de otro.
