@@ -164,6 +164,41 @@ podría estar restaurando solo el completo.
 > escalará con el tamaño de la base: a 276 MB tardó 7 s, de modo que el margen
 > aguanta un crecimiento de dos órdenes de magnitud.
 
+### 4.4 Las tareas programadas, ejecutadas de verdad
+
+Registrar las tareas no prueba que vayan a funcionar. Corren como **SYSTEM**, no
+como el usuario que las registró, y la credencial de base de datos vive en el
+`.env` del proyecto, que está **dentro de OneDrive**. Si SYSTEM no pudiera leer
+ese archivo, los respaldos fallarían en silencio a las 22:00 y nadie se enteraría
+hasta el día que hicieran falta. Por eso se lanzaron a mano las dos tareas, ya
+registradas, y se comprobó su resultado:
+
+| Tarea | Código de salida | Qué demuestra |
+|---|---|---|
+| `Marathon_Verificar_Respaldos` | `0` | SYSTEM lee el `.env` y se conecta por `psql` |
+| `Marathon_Respaldo_Diferencial` | `0` | Respaldo real de 22,92 MB en 6 s |
+
+```
+22:35:52 [OK  ] DIFERENCIAL completado en 6 s. Tamano: 22.92 MB (el FULL ocupa 84.12 MB: 72.8% menos)
+22:35:52 [INFO] Superado por el diferencial de hoy, eliminado: diff_20260813_213848_...
+```
+
+La segunda línea confirma la retención del esquema diferencial: el nuevo respaldo
+**reemplaza** al anterior en lugar de acumularse, así que en disco queda siempre
+un único diferencial por completo, que es lo que hace que restaurar necesite solo
+dos archivos.
+
+Cadena completa verificada de punta a punta:
+disparador → SYSTEM → credencial → `pg_basebackup --incremental` → verificación →
+retención.
+
+| Tarea | Programación |
+|---|---|
+| `Marathon_Respaldo_Full` | Domingo 23:00 |
+| `Marathon_Respaldo_Diferencial` | Lunes a sábado 22:00 |
+| `Marathon_Respaldo_Aplicacion` | Domingo 23:30 |
+| `Marathon_Verificar_Respaldos` | Todos los días 08:00 |
+
 ---
 
 ## 5. Retención y almacenamiento
