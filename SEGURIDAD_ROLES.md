@@ -412,16 +412,153 @@ Ya no dice `usuario=postgres`. Las tres fases quedan enlazadas: el usuario
 restringido de la F34 opera bajo el modelo de privilegios, y la auditoría de la
 F36 lo identifica por nombre.
 
-### 8.4 Lo que sigue sin hacerse
+### 8.4 Lo que quedaba sin hacerse
 
 Una **conexión distinta por rol**, con el backend eligiendo el pool según el rol
-del usuario autenticado. Hoy toda la aplicación se conecta como
-`usr_admin_marathon`, así que los otros cinco roles siguen sin estar en el camino
-de ejecución: un operador de bodega que use la web llega a la base con los
+del usuario autenticado. Con lo hecho hasta aquí toda la aplicación se conecta
+como `usr_admin_marathon`, así que los otros cinco roles siguen sin estar en el
+camino de ejecución: un operador de bodega que use la web llega a la base con los
 privilegios del administrador, y lo que lo detiene es `SecurityConfig`, no la
-base. Es un cambio de arquitectura mayor y no forma parte de esta fase.
+base.
 
-Con lo hecho, la defensa efectiva es de cuatro capas —`rolGuard` en el frontend,
-`SecurityConfig` en el backend, los triggers, y ahora **sí** los privilegios de
-la base—, con la salvedad de que la cuarta capa distingue todavía a la aplicación
-del acceso directo, no a un rol de otro.
+> **Cerrado en la fase 37.** Ver la sección 9.
+
+---
+
+## 9. Fase 37 — un pool de conexiones por rol
+
+Script: `marathon-backend/sql/fase37_conexion_por_rol.sql`.
+Pruebas: `scripts/fase37_pruebas_endpoints.ps1` y `scripts/fase37_pruebas_navbar.ps1`.
+
+### 9.1 Cómo se enruta
+
+`RoleRoutingDataSource` (un `AbstractRoutingDataSource`) elige el pool leyendo la
+autoridad `ROLE_*` del `SecurityContext`. Cada rol funcional tiene su propio
+usuario de login en PostgreSQL:
+
+| Rol de la aplicación | Pool | Usuario de base de datos |
+|---|---|---|
+| Administrador | `administrador` (por defecto) | `usr_admin_marathon` |
+| Supervisor E-Commerce | `supervisor` | `usr_supervisor_marathon` |
+| Operador de Bodega | `operador-bodega` | `usr_bodega_marathon` |
+| Operador de Pedidos | `operador-pedidos` | `usr_pedidos_marathon` |
+| Encargado de Compras | `encargado-compras` | `usr_compras_marathon` |
+| Encargado de Producción | `encargado-produccion` | `usr_produccion_marathon` |
+
+**Tres momentos usan a propósito el pool por defecto**, porque son trabajo de la
+infraestructura de autenticación y no trabajo hecho en nombre de un rol: el
+arranque (Hibernate y `DataInitializer`), el login —que tiene que leer la tabla
+`usuario` antes de saber quién es quién— y el filtro JWT, que resuelve el token
+consultando la base *antes* de poblar el contexto. A ellos se suma el cambio de
+la propia contraseña (`RoleRoutingDataSource.conPoolDeAutenticacion`): es un
+`UPDATE` sobre `usuario`, y concedérselo a los cinco roles les permitiría cambiar
+la contraseña de *cualquier* cuenta, porque un privilegio de base de datos no
+distingue «mi fila» de «la fila de otro».
+
+**Falla cerrado:** si un usuario autenticado tiene un rol sin pool configurado,
+se lanza una excepción en lugar de caer al pool del administrador. Lo contrario
+convertiría un rol mal configurado en una escalada de privilegios silenciosa.
+
+El interruptor `app.datasource.roles.enabled=false` devuelve la aplicación al
+comportamiento anterior a esta fase sin tocar código.
+
+### 9.2 El hallazgo: el privilegio por columna no servía de nada con Hibernate
+
+Ninguna entidad tenía `@DynamicUpdate`, y sin ella **Hibernate emite todas las
+columnas mapeadas en cada `UPDATE`**, no solo las que cambiaron. Contra un
+privilegio otorgado por columna eso no falla a medias: falla siempre.
+
+Los `GRANT UPDATE (columna)` de la F34 —el corazón del requisito 3.3 y de toda
+la política de la sección 4— estaban, en la práctica, denegando el flujo entero
+a los roles operativos. Nunca se había notado porque hasta la F36 quien escribía
+era el administrador, que tiene la tabla completa.
+
+Se añadió `@DynamicUpdate` a las 15 entidades cuyas tablas tienen privilegios de
+`UPDATE` por columna. El registro de PostgreSQL lo confirma sobre un ajuste de
+stock real hecho desde la web por un operador de bodega:
+
+```
+usuario=usr_bodega_marathon base=mod_venta_inve origen=127.0.0.1
+  LOG:  ejecutar <unnamed>: update inventario set stock_actual=$1 where id_inventario=$2
+```
+
+Una sola columna. Sin `@DynamicUpdate` la sentencia habría incluido
+`id_producto`, `id_bodega` y `stock_minimo`, y la base la habría rechazado.
+
+> **La regla general:** con privilegios por columna hay que otorgar **las
+> columnas que emite el ORM**, no las que aparecen en el código Java. El mismo
+> principio destapó que un `existsBy...` de Spring Data proyecta la clave
+> primaria (`select lm1_0.id_bom from lista_materiales ...`), así que `id_bom`
+> tuvo que entrar en el `GRANT` aunque ninguna línea del código la pida.
+
+### 9.3 Privilegios que faltaban, y cómo se decidió cuáles otorgar
+
+Al enrutar por rol, la base pasó a ser el filtro efectivo y aparecieron
+discrepancias con `SecurityConfig`. El criterio para resolver cada una:
+
+> Si `SecurityConfig` **nombra al rol**, la responsabilidad está asignada a
+> propósito y lo que falta es el privilegio. Si el endpoint solo pedía
+> `.authenticated()`, lo que sobra es la laxitud del backend y se corrige allí.
+
+| Discrepancia | Resolución |
+|---|---|
+| Ningún rol operativo podía leer `usuario`, y 16 servicios lo hacen para atribuir cada operación | `GRANT SELECT` (§9.4) |
+| El módulo de devoluciones de cliente (F24) solo tenía escritura para el administrador | Repartido entre Pedidos (registra y reembolsa) y Bodega (inspecciona) |
+| El catálogo de productos consultaba `lista_materiales` para la bandera `tieneBom` | `GRANT SELECT (id_bom, id_producto, estado)` — la receta sigue protegida |
+| El listado de devoluciones incluye el reembolso | `GRANT SELECT ON reembolso_cliente` a Bodega |
+| Las devoluciones a proveedor (F25, módulo de Compras) llegan hasta `detalle_pedido` | `GRANT SELECT ON detalle_pedido` a Compras, que sigue sin ver `pedido` ni `cliente` |
+| Compras y Producción veían Pedidos, Clientes y Comprobantes | **Se restringió `SecurityConfig`**, no se ampliaron los `GRANT` |
+| Bodega, Pedidos y Producción veían Proveedores | **Se restringió `SecurityConfig`** |
+
+### 9.4 La concesión: `SELECT` sobre `usuario` incluye el hash
+
+La intención era otorgar solo `(id_usuario, nombre, apellido, correo, estado)` y
+dejar `password` fuera. No se puede sin cambiar el mapeo: la entidad `Usuario`
+mapea `password` como columna normal, así que Hibernate la incluye en
+**cualquier** carga de la entidad, incluidos los 36 puntos que solo necesitan
+nombre y apellido para armar un DTO.
+
+Queda expuesto un hash bcrypt —diseñado precisamente para resistir su
+exposición—, legible solo por quien ya tenga la credencial de uno de esos
+usuarios de base de datos, y que la aplicación nunca incluye en una respuesta.
+Ninguno de los cuatro roles recibe `INSERT`, `UPDATE` ni `DELETE`.
+
+**Mejora pendiente:** sacar `password` del mapeo de `Usuario` (campo
+`@Transient` poblado por una consulta dedicada que solo use el pool de
+autenticación) permitiría volver al privilegio por columna. Toca el núcleo de
+autenticación y no se hizo en esta fase.
+
+### 9.5 Un `GET` que escribía
+
+`GET /api/cuentas-por-pagar` ejecutaba `actualizarVencidas()` —un `UPDATE`—
+antes de listar. Con todo el mundo conectado como administrador pasó
+inadvertido desde la F23; en cuanto el Supervisor llegó a la base con su propio
+usuario, la base rechazó la escritura y el listado entero devolvía 403.
+
+Un rol de solo lectura no puede recibir `UPDATE` sobre esa tabla sin dejar de
+ser de solo lectura, así que quien cedió fue la escritura escondida en la
+lectura: ahora solo la ejecutan los roles que además operan las cuentas.
+
+Es el resultado más interesante de la fase: **la conexión por rol funciona como
+un detector de operaciones que no declaran lo que hacen.**
+
+### 9.6 Verificación
+
+| Prueba | Resultado |
+|---|---|
+| `fase34_pruebas_roles.sql` (privilegios, sin la aplicación) | **61 de 61** |
+| `fase37_pruebas_endpoints.ps1` (11 endpoints × 6 roles: permitido y denegado) | **66 de 66** |
+| `fase37_pruebas_navbar.ps1` (todo enlace del menú de cada rol debe abrir) | **20 de 20** |
+| `pg_stat_activity` | seis usuarios distintos conectados a la vez |
+| Registro de PostgreSQL (F36) | atribuye cada sentencia a su `usr_*`, no a `usr_admin_marathon` |
+
+### 9.7 Estado de las cuatro capas
+
+La defensa es de cuatro capas —`rolGuard` en el frontend, `SecurityConfig` en el
+backend, los triggers y los privilegios de la base— y ahora la cuarta **distingue
+un rol de otro**, no solo la aplicación del acceso directo por psql. Un operador
+de bodega que use la web llega a `mod_venta_inve` como `usr_bodega_marathon`, y
+lo que lo detiene ya no es únicamente `SecurityConfig`.
+
+El frontend no necesitó cambios: sus guards de ruta y su navbar resultaron ser
+iguales o **más** restrictivos que la base en todos los casos.

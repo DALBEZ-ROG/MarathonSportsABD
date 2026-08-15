@@ -2,6 +2,8 @@ package com.marathon.model;
 
 import java.math.BigDecimal;
 
+import org.hibernate.annotations.DynamicUpdate;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -14,6 +16,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "orden_compra_detalle")
+@DynamicUpdate
 public class OrdenCompraDetalle {
 
     @Id

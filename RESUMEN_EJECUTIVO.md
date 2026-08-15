@@ -124,13 +124,14 @@ Se resolvió con constraints, no con validación en Java, precisamente para que 
 
 Todo cambio de `inventario.stock_actual` queda registrado en `historial_inventario` con stock anterior, stock nuevo, usuario y timestamp. El trigger obtiene el usuario leyendo la variable de sesión `app.current_user_id`, que el servicio fija con `SET LOCAL` antes de cada UPDATE. Es una convención obligatoria del proyecto y está verificada en los cuatro ciclos.
 
-### 7. Triple capa de seguridad
+### 7. Cuádruple capa de seguridad
 
 1. **Frontend** — `authGuard` (sesión) + `rolGuard` (rol por ruta). Si un rol llega a una ruta prohibida se le redirige a su dashboard con aviso.
 2. **Backend** — `SecurityConfig` restringe cada endpoint por rol. El **orden de las reglas importa**: las específicas van antes de las generales porque gana la primera coincidencia.
-3. **Base de datos** — constraints, columnas generadas y triggers como última línea, efectivos incluso ante escrituras que se salten la aplicación.
+3. **Integridad de la base** — constraints, columnas generadas y triggers, efectivos incluso ante escrituras que se salten la aplicación.
+4. **Privilegios de la base** — seis roles de PostgreSQL y **un usuario de conexión por rol** (F34 + F37): el backend elige el pool según el rol autenticado, así que un operador de bodega llega a la base como `usr_bodega_marathon` y no como el administrador.
 
-El frontend no es la defensa: evita ofrecer pantallas que fallarían. La defensa real es el backend, respaldada por la BD.
+El frontend no es la defensa: evita ofrecer pantallas que fallarían. Y desde la F37 la defensa última tampoco es el backend, sino la base: si `SecurityConfig` dejara pasar algo, los `GRANT` lo siguen negando.
 
 ### 8. Esquema versionado sin ORM que lo gestione
 

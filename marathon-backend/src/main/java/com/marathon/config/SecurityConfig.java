@@ -69,19 +69,45 @@ public class SecurityConfig {
                     "/api/productos/*/origen"
                 ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE PRODUCCIÓN")
 
-                // --- Lectura: cualquier usuario autenticado ---
+                // --- Lectura (F37) ---
+                //   Estas reglas ya no son un .authenticated() unico. Desde que
+                //   cada rol se conecta a PostgreSQL con su propio usuario, la
+                //   ultima palabra sobre quien puede leer que la tiene la base:
+                //   un GET que la base deniega devolveria 403 (o un error) por
+                //   mucho que este permitido aqui. Se refleja el reparto real de
+                //   los GRANT (fase34_seguridad_roles.sql), de modo que las dos
+                //   capas digan lo mismo y no queden pantallas que el menu
+                //   ofrece y la base rechaza.
+                //   La matriz de la que sale este bloque esta en MATRIZ_ROLES.md.
+
+                //   Catalogos e inventario: los seis roles tienen SELECT.
                 .requestMatchers(org.springframework.http.HttpMethod.GET,
                     "/api/ciudades", "/api/ciudades/**",
                     "/api/categorias", "/api/categorias/**",
                     "/api/unidades-medida", "/api/unidades-medida/**",
-                    "/api/proveedores", "/api/proveedores/**",
                     "/api/productos", "/api/productos/**",
                     "/api/bodegas", "/api/bodegas/**",
-                    "/api/inventario", "/api/inventario/**",
+                    "/api/inventario", "/api/inventario/**"
+                ).authenticated()
+
+                //   Proveedores: solo quien compra y quien supervisa.
+                //   Ni bodega, ni pedidos, ni produccion tienen SELECT sobre
+                //   la tabla proveedor.
+                .requestMatchers(org.springframework.http.HttpMethod.GET,
+                    "/api/proveedores", "/api/proveedores/**"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_SUPERVISOR E-COMMERCE",
+                                  "ROLE_ENCARGADO DE COMPRAS")
+
+                //   Clientes, pedidos y comprobantes: el circuito de venta.
+                //   Compras y Produccion no tienen SELECT sobre cliente, pedido,
+                //   detalle_pedido ni comprobante_interno: su trabajo esta del
+                //   lado del abastecimiento, no del pedido del cliente.
+                .requestMatchers(org.springframework.http.HttpMethod.GET,
                     "/api/clientes", "/api/clientes/**",
                     "/api/pedidos", "/api/pedidos/**",
                     "/api/comprobantes", "/api/comprobantes/**"
-                ).authenticated()
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_SUPERVISOR E-COMMERCE",
+                                  "ROLE_OPERADOR DE BODEGA", "ROLE_OPERADOR DE PEDIDOS")
 
                 // --- Maestros (crear/editar/eliminar): solo Administrador ---
                 .requestMatchers(org.springframework.http.HttpMethod.POST,
@@ -113,10 +139,14 @@ public class SecurityConfig {
                     "/api/pedidos"
                 ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_OPERADOR DE PEDIDOS")
 
-                // --- Cambio de estado de pedido: cualquier usuario autenticado ---
+                // --- Cambio de estado de pedido (F37) ---
+                //   Solo Bodega y Pedidos tienen UPDATE (estado) sobre la tabla
+                //   pedido. Para el resto era una llamada que la base iba a
+                //   rechazar de todos modos.
                 .requestMatchers(org.springframework.http.HttpMethod.PUT,
                     "/api/pedidos/*/estado"
-                ).authenticated()
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_OPERADOR DE BODEGA",
+                                  "ROLE_OPERADOR DE PEDIDOS")
 
                 // --- Comprobantes (generar/anular): Administrador u Operador de Pedidos para generar,
                 //     solo Administrador para anular ---
@@ -146,10 +176,13 @@ public class SecurityConfig {
                     "/api/empaque/pedidos/*/confirmar"
                 ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_OPERADOR DE BODEGA")
 
-                // --- Empaque (consulta): cualquier usuario autenticado ---
+                // --- Empaque (consulta) (F37) ---
+                //   Lee pedido y detalle_pedido: mismo reparto que el circuito
+                //   de venta.
                 .requestMatchers(org.springframework.http.HttpMethod.GET,
                     "/api/empaque/pedidos", "/api/empaque/**"
-                ).authenticated()
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_SUPERVISOR E-COMMERCE",
+                                  "ROLE_OPERADOR DE BODEGA", "ROLE_OPERADOR DE PEDIDOS")
 
                 // --- Usuarios, roles y permisos: solo Administrador ---
                 .requestMatchers("/api/usuarios/**", "/api/roles/**", "/api/permisos/**")
@@ -175,9 +208,15 @@ public class SecurityConfig {
                     .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE COMPRAS")
 
                 // --- Devoluciones de Cliente (F24) ---
+                //   F37: una devolucion de cliente pertenece al circuito de
+                //   venta. Ni Produccion ni Compras ven pedidos o clientes, y
+                //   sin el pedido la respuesta no puede ni construirse: la
+                //   prueba con el rol real devolvia "permiso denegado a la
+                //   tabla pedido". Se dejan fuera los dos.
                 .requestMatchers(org.springframework.http.HttpMethod.GET,
                     "/api/devoluciones", "/api/devoluciones/**"
-                ).authenticated()
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_SUPERVISOR E-COMMERCE",
+                                  "ROLE_OPERADOR DE BODEGA", "ROLE_OPERADOR DE PEDIDOS")
                 .requestMatchers(org.springframework.http.HttpMethod.POST,
                     "/api/devoluciones"
                 ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_OPERADOR DE PEDIDOS")

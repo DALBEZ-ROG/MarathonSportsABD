@@ -202,12 +202,12 @@ La matriz completa de qué ve y qué puede hacer cada rol está en **[MATRIZ_ROL
 
 ## Arquitectura de Seguridad
 
-Doble capa, con el backend como defensa efectiva:
+Cuatro capas, con la base de datos como última palabra:
 
 1. **Frontend** — `authGuard` valida sesión y `rolGuard` valida rol por ruta. Si un rol llega a una ruta prohibida se le redirige a su dashboard con un aviso. Esto evita ofrecer pantallas que fallarían.
 2. **Backend** — `SecurityConfig` restringe cada endpoint por rol. En esa configuración **el orden importa**: las reglas específicas van antes de las generales, porque gana la primera coincidencia.
-
-Además, la **base de datos** es la última línea: constraints CHECK, columnas GENERATED y triggers de protección impiden estados inválidos incluso si se escribiera saltándose la aplicación.
+3. **Integridad de la base** — constraints CHECK, columnas GENERATED y triggers de protección impiden estados inválidos incluso si se escribiera saltándose la aplicación.
+4. **Privilegios de la base (F34 + F37)** — cada rol se conecta a PostgreSQL con **su propio usuario**: un operador de bodega llega a `mod_venta_inve` como `usr_bodega_marathon` y solo puede lo que sus `GRANT` permiten. La capa 4 no depende de que las tres anteriores funcionen. Detalle en `SEGURIDAD_ROLES.md`.
 
 ## Documentación de la API
 

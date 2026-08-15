@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.marathon.config.RoleRoutingDataSource;
 import com.marathon.dto.PageResponseDTO;
 import com.marathon.dto.usuario.UsuarioCambiarPasswordDTO;
 import com.marathon.dto.usuario.UsuarioRequestDTO;
@@ -59,7 +60,12 @@ public class UsuarioController {
     @PutMapping("/{id}/password")
     public ResponseEntity<Void> cambiarPassword(@PathVariable Integer id,
                                                  @Valid @RequestBody UsuarioCambiarPasswordDTO dto) {
-        usuarioService.cambiarPassword(id, dto);
+        // Este endpoint lo puede llamar cualquier usuario autenticado sobre su
+        // propia cuenta, pero escribe en la tabla usuario, que en la base solo
+        // el administrador puede modificar (F34). Se resuelve por el pool de
+        // autenticacion en vez de abriendo ese UPDATE a los cinco roles, que
+        // les permitiria cambiar la contrasena de cualquier cuenta.
+        RoleRoutingDataSource.conPoolDeAutenticacion(() -> usuarioService.cambiarPassword(id, dto));
         return ResponseEntity.noContent().build();
     }
 

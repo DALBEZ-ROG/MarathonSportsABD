@@ -152,8 +152,15 @@ SELECT pg_temp.probar('rol_operador_bodega', 'Falsear pedido.total (frena el tri
     'UPDATE pedido SET total=99999 WHERE id_pedido=' || :v_pedido, 'DENEGADO_REGLA_BD');
 SELECT pg_temp.probar('rol_operador_bodega', 'Crear un usuario del sistema',
     'INSERT INTO usuario (nombre,apellido,correo,password,estado,created_at) VALUES (''a'',''b'',''z@z.com'',repeat(''x'',60),''activo'',now())', 'DENEGADO_PRIVILEGIO');
-SELECT pg_temp.probar('rol_operador_bodega', 'Leer la tabla de usuarios',
-    'SELECT count(*) FROM usuario', 'DENEGADO_PRIVILEGIO');
+-- F37: la lectura de usuario se abrio a los roles operativos porque la
+-- aplicacion atribuye cada operacion a quien la ejecuta y necesita resolver el
+-- id. Lo que sigue cerrado, y es lo que importa, es modificar cuentas.
+SELECT pg_temp.probar('rol_operador_bodega', 'Leer la tabla de usuarios (F37: necesario para atribuir operaciones)',
+    'SELECT count(*) FROM usuario', 'PERMITIDO');
+SELECT pg_temp.probar('rol_operador_bodega', 'Modificar la cuenta de otro usuario',
+    'UPDATE usuario SET correo=''robado@z.com'' WHERE id_usuario=' || :v_usuario, 'DENEGADO_PRIVILEGIO');
+SELECT pg_temp.probar('rol_operador_bodega', 'Borrar la cuenta de otro usuario',
+    'DELETE FROM usuario WHERE id_usuario=' || :v_usuario, 'DENEGADO_PRIVILEGIO');
 SELECT pg_temp.probar('rol_operador_bodega', 'Aprobar una orden de compra',
     'UPDATE orden_compra SET estado=''aprobada'' WHERE id_orden_compra=' || :v_oc, 'DENEGADO_PRIVILEGIO');
 

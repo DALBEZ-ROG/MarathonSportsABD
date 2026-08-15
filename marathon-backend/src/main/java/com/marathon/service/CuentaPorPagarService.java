@@ -9,6 +9,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,10 +35,40 @@ public class CuentaPorPagarService {
         this.pagoRepository = pagoRepository;
     }
 
+    /**
+     * Roles que tienen UPDATE sobre cuenta_por_pagar en la base (F34) y por
+     * tanto pueden marcar cuentas como vencidas. El Supervisor queda fuera a
+     * proposito: solo consulta.
+     */
+    private static boolean puedeMarcarVencidas() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            return true;   // sin contexto (arranque, tarea interna) va por el pool del administrador
+        }
+        for (GrantedAuthority a : auth.getAuthorities()) {
+            if ("ROLE_ADMINISTRADOR".equals(a.getAuthority())
+                    || "ROLE_ENCARGADO DE COMPRAS".equals(a.getAuthority())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Transactional
     public PageResponseDTO<CuentaPorPagarResponseDTO> listar(int page, int size, String estado, Integer idProveedor) {
-        // Actualizar vencidas antes de listar
-        cuentaRepository.actualizarVencidas(LocalDate.now());
+        // Actualizar vencidas antes de listar.
+        //
+        // F37: esto es un UPDATE dentro de una peticion GET. Paso inadvertido
+        // mientras toda la aplicacion se conectaba como usr_admin_marathon;
+        // en cuanto cada rol pasa a conectarse con su propio usuario, la base
+        // se lo rechaza al Supervisor —que es de solo lectura por diseño— y el
+        // listado entero fallaba con 403. Un rol de solo lectura no puede
+        // recibir UPDATE sobre esta tabla sin dejar de ser de solo lectura, asi
+        // que quien cede es la escritura escondida en la lectura: solo la
+        // ejecutan los roles que ademas operan las cuentas.
+        if (puedeMarcarVencidas()) {
+            cuentaRepository.actualizarVencidas(LocalDate.now());
+        }
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "idCuentaPagar"));
         Page<CuentaPorPagar> result;
