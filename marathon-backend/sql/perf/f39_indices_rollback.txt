@@ -1,0 +1,340 @@
+﻿Pager usage is off.
+Timing is off.
+### C01 idx_historial_fecha  -- historial_inventario(fecha)
+                                                                             QUERY PLAN                                                                              
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.29..2.39 rows=50 width=45) (actual time=0.035..0.040 rows=50.00 loops=1)
+   Buffers: shared read=3
+   ->  Index Scan Backward using idx_historial_fecha on historial_inventario  (cost=0.29..2523.90 rows=60000 width=45) (actual time=0.035..0.037 rows=50.00 loops=1)
+         Index Searches: 1
+         Buffers: shared read=3
+ Planning:
+   Buffers: shared hit=121 read=3
+ Planning Time: 1.520 ms
+ Execution Time: 0.055 ms
+(9 rows)
+
+BEGIN
+DROP INDEX
+                                                                       QUERY PLAN                                                                       
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=3617.39..3623.09 rows=50 width=45) (actual time=26.495..29.887 rows=50.00 loops=1)
+   Buffers: shared hit=1079 read=50
+   ->  Gather Merge  (cost=3617.39..10455.63 rows=60000 width=45) (actual time=26.494..29.884 rows=50.00 loops=1)
+         Workers Planned: 1
+         Workers Launched: 1
+         Buffers: shared hit=1079 read=50
+         ->  Sort  (cost=2617.38..2705.62 rows=35294 width=45) (actual time=3.100..3.101 rows=25.00 loops=2)
+               Sort Key: fecha DESC
+               Sort Method: top-N heapsort  Memory: 28kB
+               Buffers: shared hit=1079 read=50
+               Worker 0:  Sort Method: quicksort  Memory: 25kB
+               ->  Parallel Seq Scan on historial_inventario  (cost=0.00..1444.94 rows=35294 width=45) (actual time=0.024..1.372 rows=30000.00 loops=2)
+                     Buffers: shared hit=1042 read=50
+ Planning:
+   Buffers: shared hit=5
+ Planning Time: 0.310 ms
+ Execution Time: 29.909 ms
+(17 rows)
+
+ROLLBACK
+### C02 idx_mmp_fecha  -- movimiento_materia_prima(fecha)
+                                                                            QUERY PLAN                                                                            
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.29..2.13 rows=50 width=99) (actual time=0.030..0.095 rows=50.00 loops=1)
+   Buffers: shared hit=50 read=2
+   ->  Index Scan Backward using idx_mmp_fecha on movimiento_materia_prima  (cost=0.29..442.08 rows=12000 width=99) (actual time=0.029..0.093 rows=50.00 loops=1)
+         Index Searches: 1
+         Buffers: shared hit=50 read=2
+ Planning:
+   Buffers: shared hit=98
+ Planning Time: 1.687 ms
+ Execution Time: 0.108 ms
+(9 rows)
+
+BEGIN
+DROP INDEX
+                                                                 QUERY PLAN                                                                 
+--------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=718.63..718.76 rows=50 width=99) (actual time=1.357..1.360 rows=50.00 loops=1)
+   Buffers: shared hit=200
+   ->  Sort  (cost=718.63..748.63 rows=12000 width=99) (actual time=1.356..1.358 rows=50.00 loops=1)
+         Sort Key: fecha DESC
+         Sort Method: top-N heapsort  Memory: 36kB
+         Buffers: shared hit=200
+         ->  Seq Scan on movimiento_materia_prima  (cost=0.00..320.00 rows=12000 width=99) (actual time=0.007..0.450 rows=12000.00 loops=1)
+               Buffers: shared hit=200
+ Planning:
+   Buffers: shared hit=4
+ Planning Time: 0.325 ms
+ Execution Time: 1.370 ms
+(12 rows)
+
+ROLLBACK
+### C03 idx_pp_fecha  -- pago_proveedor(fecha_pago)
+                                                                     QUERY PLAN                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.28..1.20 rows=20 width=76) (actual time=0.022..0.043 rows=20.00 loops=1)
+   Buffers: shared hit=19 read=2
+   ->  Index Scan Backward using idx_pp_fecha on pago_proveedor  (cost=0.28..92.98 rows=2000 width=76) (actual time=0.022..0.042 rows=20.00 loops=1)
+         Index Searches: 1
+         Buffers: shared hit=19 read=2
+ Planning:
+   Buffers: shared hit=61 read=3
+ Planning Time: 1.123 ms
+ Execution Time: 0.048 ms
+(9 rows)
+
+BEGIN
+DROP INDEX
+                                                          QUERY PLAN                                                           
+-------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=115.22..115.27 rows=20 width=76) (actual time=0.216..0.218 rows=20.00 loops=1)
+   Buffers: shared hit=42
+   ->  Sort  (cost=115.22..120.22 rows=2000 width=76) (actual time=0.216..0.217 rows=20.00 loops=1)
+         Sort Key: fecha_pago DESC
+         Sort Method: top-N heapsort  Memory: 29kB
+         Buffers: shared hit=42
+         ->  Seq Scan on pago_proveedor  (cost=0.00..62.00 rows=2000 width=76) (actual time=0.013..0.097 rows=2000.00 loops=1)
+               Buffers: shared hit=42
+ Planning:
+   Buffers: shared hit=4
+ Planning Time: 0.417 ms
+ Execution Time: 0.224 ms
+(12 rows)
+
+ROLLBACK
+### C04 idx_mmp_tipo  -- movimiento_materia_prima(tipo_movimiento)
+                                                                      QUERY PLAN                                                                       
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=3.18..3.19 rows=1 width=8) (actual time=0.084..0.085 rows=1.00 loops=1)
+   Buffers: shared hit=1 read=2
+   ->  Index Only Scan using idx_mmp_tipo on movimiento_materia_prima  (cost=0.29..2.96 rows=90 width=0) (actual time=0.077..0.080 rows=90.00 loops=1)
+         Index Cond: (tipo_movimiento = 'merma'::text)
+         Heap Fetches: 0
+         Index Searches: 1
+         Buffers: shared hit=1 read=2
+ Planning:
+   Buffers: shared hit=22
+ Planning Time: 0.606 ms
+ Execution Time: 0.095 ms
+(11 rows)
+
+BEGIN
+DROP INDEX
+                                                          QUERY PLAN                                                           
+-------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=350.23..350.24 rows=1 width=8) (actual time=0.429..0.429 rows=1.00 loops=1)
+   Buffers: shared hit=200
+   ->  Seq Scan on movimiento_materia_prima  (cost=0.00..350.00 rows=90 width=0) (actual time=0.011..0.424 rows=90.00 loops=1)
+         Filter: ((tipo_movimiento)::text = 'merma'::text)
+         Rows Removed by Filter: 11910
+         Buffers: shared hit=200
+ Planning:
+   Buffers: shared hit=4
+ Planning Time: 0.316 ms
+ Execution Time: 0.436 ms
+(10 rows)
+
+ROLLBACK
+### C05 idx_oc_estado  -- orden_compra(estado)
+                                                                 QUERY PLAN                                                                 
+--------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.28..4.54 rows=20 width=108) (actual time=0.033..0.040 rows=20.00 loops=1)
+   Buffers: shared hit=3 read=2
+   ->  Index Scan using idx_oc_estado on orden_compra  (cost=0.28..106.71 rows=500 width=108) (actual time=0.033..0.039 rows=20.00 loops=1)
+         Index Cond: ((estado)::text = 'aprobada'::text)
+         Index Searches: 1
+         Buffers: shared hit=3 read=2
+ Planning:
+   Buffers: shared hit=85
+ Planning Time: 1.434 ms
+ Execution Time: 0.046 ms
+(10 rows)
+
+BEGIN
+DROP INDEX
+                                                      QUERY PLAN                                                      
+----------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..5.01 rows=20 width=108) (actual time=0.005..0.013 rows=20.00 loops=1)
+   Buffers: shared hit=4
+   ->  Seq Scan on orden_compra  (cost=0.00..125.35 rows=500 width=108) (actual time=0.004..0.012 rows=20.00 loops=1)
+         Filter: ((estado)::text = 'aprobada'::text)
+         Rows Removed by Filter: 108
+         Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=4
+ Planning Time: 0.321 ms
+ Execution Time: 0.018 ms
+(10 rows)
+
+ROLLBACK
+### C06 idx_fc_vencimiento  -- factura_compra(fecha_vencimiento)
+                                                      QUERY PLAN                                                       
+-----------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..0.65 rows=20 width=69) (actual time=0.008..0.010 rows=20.00 loops=1)
+   Buffers: shared hit=2
+   ->  Seq Scan on factura_compra  (cost=0.00..67.00 rows=2076 width=69) (actual time=0.008..0.009 rows=20.00 loops=1)
+         Filter: (fecha_vencimiento < CURRENT_DATE)
+         Rows Removed by Filter: 6
+         Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=111
+ Planning Time: 1.745 ms
+ Execution Time: 0.016 ms
+(10 rows)
+
+BEGIN
+DROP INDEX
+                                                      QUERY PLAN                                                       
+-----------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..0.65 rows=20 width=69) (actual time=0.004..0.007 rows=20.00 loops=1)
+   Buffers: shared hit=2
+   ->  Seq Scan on factura_compra  (cost=0.00..67.00 rows=2076 width=69) (actual time=0.004..0.005 rows=20.00 loops=1)
+         Filter: (fecha_vencimiento < CURRENT_DATE)
+         Rows Removed by Filter: 6
+         Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=4
+ Planning Time: 0.325 ms
+ Execution Time: 0.012 ms
+(10 rows)
+
+ROLLBACK
+### C07 idx_rm_fecha  -- recepcion_mercancia(fecha_recepcion)
+                                                                        QUERY PLAN                                                                        
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.28..0.88 rows=20 width=95) (actual time=0.022..0.045 rows=20.00 loops=1)
+   Buffers: shared hit=18 read=2
+   ->  Index Scan Backward using idx_rm_fecha on recepcion_mercancia  (cost=0.28..48.49 rows=1601 width=95) (actual time=0.022..0.044 rows=20.00 loops=1)
+         Index Searches: 1
+         Buffers: shared hit=18 read=2
+ Planning:
+   Buffers: shared hit=61 read=3
+ Planning Time: 1.120 ms
+ Execution Time: 0.050 ms
+(9 rows)
+
+BEGIN
+DROP INDEX
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=73.61..73.66 rows=20 width=95) (actual time=0.113..0.114 rows=20.00 loops=1)
+   Buffers: shared hit=15
+   ->  Sort  (cost=73.61..77.61 rows=1601 width=95) (actual time=0.112..0.113 rows=20.00 loops=1)
+         Sort Key: fecha_recepcion DESC
+         Sort Method: top-N heapsort  Memory: 27kB
+         Buffers: shared hit=15
+         ->  Seq Scan on recepcion_mercancia  (cost=0.00..31.01 rows=1601 width=95) (actual time=0.003..0.042 rows=1601.00 loops=1)
+               Buffers: shared hit=15
+ Planning:
+   Buffers: shared hit=4
+ Planning Time: 0.311 ms
+ Execution Time: 0.119 ms
+(12 rows)
+
+ROLLBACK
+### C08 idx_fc_estado  -- factura_compra(estado)
+                                                                   QUERY PLAN                                                                    
+-------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=22.42..22.43 rows=1 width=8) (actual time=0.120..0.120 rows=1.00 loops=1)
+   Buffers: shared hit=1 read=2
+   ->  Index Only Scan using idx_fc_estado on factura_compra  (cost=0.28..20.07 rows=942 width=0) (actual time=0.065..0.095 rows=942.00 loops=1)
+         Index Cond: (estado = 'pendiente'::text)
+         Heap Fetches: 0
+         Index Searches: 1
+         Buffers: shared hit=1 read=2
+ Planning:
+   Buffers: shared hit=16
+ Planning Time: 0.526 ms
+ Execution Time: 0.128 ms
+(11 rows)
+
+BEGIN
+DROP INDEX
+                                                      QUERY PLAN                                                      
+----------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=63.35..63.36 rows=1 width=8) (actual time=0.214..0.214 rows=1.00 loops=1)
+   Buffers: shared hit=31
+   ->  Seq Scan on factura_compra  (cost=0.00..61.00 rows=942 width=0) (actual time=0.004..0.189 rows=942.00 loops=1)
+         Filter: ((estado)::text = 'pendiente'::text)
+         Rows Removed by Filter: 1458
+         Buffers: shared hit=31
+ Planning:
+   Buffers: shared hit=4
+ Planning Time: 0.347 ms
+ Execution Time: 0.221 ms
+(10 rows)
+
+ROLLBACK
+### C09 idx_dp_estado  -- devolucion_proveedor(estado)
+                                                         QUERY PLAN                                                         
+----------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=11.51..11.52 rows=1 width=8) (actual time=0.044..0.044 rows=1.00 loops=1)
+   Buffers: shared hit=6
+   ->  Seq Scan on devolucion_proveedor  (cost=0.00..11.00 rows=203 width=0) (actual time=0.008..0.038 rows=203.00 loops=1)
+         Filter: ((estado)::text = 'resuelta'::text)
+         Rows Removed by Filter: 197
+         Buffers: shared hit=6
+ Planning:
+   Buffers: shared hit=43
+ Planning Time: 1.227 ms
+ Execution Time: 0.051 ms
+(10 rows)
+
+BEGIN
+DROP INDEX
+                                                         QUERY PLAN                                                         
+----------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=11.51..11.52 rows=1 width=8) (actual time=0.034..0.034 rows=1.00 loops=1)
+   Buffers: shared hit=6
+   ->  Seq Scan on devolucion_proveedor  (cost=0.00..11.00 rows=203 width=0) (actual time=0.005..0.027 rows=203.00 loops=1)
+         Filter: ((estado)::text = 'resuelta'::text)
+         Rows Removed by Filter: 197
+         Buffers: shared hit=6
+ Planning:
+   Buffers: shared hit=4
+ Planning Time: 0.311 ms
+ Execution Time: 0.041 ms
+(10 rows)
+
+ROLLBACK
+### C10 idx_sd_estado  -- solicitud_devolucion(estado)
+                                                         QUERY PLAN                                                         
+----------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=25.12..25.13 rows=1 width=8) (actual time=0.090..0.090 rows=1.00 loops=1)
+   Buffers: shared hit=14
+   ->  Seq Scan on solicitud_devolucion  (cost=0.00..24.00 rows=448 width=0) (actual time=0.007..0.078 rows=448.00 loops=1)
+         Filter: ((estado)::text = 'completada'::text)
+         Rows Removed by Filter: 352
+         Buffers: shared hit=14
+ Planning:
+   Buffers: shared hit=43
+ Planning Time: 1.168 ms
+ Execution Time: 0.096 ms
+(10 rows)
+
+BEGIN
+DROP INDEX
+                                                         QUERY PLAN                                                         
+----------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=25.12..25.13 rows=1 width=8) (actual time=0.067..0.068 rows=1.00 loops=1)
+   Buffers: shared hit=14
+   ->  Seq Scan on solicitud_devolucion  (cost=0.00..24.00 rows=448 width=0) (actual time=0.005..0.056 rows=448.00 loops=1)
+         Filter: ((estado)::text = 'completada'::text)
+         Rows Removed by Filter: 352
+         Buffers: shared hit=14
+ Planning:
+   Buffers: shared hit=4
+ Planning Time: 0.285 ms
+ Execution Time: 0.074 ms
+(10 rows)
+
+ROLLBACK
+
+--- Comprobacion: los 63 indices explicitos siguen existiendo ---
+ indices_explicitos 
+--------------------
+                 63
+(1 row)
+

@@ -1,0 +1,387 @@
+﻿Timing is off.
+Pager usage is off.
+SET
+SET
+SET
+==============================================================
+FASE 39 - ESTUDIO DE PLANES
+                         configuracion                         
+---------------------------------------------------------------
+ random_page_cost=1.1  effective_cache_size=12GB  work_mem=4MB
+(1 row)
+
+==============================================================
+
+### Q01 pedidos por estado y rango de fechas [PedidoRepository.findByEstadoAndFechaPedidoBetween]
+                                                                         QUERY PLAN                                                                         
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.43..2.57 rows=20 width=666) (actual time=0.016..0.023 rows=20.00 loops=1)
+   Buffers: shared hit=23
+   ->  Index Scan Backward using idx_pedido_estado_fecha on pedido  (cost=0.43..2818.69 rows=26320 width=666) (actual time=0.016..0.021 rows=20.00 loops=1)
+         Index Cond: (((estado)::text = 'entregado'::text) AND (fecha_pedido >= (now() - '90 days'::interval)) AND (fecha_pedido <= now()))
+         Index Searches: 1
+         Buffers: shared hit=23
+ Planning:
+   Buffers: shared hit=4
+ Planning Time: 0.106 ms
+ Execution Time: 0.033 ms
+(10 rows)
+
+
+### Q02 pedidos de un cliente [PedidoRepository.findByClienteIdCliente]
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.42..23.53 rows=20 width=666) (actual time=0.003..0.007 rows=20.00 loops=1)
+   Buffers: shared hit=23
+   ->  Index Scan using idx_pedido_cliente_fecha on pedido  (cost=0.42..33.92 rows=29 width=666) (actual time=0.003..0.006 rows=20.00 loops=1)
+         Index Cond: (id_cliente = 137)
+         Index Searches: 1
+         Buffers: shared hit=23
+ Planning Time: 0.031 ms
+ Execution Time: 0.012 ms
+(8 rows)
+
+
+### Q03 pedidos de cliente + estado [PedidoRepository.findByClienteIdClienteAndEstado]
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.42..32.40 rows=20 width=666) (actual time=0.003..0.008 rows=20.00 loops=1)
+   Buffers: shared hit=24
+   ->  Index Scan using idx_pedido_cliente_fecha on pedido  (cost=0.42..34.00 rows=21 width=666) (actual time=0.003..0.007 rows=20.00 loops=1)
+         Index Cond: (id_cliente = 137)
+         Filter: ((estado)::text = 'entregado'::text)
+         Rows Removed by Filter: 1
+         Index Searches: 1
+         Buffers: shared hit=24
+ Planning Time: 0.031 ms
+ Execution Time: 0.012 ms
+(10 rows)
+
+
+### Q04 ventas por dia [PedidoRepository.ventasPorDia]
+                                                                         QUERY PLAN                                                                         
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+ GroupAggregate  (cost=6673.92..7758.90 rows=43399 width=44) (actual time=14.109..18.209 rows=181.00 loops=1)
+   Group Key: ((fecha_pedido)::date)
+   Buffers: shared hit=43843
+   ->  Sort  (cost=6673.92..6782.42 rows=43399 width=10) (actual time=14.098..15.065 rows=43644.00 loops=1)
+         Sort Key: ((fecha_pedido)::date)
+         Sort Method: quicksort  Memory: 2900kB
+         Buffers: shared hit=43843
+         ->  Index Scan using idx_pedido_estado_fecha on pedido  (cost=0.42..3331.03 rows=43399 width=10) (actual time=0.016..11.296 rows=43644.00 loops=1)
+               Index Cond: (((estado)::text = 'entregado'::text) AND (fecha_pedido >= (now() - '180 days'::interval)))
+               Index Searches: 1
+               Buffers: shared hit=43843
+ Planning Time: 0.087 ms
+ Execution Time: 18.377 ms
+(13 rows)
+
+
+### Q05 conteo por estado [PedidoRepository.pedidosPorEstado]
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Finalize GroupAggregate  (cost=4656.00..4657.00 rows=5 width=17) (actual time=25.606..28.920 rows=5.00 loops=1)
+   Group Key: estado
+   Buffers: shared hit=2208
+   ->  Gather Merge  (cost=4656.00..4656.91 rows=8 width=17) (actual time=25.602..28.915 rows=5.00 loops=1)
+         Workers Planned: 1
+         Workers Launched: 1
+         Buffers: shared hit=2208
+         ->  Sort  (cost=3655.99..3656.00 rows=5 width=17) (actual time=10.542..10.542 rows=2.50 loops=2)
+               Sort Key: estado
+               Sort Method: quicksort  Memory: 25kB
+               Buffers: shared hit=2208
+               Worker 0:  Sort Method: quicksort  Memory: 25kB
+               ->  Partial HashAggregate  (cost=3655.88..3655.93 rows=5 width=17) (actual time=10.528..10.528 rows=2.50 loops=2)
+                     Group Key: estado
+                     Batches: 1  Memory Usage: 32kB
+                     Buffers: shared hit=2200
+                     Worker 0:  Batches: 1  Memory Usage: 32kB
+                     ->  Parallel Seq Scan on pedido  (cost=0.00..3170.59 rows=97059 width=9) (actual time=0.002..2.583 rows=82500.00 loops=2)
+                           Buffers: shared hit=2200
+ Planning Time: 0.065 ms
+ Execution Time: 28.940 ms
+(21 rows)
+
+
+### Q06 despachos por region [PedidoRepository.findDespachados]
+                                                                               QUERY PLAN                                                                                
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=5626.58..5626.59 rows=1 width=666) (actual time=25.572..28.765 rows=0.00 loops=1)
+   Buffers: shared hit=2200
+   ->  Sort  (cost=5626.58..5626.59 rows=1 width=666) (actual time=25.571..28.764 rows=0.00 loops=1)
+         Sort Key: fecha_empaque DESC
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=2200
+         ->  Gather  (cost=1000.00..5626.57 rows=1 width=666) (actual time=25.569..28.762 rows=0.00 loops=1)
+               Workers Planned: 1
+               Workers Launched: 1
+               Buffers: shared hit=2200
+               ->  Parallel Seq Scan on pedido  (cost=0.00..4626.47 rows=1 width=666) (actual time=7.509..7.510 rows=0.00 loops=2)
+                     Filter: (((estado)::text = ANY ('{enviado,entregado}'::text[])) AND (fecha_empaque <= now()) AND (fecha_empaque >= (now() - '365 days'::interval)))
+                     Rows Removed by Filter: 82500
+                     Buffers: shared hit=2200
+ Planning Time: 0.103 ms
+ Execution Time: 28.781 ms
+(16 rows)
+
+
+### Q07 detalle de pedido + producto [DetallePedidoRepository.findByPedidoIdPedido]
+                                                                        QUERY PLAN                                                                         
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=7.10..7.11 rows=3 width=74) (actual time=0.018..0.018 rows=4.00 loops=1)
+   Sort Key: d.id_detalle
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=7
+   ->  Hash Join  (cost=3.30..7.08 rows=3 width=74) (actual time=0.013..0.016 rows=4.00 loops=1)
+         Hash Cond: (p.id_producto = d.id_producto)
+         Buffers: shared hit=7
+         ->  Seq Scan on producto p  (cost=0.00..3.08 rows=108 width=45) (actual time=0.004..0.006 rows=108.00 loops=1)
+               Buffers: shared hit=2
+         ->  Hash  (cost=3.26..3.26 rows=3 width=33) (actual time=0.004..0.004 rows=4.00 loops=1)
+               Buckets: 1024  Batches: 1  Memory Usage: 9kB
+               Buffers: shared hit=5
+               ->  Index Scan using idx_detalle_pedido on detalle_pedido d  (cost=0.42..3.26 rows=3 width=33) (actual time=0.002..0.003 rows=4.00 loops=1)
+                     Index Cond: (id_pedido = 90210)
+                     Index Searches: 1
+                     Buffers: shared hit=5
+ Planning:
+   Buffers: shared hit=9
+ Planning Time: 0.086 ms
+ Execution Time: 0.027 ms
+(20 rows)
+
+
+### Q08 top productos [DetallePedidoRepository.topProductos]
+                                                                                     QUERY PLAN                                                                                     
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=15755.45..15755.48 rows=10 width=87) (actual time=89.385..93.573 rows=10.00 loops=1)
+   Buffers: shared hit=5960
+   ->  Sort  (cost=15755.45..15766.79 rows=4536 width=87) (actual time=89.384..93.571 rows=10.00 loops=1)
+         Sort Key: (sum(d.cantidad)) DESC
+         Sort Method: top-N heapsort  Memory: 27kB
+         Buffers: shared hit=5960
+         ->  Finalize HashAggregate  (cost=15600.73..15657.43 rows=4536 width=87) (actual time=89.357..93.560 rows=54.00 loops=1)
+               Group Key: d.id_producto, p.nombre, c.nombre
+               Batches: 1  Memory Usage: 185kB
+               Buffers: shared hit=5960
+               ->  Gather  (cost=14292.14..15437.44 rows=10886 width=87) (actual time=89.058..93.505 rows=74.00 loops=1)
+                     Workers Planned: 2
+                     Workers Launched: 2
+                     Buffers: shared hit=5960
+                     ->  Partial HashAggregate  (cost=13292.14..13348.84 rows=4536 width=87) (actual time=68.896..68.911 rows=24.67 loops=3)
+                           Group Key: d.id_producto, p.nombre, c.nombre
+                           Batches: 1  Memory Usage: 185kB
+                           Buffers: shared hit=5960
+                           Worker 0:  Batches: 1  Memory Usage: 161kB
+                           Worker 1:  Batches: 1  Memory Usage: 161kB
+                           ->  Hash Join  (cost=4285.55..11617.62 rows=133962 width=57) (actual time=7.351..50.391 rows=107563.33 loops=3)
+                                 Hash Cond: (p.id_categoria = c.id_categoria)
+                                 Buffers: shared hit=5960
+                                 ->  Hash Join  (cost=4284.48..10768.12 rows=133962 width=53) (actual time=7.171..40.940 rows=107563.33 loops=3)
+                                       Hash Cond: (d.id_producto = p.id_producto)
+                                       Buffers: shared hit=5957
+                                       ->  Parallel Hash Join  (cost=4280.05..10398.25 rows=133962 width=14) (actual time=6.945..30.971 rows=107563.33 loops=3)
+                                             Hash Cond: (d.id_pedido = pe.id_pedido)
+                                             Buffers: shared hit=5951
+                                             ->  Parallel Seq Scan on detalle_pedido d  (cost=0.00..5626.00 rows=187500 width=18) (actual time=0.004..4.970 rows=150000.00 loops=3)
+                                                   Buffers: shared hit=3751
+                                             ->  Parallel Hash  (cost=3413.24..3413.24 rows=69345 width=4) (actual time=6.833..6.833 rows=39443.67 loops=3)
+                                                   Buckets: 131072  Batches: 1  Memory Usage: 5664kB
+                                                   Buffers: shared hit=2200
+                                                   ->  Parallel Seq Scan on pedido pe  (cost=0.00..3413.24 rows=69345 width=4) (actual time=0.003..11.475 rows=118331.00 loops=1)
+                                                         Filter: ((estado)::text = 'entregado'::text)
+                                                         Rows Removed by Filter: 46669
+                                                         Buffers: shared hit=2200
+                                       ->  Hash  (cost=3.08..3.08 rows=108 width=43) (actual time=0.221..0.221 rows=108.00 loops=3)
+                                             Buckets: 1024  Batches: 1  Memory Usage: 17kB
+                                             Buffers: shared hit=6
+                                             ->  Seq Scan on producto p  (cost=0.00..3.08 rows=108 width=43) (actual time=0.202..0.207 rows=108.00 loops=3)
+                                                   Buffers: shared hit=6
+                                 ->  Hash  (cost=1.03..1.03 rows=3 width=12) (actual time=0.175..0.175 rows=3.00 loops=3)
+                                       Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                       Buffers: shared hit=3
+                                       ->  Seq Scan on categoria c  (cost=0.00..1.03 rows=3 width=12) (actual time=0.170..0.171 rows=3.00 loops=3)
+                                             Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=30
+ Planning Time: 0.417 ms
+ Execution Time: 93.714 ms
+(52 rows)
+
+
+### Q09 inventario stock bajo [InventarioRepository.contarStockBajo]
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=45.14..45.15 rows=1 width=8) (actual time=0.024..0.025 rows=1.00 loops=1)
+   Buffers: shared hit=5
+   ->  Bitmap Heap Scan on inventario  (cost=3.47..43.48 rows=667 width=0) (actual time=0.007..0.019 rows=192.00 loops=1)
+         Recheck Cond: (stock_actual <= stock_minimo)
+         Filter: (stock_minimo > 0)
+         Heap Blocks: exact=4
+         Buffers: shared hit=5
+         ->  Bitmap Index Scan on idx_inventario_stock_bajo  (cost=0.00..3.31 rows=667 width=0) (actual time=0.004..0.004 rows=192.00 loops=1)
+               Index Searches: 1
+               Buffers: shared hit=1
+ Planning Time: 0.023 ms
+ Execution Time: 0.030 ms
+(12 rows)
+
+
+### Q10 inventario por producto [InventarioRepository.findByProductoIdProducto]
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on inventario  (cost=1.52..17.20 rows=19 width=28) (actual time=0.006..0.009 rows=19.00 loops=1)
+   Recheck Cond: (id_producto = 42)
+   Heap Blocks: exact=8
+   Buffers: shared hit=10
+   ->  Bitmap Index Scan on idx_inventario_producto  (cost=0.00..1.52 rows=19 width=0) (actual time=0.003..0.003 rows=19.00 loops=1)
+         Index Cond: (id_producto = 42)
+         Index Searches: 1
+         Buffers: shared hit=2
+ Planning Time: 0.025 ms
+ Execution Time: 0.013 ms
+(10 rows)
+
+
+### Q11 kardex de inventario [MovimientoInventarioRepository.findByInventarioProducto...]
+                                                                                   QUERY PLAN                                                                                    
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.58..359.71 rows=50 width=98) (actual time=0.112..2.881 rows=50.00 loops=1)
+   Buffers: shared hit=10771
+   ->  Nested Loop  (cost=0.58..5459.40 rows=760 width=98) (actual time=0.111..2.878 rows=50.00 loops=1)
+         Buffers: shared hit=10771
+         ->  Index Scan Backward using idx_movimiento_fecha on movimiento_inventario m  (cost=0.29..2863.49 rows=80000 width=98) (actual time=0.003..0.866 rows=5244.00 loops=1)
+               Index Searches: 1
+               Buffers: shared hit=5254
+         ->  Memoize  (cost=0.29..0.31 rows=1 width=4) (actual time=0.000..0.000 rows=0.01 loops=5244)
+               Cache Key: m.id_inventario
+               Cache Mode: logical
+               Hits: 3405  Misses: 1839  Evictions: 0  Overflows: 0  Memory Usage: 123kB
+               Buffers: shared hit=5517
+               ->  Index Scan using inventario_pkey on inventario i  (cost=0.28..0.30 rows=1 width=4) (actual time=0.001..0.001 rows=0.01 loops=1839)
+                     Index Cond: (id_inventario = m.id_inventario)
+                     Filter: (id_producto = 42)
+                     Rows Removed by Filter: 1
+                     Index Searches: 1839
+                     Buffers: shared hit=5517
+ Planning:
+   Buffers: shared hit=13
+ Planning Time: 0.110 ms
+ Execution Time: 2.907 ms
+(22 rows)
+
+
+### Q12 busqueda de producto por nombre [ProductoRepository.buscarConFiltros]
+                                                 QUERY PLAN                                                  
+-------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..3.89 rows=4 width=100) (actual time=0.017..0.045 rows=2.00 loops=1)
+   Buffers: shared hit=2
+   ->  Seq Scan on producto  (cost=0.00..3.89 rows=4 width=100) (actual time=0.017..0.044 rows=2.00 loops=1)
+         Filter: (((estado)::text = 'activo'::text) AND (lower((nombre)::text) ~~ '%run%'::text))
+         Rows Removed by Filter: 106
+         Buffers: shared hit=2
+ Planning Time: 0.033 ms
+ Execution Time: 0.049 ms
+(8 rows)
+
+
+### Q13 log por modulo y fecha [LogAccionRepository.buscar]
+                                                                    QUERY PLAN                                                                    
+--------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.43..15.38 rows=25 width=96) (actual time=0.010..0.018 rows=25.00 loops=1)
+   Buffers: shared hit=28
+   ->  Index Scan using idx_log_modulo_fecha on log_accion  (cost=0.43..2724.25 rows=4554 width=96) (actual time=0.010..0.017 rows=25.00 loops=1)
+         Index Cond: (((modulo)::text = 'compras'::text) AND (fecha >= (now() - '120 days'::interval)) AND (fecha <= now()))
+         Index Searches: 1
+         Buffers: shared hit=28
+ Planning:
+   Buffers: shared hit=4
+ Planning Time: 0.048 ms
+ Execution Time: 0.022 ms
+(10 rows)
+
+
+### Q14 ordenes de compra por estado y proveedor [OrdenCompraRepository.findByEstadoAndProveedor...]
+                                                                     QUERY PLAN                                                                     
+----------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.28..13.84 rows=20 width=108) (actual time=0.005..0.041 rows=20.00 loops=1)
+   Buffers: shared hit=251
+   ->  Index Scan Backward using idx_oc_fecha on orden_compra  (cost=0.28..172.44 rows=254 width=108) (actual time=0.005..0.040 rows=20.00 loops=1)
+         Filter: (((estado)::text = 'recibida_completa'::text) AND (id_proveedor = 3))
+         Rows Removed by Filter: 231
+         Index Searches: 1
+         Buffers: shared hit=251
+ Planning Time: 0.027 ms
+ Execution Time: 0.045 ms
+(9 rows)
+
+
+### Q15 cuentas por pagar vencidas [CuentaPorPagarRepository.findByFechaVencimientoLessThanAndEstado]
+                                                                     QUERY PLAN                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.28..1.44 rows=20 width=48) (actual time=0.006..0.011 rows=20.00 loops=1)
+   Buffers: shared hit=30
+   ->  Index Scan using idx_cxp_vencimiento on cuenta_por_pagar  (cost=0.28..72.82 rows=1257 width=48) (actual time=0.006..0.011 rows=20.00 loops=1)
+         Index Cond: (fecha_vencimiento < CURRENT_DATE)
+         Filter: ((estado)::text = 'vencida'::text)
+         Rows Removed by Filter: 10
+         Index Searches: 1
+         Buffers: shared hit=30
+ Planning Time: 0.033 ms
+ Execution Time: 0.016 ms
+(10 rows)
+
+
+### Q16 saldo pendiente total [CuentaPorPagarRepository.sumaSaldoPendienteTotal]
+                                                        QUERY PLAN                                                        
+--------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=56.67..56.68 rows=1 width=32) (actual time=0.258..0.258 rows=1.00 loops=1)
+   Buffers: shared hit=24
+   ->  Seq Scan on cuenta_por_pagar  (cost=0.00..52.48 rows=1677 width=5) (actual time=0.004..0.184 rows=1677.00 loops=1)
+         Filter: ((estado)::text = ANY ('{vigente,vencida}'::text[]))
+         Rows Removed by Filter: 601
+         Buffers: shared hit=24
+ Planning Time: 0.043 ms
+ Execution Time: 0.264 ms
+(8 rows)
+
+
+### Q17 kardex de materia prima [MovimientoMateriaPrimaRepository.findByMateriaPrima...]
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=39.04..39.13 rows=36 width=99) (actual time=0.019..0.022 rows=41.00 loops=1)
+   Buffers: shared hit=40
+   ->  Sort  (cost=39.04..39.13 rows=36 width=99) (actual time=0.019..0.020 rows=41.00 loops=1)
+         Sort Key: fecha DESC
+         Sort Method: quicksort  Memory: 30kB
+         Buffers: shared hit=40
+         ->  Bitmap Heap Scan on movimiento_materia_prima  (cost=1.66..38.11 rows=36 width=99) (actual time=0.007..0.014 rows=41.00 loops=1)
+               Recheck Cond: (id_materia_prima = 120)
+               Heap Blocks: exact=38
+               Buffers: shared hit=40
+               ->  Bitmap Index Scan on idx_mmp_materia_prima  (cost=0.00..1.66 rows=36 width=0) (actual time=0.003..0.003 rows=41.00 loops=1)
+                     Index Cond: (id_materia_prima = 120)
+                     Index Searches: 1
+                     Buffers: shared hit=2
+ Planning Time: 0.026 ms
+ Execution Time: 0.027 ms
+(16 rows)
+
+
+### Q18 ordenes de produccion por estado [OrdenProduccionRepository.buscar]
+                                                                       QUERY PLAN                                                                        
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.28..1.57 rows=20 width=129) (actual time=0.003..0.010 rows=20.00 loops=1)
+   Buffers: shared hit=40
+   ->  Index Scan Backward using idx_op_fecha on orden_produccion  (cost=0.28..118.78 rows=1833 width=129) (actual time=0.003..0.009 rows=20.00 loops=1)
+         Filter: ((estado)::text = 'completada'::text)
+         Rows Removed by Filter: 19
+         Index Searches: 1
+         Buffers: shared hit=40
+ Planning Time: 0.024 ms
+ Execution Time: 0.014 ms
+(9 rows)
+
+
+=== FIN DEL CATALOGO ===
