@@ -3,6 +3,11 @@
 Fase 34. Modelo de privilegios sobre las 37 tablas, los 3 requisitos de la
 evaluación y las 59 pruebas de acceso permitido/denegado.
 
+> **Actualizado en la F40:** el esquema tiene ahora **38 tablas**. La nueva,
+> `auditoria_cambios`, sigue una regla distinta a todas las demás —es
+> *append-only* incluso para `rol_administrador`— y está documentada en la
+> sección 10 y en `AUDITORIA.md`.
+
 Scripts: `marathon-backend/sql/fase34_seguridad_roles.sql` y
 `marathon-backend/sql/fase34_pruebas_roles.sql`.
 
@@ -562,3 +567,55 @@ lo que lo detiene ya no es únicamente `SecurityConfig`.
 
 El frontend no necesitó cambios: sus guards de ruta y su navbar resultaron ser
 iguales o **más** restrictivos que la base en todos los casos.
+
+---
+
+## 10. Fase 40 — `auditoria_cambios`, la tabla que nadie puede reescribir
+
+El esquema pasa de 37 a **38 tablas**. La nueva rompe deliberadamente el patrón
+de privilegios de todas las demás.
+
+### 10.1 La matriz
+
+| Rol | SELECT | INSERT | UPDATE | DELETE | TRUNCATE |
+|---|:--:|:--:|:--:|:--:|:--:|
+| `rol_administrador` | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `rol_supervisor` | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `rol_operador_bodega` | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `rol_operador_pedidos` | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `rol_encargado_compras` | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `rol_encargado_produccion` | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+**En todas las demás tablas `rol_administrador` puede escribir. Aquí no**, y es
+el punto entero del diseño: una bitácora que el auditado puede editar no es una
+bitácora. El administrador lee su propia auditoría; solo `postgres`, dueño de la
+tabla, puede purgarla.
+
+### 10.2 Cómo escriben los seis roles sin tener `INSERT`
+
+`fn_auditoria_cambios()` es **`SECURITY DEFINER`** y propiedad de `postgres`, así
+que se ejecuta con sus privilegios. Los roles disparan el trigger, no insertan.
+
+La función fija `SET search_path = public, pg_temp` **dentro de sí misma**: un
+`SECURITY DEFINER` sin `search_path` fijo es una vía de escalada de privilegios
+conocida —quien pueda crear objetos en el `search_path` del llamante podría
+suplantar la tabla de destino—.
+
+### 10.3 Consecuencia para la F34
+
+Las 61 pruebas de `fase34_pruebas_roles.sql` **siguen pasando sin cambios**: ese
+arnés prueba operaciones concretas sobre tablas concretas, no cuenta tablas del
+esquema. Las pruebas de la tabla nueva viven en `fase40_pruebas_auditoria.sql`
+(29 de 29).
+
+### 10.4 Un privilegio que faltaba y no se vio hasta ejercitar la aplicación
+
+`rol_operador_bodega` y `rol_operador_pedidos` tienen `INSERT` pero **no
+`SELECT`** sobre `log_accion` — deliberado desde esta fase 34: escriben en la
+bitácora y no pueden leerla. Al incorporarlos a `log_accion` en la F40, sus
+escrituras fallaban con *permiso denegado* pese a tener el privilegio.
+
+La causa era que Hibernate añade un `RETURNING` para recuperar la clave
+`IDENTITY`, y `RETURNING` exige `SELECT`. Se resolvió con un `INSERT` nativo en
+`LogService`, **sin otorgar `SELECT`**: la decisión de mínimo privilegio se
+mantiene intacta. Detalle en `AUDITORIA.md` §8.

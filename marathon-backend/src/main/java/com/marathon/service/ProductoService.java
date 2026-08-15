@@ -40,18 +40,22 @@ public class ProductoService {
     private final ProductoProveedorRepository productoProveedorRepository;
     private final ListaMaterialesRepository listaMaterialesRepository;
 
+    private final LogService logService;
+
     public ProductoService(ProductoRepository productoRepository,
                            CategoriaRepository categoriaRepository,
                            UnidadMedidaRepository unidadMedidaRepository,
                            ProveedorRepository proveedorRepository,
                            ProductoProveedorRepository productoProveedorRepository,
-                           ListaMaterialesRepository listaMaterialesRepository) {
+                           ListaMaterialesRepository listaMaterialesRepository,
+                       LogService logService) {
         this.productoRepository = productoRepository;
         this.categoriaRepository = categoriaRepository;
         this.unidadMedidaRepository = unidadMedidaRepository;
         this.proveedorRepository = proveedorRepository;
         this.productoProveedorRepository = productoProveedorRepository;
         this.listaMaterialesRepository = listaMaterialesRepository;
+        this.logService = logService;
     }
 
     public PageResponseDTO<ProductoResponseDTO> listar(int page, int size, String nombre, String estado, Integer idCategoria, String origen) {
@@ -121,6 +125,7 @@ public class ProductoService {
 
     @Transactional
     public ProductoResponseDTO crear(ProductoRequestDTO reqDTO) {
+        logService.fijarContextoUsuario();
         Producto producto = new Producto();
         mapFromDTO(producto, reqDTO);
         producto.setEstado(reqDTO.getEstado() != null ? reqDTO.getEstado() : "activo");
@@ -128,11 +133,16 @@ public class ProductoService {
 
         guardarProveedores(producto, reqDTO.getProveedorIds());
 
+        logService.registrarAccion("productos", "crear",
+                "Producto #" + producto.getIdProducto() + " '" + producto.getNombre()
+                + "' creado. Precio: $" + producto.getPrecio());
+
         return obtener(producto.getIdProducto());
     }
 
     @Transactional
     public ProductoResponseDTO actualizar(Integer id, ProductoRequestDTO reqDTO) {
+        logService.fijarContextoUsuario();
         Producto producto = productoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto", id));
 
@@ -148,6 +158,13 @@ public class ProductoService {
 
         productoProveedorRepository.deleteByProductoIdProducto(id);
         guardarProveedores(producto, reqDTO.getProveedorIds());
+
+        // El detalle campo a campo (incluido el precio anterior) lo registra el
+        // trigger trg_auditoria_producto en auditoria_cambios. Aqui queda la
+        // entrada de alto nivel para la bitacora central.
+        logService.registrarAccion("productos", "actualizar",
+                "Producto #" + id + " '" + producto.getNombre() + "' modificado. Precio: $"
+                + producto.getPrecio());
 
         return obtener(id);
     }
@@ -188,10 +205,14 @@ public class ProductoService {
     }
 
     public void eliminar(Integer id) {
+        logService.fijarContextoUsuario();
         Producto producto = productoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto", id));
         producto.setEstado("inactivo");
         productoRepository.save(producto);
+
+        logService.registrarAccion("productos", "eliminar",
+                "Producto #" + id + " '" + producto.getNombre() + "' dado de baja (estado=inactivo)");
     }
 
     private void mapFromDTO(Producto producto, ProductoRequestDTO dto) {

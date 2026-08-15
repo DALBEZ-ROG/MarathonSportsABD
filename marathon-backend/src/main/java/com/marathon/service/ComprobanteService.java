@@ -35,6 +35,7 @@ public class ComprobanteService {
     private final PdfService pdfService;
     private final LogService logService;
 
+
     public ComprobanteService(ComprobanteInternoRepository comprobanteRepository,
                               PedidoRepository pedidoRepository,
                               DetallePedidoRepository detallePedidoRepository,

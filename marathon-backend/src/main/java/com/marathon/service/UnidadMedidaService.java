@@ -21,9 +21,12 @@ import com.marathon.repository.UnidadMedidaRepository;
 public class UnidadMedidaService {
 
     private final UnidadMedidaRepository unidadMedidaRepository;
+    private final LogService logService;
 
-    public UnidadMedidaService(UnidadMedidaRepository unidadMedidaRepository) {
+    public UnidadMedidaService(UnidadMedidaRepository unidadMedidaRepository,
+                           LogService logService) {
         this.unidadMedidaRepository = unidadMedidaRepository;
+        this.logService = logService;
     }
 
     public PageResponseDTO<UnidadMedidaResponseDTO> listar(int page, int size, String nombre) {
@@ -64,7 +67,12 @@ public class UnidadMedidaService {
         UnidadMedida um = new UnidadMedida();
         um.setNombre(dto.getNombre());
         um.setAbreviatura(dto.getAbreviatura());
-        return toDTO(unidadMedidaRepository.save(um));
+        um = unidadMedidaRepository.save(um);
+
+        logService.registrarAccion("unidades-medida", "crear",
+                "Unidad de medida #" + um.getIdUnidadMedida() + " '" + um.getNombre() + "' creada");
+
+        return toDTO(um);
     }
 
     public UnidadMedidaResponseDTO actualizar(Integer id, UnidadMedidaRequestDTO dto) {
@@ -83,13 +91,21 @@ public class UnidadMedidaService {
 
         um.setNombre(dto.getNombre());
         um.setAbreviatura(dto.getAbreviatura());
-        return toDTO(unidadMedidaRepository.save(um));
+        um = unidadMedidaRepository.save(um);
+
+        logService.registrarAccion("unidades-medida", "actualizar",
+                "Unidad de medida #" + um.getIdUnidadMedida() + " '" + um.getNombre() + "' modificada");
+
+        return toDTO(um);
     }
 
     public void eliminar(Integer id) {
         UnidadMedida um = unidadMedidaRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Unidad de medida", id));
         unidadMedidaRepository.delete(um);
+
+        logService.registrarAccion("unidades-medida", "eliminar",
+                "Unidad de medida #" + id + " '" + um.getNombre() + "' dada de baja");
     }
 
     private UnidadMedidaResponseDTO toDTO(UnidadMedida um) {

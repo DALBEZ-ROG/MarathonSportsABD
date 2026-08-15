@@ -23,9 +23,13 @@ public class BodegaService {
     private final BodegaRepository bodegaRepository;
     private final CiudadRepository ciudadRepository;
 
-    public BodegaService(BodegaRepository bodegaRepository, CiudadRepository ciudadRepository) {
+    private final LogService logService;
+
+    public BodegaService(BodegaRepository bodegaRepository, CiudadRepository ciudadRepository,
+                     LogService logService) {
         this.bodegaRepository = bodegaRepository;
         this.ciudadRepository = ciudadRepository;
+        this.logService = logService;
     }
 
     public PageResponseDTO<BodegaResponseDTO> listar(int page, int size, String nombre, String estado) {
@@ -66,7 +70,12 @@ public class BodegaService {
         Bodega bodega = new Bodega();
         mapFromDTO(bodega, dto);
         bodega.setEstado(dto.getEstado() != null ? dto.getEstado() : "activo");
-        return toDTO(bodegaRepository.save(bodega));
+        bodega = bodegaRepository.save(bodega);
+
+        logService.registrarAccion("bodegas", "crear",
+                "Bodega #" + bodega.getIdBodega() + " '" + bodega.getNombre() + "' creada");
+
+        return toDTO(bodega);
     }
 
     public BodegaResponseDTO actualizar(Integer id, BodegaRequestDTO dto) {
@@ -77,7 +86,12 @@ public class BodegaService {
         if (dto.getEstado() != null) {
             bodega.setEstado(dto.getEstado());
         }
-        return toDTO(bodegaRepository.save(bodega));
+        bodega = bodegaRepository.save(bodega);
+
+        logService.registrarAccion("bodegas", "actualizar",
+                "Bodega #" + bodega.getIdBodega() + " '" + bodega.getNombre() + "' modificada");
+
+        return toDTO(bodega);
     }
 
     public void eliminar(Integer id) {
@@ -85,6 +99,9 @@ public class BodegaService {
                 .orElseThrow(() -> new ResourceNotFoundException("Bodega", id));
         bodega.setEstado("inactivo");
         bodegaRepository.save(bodega);
+
+        logService.registrarAccion("bodegas", "eliminar",
+                "Bodega #" + id + " '" + bodega.getNombre() + "' dada de baja");
     }
 
     private void mapFromDTO(Bodega bodega, BodegaRequestDTO dto) {

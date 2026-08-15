@@ -21,9 +21,12 @@ import com.marathon.repository.CiudadRepository;
 public class CiudadService {
 
     private final CiudadRepository ciudadRepository;
+    private final LogService logService;
 
-    public CiudadService(CiudadRepository ciudadRepository) {
+    public CiudadService(CiudadRepository ciudadRepository,
+                     LogService logService) {
         this.ciudadRepository = ciudadRepository;
+        this.logService = logService;
     }
 
     public PageResponseDTO<CiudadResponseDTO> listar(int page, int size, String nombre, String estado) {
@@ -63,7 +66,12 @@ public class CiudadService {
         Ciudad ciudad = new Ciudad();
         ciudad.setNombre(dto.getNombre());
         ciudad.setEstado(dto.getEstado() != null ? dto.getEstado() : "activo");
-        return toDTO(ciudadRepository.save(ciudad));
+        ciudad = ciudadRepository.save(ciudad);
+
+        logService.registrarAccion("ciudades", "crear",
+                "Ciudad #" + ciudad.getIdCiudad() + " '" + ciudad.getNombre() + "' creada");
+
+        return toDTO(ciudad);
     }
 
     public CiudadResponseDTO actualizar(Integer id, CiudadRequestDTO dto) {
@@ -79,7 +87,12 @@ public class CiudadService {
         if (dto.getEstado() != null) {
             ciudad.setEstado(dto.getEstado());
         }
-        return toDTO(ciudadRepository.save(ciudad));
+        ciudad = ciudadRepository.save(ciudad);
+
+        logService.registrarAccion("ciudades", "actualizar",
+                "Ciudad #" + ciudad.getIdCiudad() + " '" + ciudad.getNombre() + "' modificada");
+
+        return toDTO(ciudad);
     }
 
     public void eliminar(Integer id) {
@@ -87,6 +100,9 @@ public class CiudadService {
                 .orElseThrow(() -> new ResourceNotFoundException("Ciudad", id));
         ciudad.setEstado("inactivo");
         ciudadRepository.save(ciudad);
+
+        logService.registrarAccion("ciudades", "eliminar",
+                "Ciudad #" + id + " '" + ciudad.getNombre() + "' dada de baja");
     }
 
     private CiudadResponseDTO toDTO(Ciudad ciudad) {

@@ -21,9 +21,12 @@ import com.marathon.repository.CategoriaRepository;
 public class CategoriaService {
 
     private final CategoriaRepository categoriaRepository;
+    private final LogService logService;
 
-    public CategoriaService(CategoriaRepository categoriaRepository) {
+    public CategoriaService(CategoriaRepository categoriaRepository,
+                        LogService logService) {
         this.categoriaRepository = categoriaRepository;
+        this.logService = logService;
     }
 
     public PageResponseDTO<CategoriaResponseDTO> listar(int page, int size, String nombre) {
@@ -59,7 +62,12 @@ public class CategoriaService {
         Categoria cat = new Categoria();
         cat.setNombre(dto.getNombre());
         cat.setDescripcion(dto.getDescripcion());
-        return toDTO(categoriaRepository.save(cat));
+        cat = categoriaRepository.save(cat);
+
+        logService.registrarAccion("categorias", "crear",
+                "Categoria #" + cat.getIdCategoria() + " '" + cat.getNombre() + "' creada");
+
+        return toDTO(cat);
     }
 
     public CategoriaResponseDTO actualizar(Integer id, CategoriaRequestDTO dto) {
@@ -73,7 +81,12 @@ public class CategoriaService {
 
         cat.setNombre(dto.getNombre());
         cat.setDescripcion(dto.getDescripcion());
-        return toDTO(categoriaRepository.save(cat));
+        cat = categoriaRepository.save(cat);
+
+        logService.registrarAccion("categorias", "actualizar",
+                "Categoria #" + cat.getIdCategoria() + " '" + cat.getNombre() + "' modificada");
+
+        return toDTO(cat);
     }
 
     public void eliminar(Integer id) {
@@ -81,6 +94,9 @@ public class CategoriaService {
                 .orElseThrow(() -> new ResourceNotFoundException("Categoría", id));
         // Eliminación física (no tiene campo estado)
         categoriaRepository.delete(cat);
+
+        logService.registrarAccion("categorias", "eliminar",
+                "Categoria #" + id + " '" + cat.getNombre() + "' dada de baja");
     }
 
     private CategoriaResponseDTO toDTO(Categoria cat) {

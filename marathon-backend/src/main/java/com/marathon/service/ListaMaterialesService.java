@@ -33,14 +33,18 @@ public class ListaMaterialesService {
     private final MateriaPrimaRepository materiaPrimaRepository;
     private final ProductoService productoService;
 
+    private final LogService logService;
+
     public ListaMaterialesService(ListaMaterialesRepository listaMaterialesRepository,
                                   ProductoRepository productoRepository,
                                   MateriaPrimaRepository materiaPrimaRepository,
-                                  ProductoService productoService) {
+                                  ProductoService productoService,
+                              LogService logService) {
         this.listaMaterialesRepository = listaMaterialesRepository;
         this.productoRepository = productoRepository;
         this.materiaPrimaRepository = materiaPrimaRepository;
         this.productoService = productoService;
+        this.logService = logService;
     }
 
     /**
@@ -126,6 +130,10 @@ public class ListaMaterialesService {
         }
 
         listaMaterialesRepository.saveAll(aGuardar);
+
+        logService.registrar(idUsuarioActual, "bom", "definir",
+                "Lista de materiales del producto #" + idProducto + " '" + producto.getNombre()
+                + "' redefinida: " + dto.getItems().size() + " componentes activos", null);
 
         return obtenerBomDeProducto(idProducto);
     }

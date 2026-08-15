@@ -34,14 +34,18 @@ public class MateriaPrimaService {
     private final MovimientoMateriaPrimaRepository movimientoRepository;
     private final UsuarioRepository usuarioRepository;
 
+    private final LogService logService;
+
     public MateriaPrimaService(MateriaPrimaRepository materiaPrimaRepository,
                                UnidadMedidaRepository unidadMedidaRepository,
                                MovimientoMateriaPrimaRepository movimientoRepository,
-                               UsuarioRepository usuarioRepository) {
+                               UsuarioRepository usuarioRepository,
+                           LogService logService) {
         this.materiaPrimaRepository = materiaPrimaRepository;
         this.unidadMedidaRepository = unidadMedidaRepository;
         this.movimientoRepository = movimientoRepository;
         this.usuarioRepository = usuarioRepository;
+        this.logService = logService;
     }
 
     public PageResponseDTO<MateriaPrimaResponseDTO> listar(int page, int size, String nombre, String estado) {
@@ -85,6 +89,10 @@ public class MateriaPrimaService {
         mapFromDTO(mp, dto);
         mp.setEstado(dto.getEstado() != null ? dto.getEstado() : "activo");
         mp = materiaPrimaRepository.save(mp);
+
+        logService.registrarAccion("materia-prima", "crear",
+                "Materia prima #" + mp.getIdMateriaPrima() + " '" + mp.getNombre() + "' creada");
+
         return toDTO(mp);
     }
 
@@ -104,6 +112,10 @@ public class MateriaPrimaService {
             mp.setEstado(dto.getEstado());
         }
         mp = materiaPrimaRepository.save(mp);
+
+        logService.registrarAccion("materia-prima", "actualizar",
+                "Materia prima #" + id + " '" + mp.getNombre() + "' modificada");
+
         return toDTO(mp);
     }
 
@@ -113,6 +125,9 @@ public class MateriaPrimaService {
                 .orElseThrow(() -> new ResourceNotFoundException("Materia prima", id));
         mp.setEstado("inactivo");
         materiaPrimaRepository.save(mp);
+
+        logService.registrarAccion("materia-prima", "eliminar",
+                "Materia prima #" + id + " '" + mp.getNombre() + "' dada de baja");
     }
 
     // ---- F26: Kardex de movimientos ----

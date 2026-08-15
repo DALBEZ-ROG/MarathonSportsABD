@@ -29,10 +29,14 @@ public class PickingService {
     private final PedidoRepository pedidoRepository;
     private final DetallePedidoRepository detallePedidoRepository;
 
+    private final LogService logService;
+
     public PickingService(PedidoRepository pedidoRepository,
-                          DetallePedidoRepository detallePedidoRepository) {
+                          DetallePedidoRepository detallePedidoRepository,
+                      LogService logService) {
         this.pedidoRepository = pedidoRepository;
         this.detallePedidoRepository = detallePedidoRepository;
+        this.logService = logService;
     }
 
     public PickingPedidoDTO obtenerPickingPedido(Integer idPedido) {
@@ -84,6 +88,11 @@ public class PickingService {
         detalle.setCantidadRecogida(dto.getCantidadRecogida());
         detalle.setPickingCompletado(dto.getPickingCompletado());
         detalle = detallePedidoRepository.save(detalle);
+
+        logService.registrar(idUsuarioActual, "picking", "actualizar_linea",
+                "Pedido #" + idPedido + ", linea #" + dto.getIdDetalle() + ": recogidas "
+                + dto.getCantidadRecogida() + " de " + detalle.getCantidad()
+                + (Boolean.TRUE.equals(dto.getPickingCompletado()) ? " (linea completada)" : ""), null);
 
         return toLineaDTO(detalle);
     }

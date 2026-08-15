@@ -26,12 +26,16 @@ public class ClienteService {
     private final CiudadRepository ciudadRepository;
     private final PedidoRepository pedidoRepository;
 
+    private final LogService logService;
+
     public ClienteService(ClienteRepository clienteRepository,
                           CiudadRepository ciudadRepository,
-                          PedidoRepository pedidoRepository) {
+                          PedidoRepository pedidoRepository,
+                      LogService logService) {
         this.clienteRepository = clienteRepository;
         this.ciudadRepository = ciudadRepository;
         this.pedidoRepository = pedidoRepository;
+        this.logService = logService;
     }
 
     public PageResponseDTO<ClienteResponseDTO> listar(int page, int size, String nombre, String estado) {
@@ -70,6 +74,7 @@ public class ClienteService {
 
     @Transactional
     public ClienteResponseDTO crear(ClienteRequestDTO dto) {
+        logService.fijarContextoUsuario();
         Cliente cliente = new Cliente();
         mapearDatos(cliente, dto);
         if (cliente.getEstado() == null || cliente.getEstado().isEmpty()) {
@@ -77,31 +82,47 @@ public class ClienteService {
         }
 
         cliente = clienteRepository.save(cliente);
+
+        logService.registrarAccion("clientes", "crear",
+                "Cliente #" + cliente.getIdCliente() + " '" + cliente.getNombre() + " "
+                + cliente.getApellido() + "' creado");
+
         return toDTO(cliente);
     }
 
     @Transactional
     public ClienteResponseDTO actualizar(Integer id, ClienteRequestDTO dto) {
+        logService.fijarContextoUsuario();
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente", id));
 
         mapearDatos(cliente, dto);
         cliente = clienteRepository.save(cliente);
+
+        logService.registrarAccion("clientes", "actualizar",
+                "Cliente #" + id + " '" + cliente.getNombre() + " " + cliente.getApellido() + "' modificado");
+
         return toDTO(cliente);
     }
 
     @Transactional
     public void eliminar(Integer id) {
+        logService.fijarContextoUsuario();
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente", id));
 
         Page<com.marathon.model.Pedido> pedidosCliente = pedidoRepository.findByClienteIdCliente(id, PageRequest.of(0, 1));
-        if (pedidosCliente.getTotalElements() > 0) {
+        boolean tienePedidos = pedidosCliente.getTotalElements() > 0;
+        if (tienePedidos) {
             cliente.setEstado("inactivo");
             clienteRepository.save(cliente);
         } else {
             clienteRepository.delete(cliente);
         }
+
+        logService.registrarAccion("clientes", "eliminar",
+                "Cliente #" + id + " '" + cliente.getNombre() + " " + cliente.getApellido() + "' "
+                + (tienePedidos ? "dado de baja (tiene pedidos)" : "eliminado"));
     }
 
     private void mapearDatos(Cliente cliente, ClienteRequestDTO dto) {

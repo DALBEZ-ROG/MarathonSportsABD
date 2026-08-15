@@ -19,9 +19,12 @@ import com.marathon.repository.ProveedorRepository;
 public class ProveedorService {
 
     private final ProveedorRepository proveedorRepository;
+    private final LogService logService;
 
-    public ProveedorService(ProveedorRepository proveedorRepository) {
+    public ProveedorService(ProveedorRepository proveedorRepository,
+                        LogService logService) {
         this.proveedorRepository = proveedorRepository;
+        this.logService = logService;
     }
 
     public PageResponseDTO<ProveedorResponseDTO> listar(int page, int size, String nombre, String estado) {
@@ -53,13 +56,20 @@ public class ProveedorService {
     }
 
     public ProveedorResponseDTO crear(ProveedorRequestDTO dto) {
+        logService.fijarContextoUsuario();
         Proveedor proveedor = new Proveedor();
         mapFromDTO(proveedor, dto);
         proveedor.setEstado(dto.getEstado() != null ? dto.getEstado() : "activo");
-        return toDTO(proveedorRepository.save(proveedor));
+        proveedor = proveedorRepository.save(proveedor);
+
+        logService.registrarAccion("proveedores", "crear",
+                "Proveedor #" + proveedor.getIdProveedor() + " '" + proveedor.getNombre() + "' creado");
+
+        return toDTO(proveedor);
     }
 
     public ProveedorResponseDTO actualizar(Integer id, ProveedorRequestDTO dto) {
+        logService.fijarContextoUsuario();
         Proveedor proveedor = proveedorRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Proveedor", id));
 
@@ -67,14 +77,23 @@ public class ProveedorService {
         if (dto.getEstado() != null) {
             proveedor.setEstado(dto.getEstado());
         }
-        return toDTO(proveedorRepository.save(proveedor));
+        proveedor = proveedorRepository.save(proveedor);
+
+        logService.registrarAccion("proveedores", "actualizar",
+                "Proveedor #" + id + " '" + proveedor.getNombre() + "' modificado");
+
+        return toDTO(proveedor);
     }
 
     public void eliminar(Integer id) {
+        logService.fijarContextoUsuario();
         Proveedor proveedor = proveedorRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Proveedor", id));
         proveedor.setEstado("inactivo");
         proveedorRepository.save(proveedor);
+
+        logService.registrarAccion("proveedores", "eliminar",
+                "Proveedor #" + id + " '" + proveedor.getNombre() + "' dado de baja (estado=inactivo)");
     }
 
     private void mapFromDTO(Proveedor proveedor, ProveedorRequestDTO dto) {

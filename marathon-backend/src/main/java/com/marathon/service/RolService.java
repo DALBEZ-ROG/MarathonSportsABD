@@ -29,14 +29,18 @@ public class RolService {
     private final UsuarioRolRepository usuarioRolRepository;
     private final PermisoService permisoService;
 
+    private final LogService logService;
+
     public RolService(RolRepository rolRepository, PermisoRepository permisoRepository,
                       RolPermisoRepository rolPermisoRepository, UsuarioRolRepository usuarioRolRepository,
-                      PermisoService permisoService) {
+                      PermisoService permisoService,
+                  LogService logService) {
         this.rolRepository = rolRepository;
         this.permisoRepository = permisoRepository;
         this.rolPermisoRepository = rolPermisoRepository;
         this.usuarioRolRepository = usuarioRolRepository;
         this.permisoService = permisoService;
+        this.logService = logService;
     }
 
     public List<RolResponseDTO> listarTodos() {
@@ -71,6 +75,10 @@ public class RolService {
             }
         }
 
+        logService.registrarAccion("roles", "crear",
+                "Rol #" + rol.getIdRol() + " '" + rol.getNombre() + "' creado con "
+                + (dto.getIdPermisos() != null ? dto.getIdPermisos().size() : 0) + " permisos");
+
         return toDTO(rol);
     }
 
@@ -90,6 +98,7 @@ public class RolService {
 
         // Reasignar permisos
         List<RolPermiso> actuales = rolPermisoRepository.findByRolIdRol(id);
+        int permisosAntes = actuales.size();
         rolPermisoRepository.deleteAll(actuales);
 
         if (dto.getIdPermisos() != null) {
@@ -99,6 +108,14 @@ public class RolService {
                 rolPermisoRepository.save(new RolPermiso(rol, permiso));
             }
         }
+
+        // Cambiar los permisos de un rol es la operacion mas sensible de toda la
+        // aplicacion: redefine lo que puede hacer un grupo entero de usuarios.
+        // El detalle fila a fila lo captura trg_auditoria_rol_permiso.
+        int permisosDespues = dto.getIdPermisos() != null ? dto.getIdPermisos().size() : 0;
+        logService.registrarAccion("roles", "actualizar",
+                "Rol #" + id + " '" + rol.getNombre() + "' modificado. Permisos: "
+                + permisosAntes + " -> " + permisosDespues);
 
         return toDTO(rol);
     }
@@ -118,6 +135,10 @@ public class RolService {
         List<RolPermiso> permisos = rolPermisoRepository.findByRolIdRol(id);
         rolPermisoRepository.deleteAll(permisos);
         rolRepository.delete(rol);
+
+        logService.registrarAccion("roles", "eliminar",
+                "Rol #" + id + " '" + rol.getNombre() + "' eliminado junto con sus "
+                + permisos.size() + " permisos");
     }
 
     public RolResponseDTO toDTO(Rol rol) {

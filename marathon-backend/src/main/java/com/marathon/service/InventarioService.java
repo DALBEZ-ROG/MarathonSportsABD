@@ -42,6 +42,7 @@ public class InventarioService {
     private final BodegaRepository bodegaRepository;
     private final UsuarioRepository usuarioRepository;
 
+    private final LogService logService;
     @PersistenceContext
     private EntityManager entityManager;
 
@@ -50,13 +51,15 @@ public class InventarioService {
                              HistorialInventarioRepository historialRepository,
                              ProductoRepository productoRepository,
                              BodegaRepository bodegaRepository,
-                             UsuarioRepository usuarioRepository) {
+                             UsuarioRepository usuarioRepository,
+                         LogService logService) {
         this.inventarioRepository = inventarioRepository;
         this.movimientoRepository = movimientoRepository;
         this.historialRepository = historialRepository;
         this.productoRepository = productoRepository;
         this.bodegaRepository = bodegaRepository;
         this.usuarioRepository = usuarioRepository;
+        this.logService = logService;
     }
 
     public PageResponseDTO<InventarioResponseDTO> listar(int page, int size, Integer idBodega) {
@@ -164,6 +167,16 @@ public class InventarioService {
         mov.setCantidad(dto.getCantidad());
         mov.setUsuario(usuario);
         movimientoRepository.save(mov);
+
+        // F40: la entrada COMPLEMENTA historial_inventario, no lo duplica.
+        // El detalle (stock anterior, stock nuevo, motivo) ya lo escribe el
+        // trigger trg_historial_inventario en cada UPDATE de inventario; aqui
+        // se registra que hubo un ajuste y se remite a ese historial, para que
+        // la bitacora central no tenga un agujero en el modulo de inventario.
+        logService.registrar(idUsuarioActual, "inventario", dto.getTipoMovimiento(),
+                "Movimiento de " + dto.getCantidad() + " u. sobre '" + producto.getNombre()
+                + "' en bodega '" + bodega.getNombre() + "'. Detalle en historial_inventario "
+                + "(inventario #" + inv.getIdInventario() + ")", null);
 
         return toMovimientoDTO(mov);
     }

@@ -32,6 +32,7 @@ public class UsuarioService {
     private final PasswordEncoder passwordEncoder;
     private final LogService logService;
 
+
     public UsuarioService(UsuarioRepository usuarioRepository, UsuarioRolRepository usuarioRolRepository,
                           RolRepository rolRepository, RolService rolService, PasswordEncoder passwordEncoder,
                           LogService logService) {

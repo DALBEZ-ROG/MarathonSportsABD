@@ -46,6 +46,7 @@ public class DevolucionProveedorService {
     private final UsuarioRepository usuarioRepository;
     private final LogService logService;
 
+
     public DevolucionProveedorService(DevolucionProveedorRepository devolucionRepository,
                                       DevolucionProveedorDetalleRepository detalleRepository,
                                       SolicitudDevolucionDetalleRepository sddRepository,
