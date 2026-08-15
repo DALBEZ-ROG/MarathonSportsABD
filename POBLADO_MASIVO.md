@@ -219,7 +219,112 @@ simplemente esquivados.
 - Se ejecutó `VACUUM ANALYZE` al final, mantenimiento rutinario tras los `UPDATE`
   masivos de la corrección.
 
-## 10. Corrección aplicada fuera del poblado
+## 10. Cierre F38.1 — verificación completa
+
+Script: `marathon-backend/sql/fase38_1_cierre_verificacion.sql` (idempotente:
+reejecutarlo sobre una base sana no modifica una sola fila).
+
+La F38 dejó cuatro puntos sin demostrar: si `orden_compra.total` se había
+reconstruido de verdad, si el `ANALYZE` se había corrido *después* de la
+redistribución, si la integridad estructural estaba comprobada, y si el
+invariante financiero seguía en pie tras mover estados y fechas. Esta fase los
+mide todos.
+
+### 10.1 Las cuatro fórmulas de recálculo son distintas entre sí
+
+Leídas una por una con `pg_get_functiondef()`. **No se supuso `SUM(columna)` en
+ningún caso**, y con razón:
+
+| Par padre / detalle | Fórmula real | Fuente |
+|---|---|---|
+| `pedido` / `detalle_pedido` | `GREATEST(COALESCE(SUM(subtotal),0) − descuento, 0)` | `fn_recalcular_total_pedido_stmt` |
+| `orden_compra` / `orden_compra_detalle` | `COALESCE(SUM(subtotal), 0)` | `fn_recalcular_total_orden_compra_stmt` |
+| `cuenta_por_pagar` / `pago_proveedor` | `COALESCE(SUM(monto), 0)` | `fn_recalcular_monto_pagado_cxp` |
+| `orden_produccion` / `orden_produccion_consumo` | `ROUND(COALESCE(SUM(costo_linea),0), 2)` | `fn_proteger_costo_materia_prima_op` |
+| `comprobante_interno` / `pedido` | `comprobante.total = pedido.total` | `fn_validar_total_comprobante` |
+| `cuenta_por_pagar.saldo_pendiente` | `monto_total − monto_pagado` (`GENERATED`) | catálogo |
+
+`pedido` lleva descuento y suelo en cero; `orden_compra` no lleva ninguno de los
+dos; `orden_produccion` **redondea dentro de la fórmula**. Aplicar la de `pedido`
+a `orden_compra` habría producido 2.668 falsas discrepancias, y la de
+`orden_compra` a `pedido`, 24.427.
+
+**Resultado: 0 discrepancias en los 6 invariantes.** `orden_compra.total` sí se
+había reconstruido en la F38. La etapa 2 se omitió por innecesaria, que es
+justamente lo que debe hacer un script idempotente.
+
+### 10.2 Integridad estructural — 238 comprobaciones, 0 violaciones
+
+Todo generado dinámicamente desde `pg_constraint`, con las columnas reales de
+`conkey`/`confkey`:
+
+| Tipo | Comprobaciones | Violaciones |
+|---|--:|--:|
+| FK (anti-join `NOT EXISTS`) | 70 | **0** |
+| `CHECK` | 72 | **0** |
+| PK (duplicados por agrupación) | 37 | **0** |
+| `UNIQUE` | 22 | **0** |
+| `NOT NULL` | 37 tablas | **0** |
+
+### 10.3 Estadísticas — al final, no antes
+
+`ANALYZE` de las 37 tablas ejecutado **después** de corregir totales y verificar
+integridad. `reltuples` vs `COUNT(*)`: **desviación 0,000 % en las 37 tablas**,
+ninguna por encima del umbral del 5 %. `last_analyze` no nulo en las 37.
+
+> Un tropiezo que merece quedar anotado: la comprobación de `last_analyze` falló
+> dos veces por un defecto **del propio script**, no de la base.
+> `pg_stat_user_tables` incluye las tablas **temporales**, y las que este script
+> crea para acumular resultados (`_invariantes`, `_integridad`, `_stats`) viven
+> en `pg_temp_N` y nunca reciben `ANALYZE`. No se veían desde otra sesión, porque
+> las temporales son invisibles fuera de la suya. Se corrigió filtrando por
+> `schemaname = 'public'`.
+
+### 10.4 Representatividad
+
+| Dimensión | Resultado |
+|---|---|
+| `pedido`, dispersión temporal | **731 días distintos** en un rango de 730 |
+| `pedido.estado` | 71,72 / 11,61 / 8,57 / 5,46 / 2,64 % |
+| Líneas por pedido | media **2,727**, desviación típica **0,946**, rango 1–8 |
+| `historial_inventario.motivo` | 70,71 / 14,55 / 7,81 / 4,95 / 1,98 % — los 5 valores del `CHECK` |
+| `movimiento_inventario.tipo` | salida 45,08 · entrada 36,86 · ajuste 13,95 · **traslado 4,11** (3.289, todos con destino) |
+| `inventario` en stock bajo | 9,60 % |
+
+**Veredicto sobre las 57.991 filas de `historial_inventario` insertadas
+directamente** — el punto que más merecía sospecha:
+
+| Origen | Filas | Días distintos | Motivos | Inventarios distintos |
+|---|--:|--:|--:|--:|
+| Inserción directa | 57.975 | **731** | **5** | 2.000 |
+| Trigger real | 2.025 | 1 | 1 | 2.000 |
+
+No son un bloque uniforme: cubren los 731 días del rango, los 5 motivos del
+`CHECK` y los 2.000 inventarios. Las 2.025 del trigger tienen un solo día y un
+solo motivo, y **eso es correcto**: se generaron en un único `UPDATE` y el
+trigger escribe siempre `'actualizacion_stock'`.
+
+### 10.5 `ddl-auto = validate`
+
+Cambiado de `none` a `validate` en `application.properties`. **El backend arranca
+limpio** (4,03 s), así que las 37 entidades JPA coinciden con el esquema real y
+la regla del proyecto queda cumplida de verdad, no por convención. A partir de
+ahora cada arranque es un test de deriva de esquema gratis.
+
+### 10.6 Pruebas tras el poblado
+
+| Prueba | Resultado |
+|---|---|
+| `fase34_pruebas_roles.sql` | **61 / 61** |
+| `fase37_pruebas_endpoints.ps1` | **66 / 66** |
+| `fase37_pruebas_navbar.ps1` | **20 / 20** |
+| Triggers activos | **24 / 24** en `tgenabled = 'O'` |
+
+Ninguna de las tres baterías se degradó con el millón de filas.
+
+---
+
+## 11. Corrección aplicada fuera del poblado
 
 `usr_admin_marathon` tenía el atributo **`CREATEROLE`**, que contradecía
 `SEGURIDAD_ROLES.md` §5 y abría una vía de escalada. Se ejecutó
