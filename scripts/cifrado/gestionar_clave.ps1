@@ -46,7 +46,14 @@ param(
     [string] $Accion = 'Estado',
     [string] $Script,
     [string] $Destino,
-    [string] $Base = 'mod_venta_inve'
+    [string] $Base = 'mod_venta_inve',
+    # Host y puerto del servidor. Estaban FIJOS a localhost:5432 dentro de la
+    # accion Ejecutar, y eso convertia -Base en una promesa falsa: pedir otra
+    # base en otro cluster (por ejemplo el de pruebas del puerto 5434) ejecutaba
+    # igualmente contra el servidor de produccion del 5432. Se detecto al probar
+    # construir_desde_cero.ps1 contra un cluster aparte.
+    [string] $PgHost = 'localhost',
+    [int]    $PgPort = 5432
 )
 
 $ErrorActionPreference = 'Stop'
@@ -189,23 +196,30 @@ switch ($Accion) {
         $env:MARATHON_CRYPTO_KEY = $clave
         $clave = $null
 
-        $envFile = Join-Path $PSScriptRoot '..\..\.env'
-        $pw = $null
-        if (Test-Path $envFile) {
-            foreach ($l in Get-Content $envFile) {
-                if ($l -match '^\s*PG_SUPERUSER_PASSWORD\s*=\s*(.*)$') { $pw = $matches[1].Trim() }
+        # Si el llamante ya trae PGPASSWORD en el entorno, se respeta: es la unica
+        # forma de apuntar a un servidor cuya contrasena no es la del .env de este
+        # repositorio (un cluster de pruebas, el equipo de un companero). Si no,
+        # se cae al .env, que es el caso normal.
+        $pwPropia = [bool]$env:PGPASSWORD
+        if (-not $pwPropia) {
+            $envFile = Join-Path $PSScriptRoot '..\..\.env'
+            $pw = $null
+            if (Test-Path $envFile) {
+                foreach ($l in Get-Content $envFile) {
+                    if ($l -match '^\s*PG_SUPERUSER_PASSWORD\s*=\s*(.*)$') { $pw = $matches[1].Trim() }
+                }
             }
+            if (-not $pw) { throw "No se encontro PG_SUPERUSER_PASSWORD en el .env (ni PGPASSWORD en el entorno)" }
+            $env:PGPASSWORD = $pw
         }
-        if (-not $pw) { throw "No se encontro PG_SUPERUSER_PASSWORD en el .env" }
-        $env:PGPASSWORD = $pw
 
         try {
-            & (Join-Path $PgBin 'psql.exe') -h localhost -p 5432 -U postgres -d $Base -f $Script
+            & (Join-Path $PgBin 'psql.exe') -h $PgHost -p $PgPort -U postgres -d $Base -f $Script
             $codigo = $LASTEXITCODE
         }
         finally {
             Remove-Item Env:\MARATHON_CRYPTO_KEY -ErrorAction SilentlyContinue
-            Remove-Item Env:\PGPASSWORD           -ErrorAction SilentlyContinue
+            if (-not $pwPropia) { Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue }
         }
         exit $codigo
   }

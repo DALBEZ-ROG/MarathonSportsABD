@@ -48,11 +48,21 @@ DECLARE
     v_keep text;
     v_wl   text;
 BEGIN
-    -- pg_reload_conf() es asincrono: se le da un momento al postmaster para
-    -- procesar la senal antes de leer el valor efectivo.
-    PERFORM pg_sleep(2);
+    -- pg_reload_conf() es asincrono: hay que esperar a que el postmaster procese
+    -- la senal y este backend refresque su vista de los GUC de contexto sighup.
+    --
+    -- Antes habia un pg_sleep(2) fijo y era una carrera: sobre un cluster recien
+    -- creado, o con la maquina cargada, dos segundos no siempre bastan y el
+    -- script abortaba diciendo que summarize_wal seguia en "off" cuando en
+    -- realidad se activaba un instante despues. Se detecto construyendo el
+    -- entorno desde cero. Ahora se sondea hasta 15 segundos y solo se falla si
+    -- de verdad no se aplico.
+    FOR i IN 1..15 LOOP
+        PERFORM pg_sleep(1);
+        SELECT setting INTO v_sw FROM pg_settings WHERE name = 'summarize_wal';
+        EXIT WHEN v_sw = 'on';
+    END LOOP;
 
-    SELECT setting INTO v_sw   FROM pg_settings WHERE name = 'summarize_wal';
     SELECT setting INTO v_keep FROM pg_settings WHERE name = 'wal_summary_keep_time';
     SELECT setting INTO v_wl   FROM pg_settings WHERE name = 'wal_level';
 

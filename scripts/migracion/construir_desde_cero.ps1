@@ -180,11 +180,21 @@ if ($Etapa -eq 'Esquema') {
         'los crea el DataInitializer de Spring, no un script SQL. El seed de la',
         'etapa 2 depende de que existan.',
         '',
+        'OJO: ESTE ARRANQUE SE HACE COMO postgres, NO COMO usr_admin_marathon.',
+        'Todavia no existe ni un solo GRANT (los otorga la fase 34, en la etapa',
+        '2), asi que usr_admin_marathon no tiene ningun privilegio sobre las',
+        'tablas y el DataInitializer fallaria. Es la UNICA vez que se usa el',
+        'superusuario para la aplicacion; despues manda el modelo de roles.',
+        '',
         '  1. Crear el .env en la raiz del proyecto (copiar de .env.example).',
         '     Para este arranque basta con DB_* y JWT_SECRET.',
         '  2. cd marathon-backend',
-        '     mvn -q -DskipTests spring-boot:run',
-        '  3. Esperar a que arranque, y pararlo con Ctrl+C.',
+        '     mvn -q -DskipTests spring-boot:run "-Dspring-boot.run.arguments=--spring.datasource.username=postgres --spring.datasource.password=<clave de postgres> --app.datasource.roles.enabled=false"',
+        '',
+        '     (--app.datasource.roles.enabled=false porque los otros cinco pools',
+        '      tampoco tienen privilegios todavia)',
+        '',
+        '  3. Esperar a "Datos iniciales cargados correctamente" y parar con Ctrl+C.',
         '',
         'Si java -version dice 1.8, forzar antes el JDK 17:',
         '  $env:JAVA_HOME = ''C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot''',
@@ -214,6 +224,7 @@ Bien "$nRoles roles de aplicacion presentes"
 
 Paso "Datos de demostracion"
 Ejecutar-Sql 'seed_marathon_sports.sql'              'datos de negocio base'
+Ejecutar-Sql 'fase31_0_unidades_faltantes.sql'       'unidades de medida 4 a 9 (fase31 las usa por numero)'
 Ejecutar-Sql 'fase31_seed_demo_bloques_nuevos.sql'   'demo de compras, devoluciones y manufactura'
 Ejecutar-Sql 'fase32_fixes.sql'                      'correcciones de deuda tecnica'
 
@@ -265,7 +276,8 @@ if ($SinCifrado) {
     # lanzarlo con psql a pelo falla con "app.crypto_key no esta fijada".
     $ini = Get-Date
     & powershell -NoProfile -ExecutionPolicy Bypass -File $gestor `
-        -Accion Ejecutar -Script (Join-Path $Sql 'fase41_cifrado.sql') -Base $Base
+        -Accion Ejecutar -Script (Join-Path $Sql 'fase41_cifrado.sql') `
+        -Base $Base -PgHost $PgHost -PgPort $PgPort
     if ($LASTEXITCODE -ne 0) { throw "fase41_cifrado.sql fallo." }
     Bien "8 columnas cifradas  (fase41_cifrado.sql, $([int]((Get-Date)-$ini).TotalSeconds) s)"
 }

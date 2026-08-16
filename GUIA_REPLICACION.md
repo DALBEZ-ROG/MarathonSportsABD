@@ -420,10 +420,23 @@ Crea la base y aplica las fases 0 a 29: **37 tablas**. Tarda un par de segundos.
 > depende de que existan. No es un olvido de la automatización: esa información
 > vive en el código Java.
 >
+> **Este arranque, y solo este, se hace como `postgres`.** En este punto no
+> existe todavía **ni un solo `GRANT`** —los otorga la fase 34, en la etapa 2—,
+> así que `usr_admin_marathon` no tiene ningún privilegio sobre las tablas y el
+> `DataInitializer` fallaría. Es la única vez en todo el proyecto que la
+> aplicación usa el superusuario; a partir de la etapa 2 manda el modelo de
+> roles.
+>
 > 1. Crear el `.env` (copiar de `.env.example`). Para este arranque bastan las
 >    variables `DB_*` y `JWT_SECRET`.
-> 2. `cd marathon-backend` y `mvn -q -DskipTests spring-boot:run`
-> 3. Cuando arranque, pararlo con `Ctrl+C`.
+> 2. Arrancar:
+>    ```powershell
+>    cd marathon-backend
+>    mvn -q -DskipTests spring-boot:run "-Dspring-boot.run.arguments=--spring.datasource.username=postgres --spring.datasource.password=<clave> --app.datasource.roles.enabled=false"
+>    ```
+>    `--app.datasource.roles.enabled=false` porque los otros cinco pools tampoco
+>    tienen privilegios todavía y el arranque fallaría al abrirlos.
+> 3. Esperar a **`Datos iniciales cargados correctamente`** y parar con `Ctrl+C`.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\migracion\construir_desde_cero.ps1 -Etapa Datos
