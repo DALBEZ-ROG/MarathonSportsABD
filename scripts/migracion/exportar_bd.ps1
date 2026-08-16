@@ -196,9 +196,15 @@ if ($IncluirSecretos) {
     Write-Host "      NO incluidos. Ver FALTAN_SECRETOS.txt"
 }
 
-# --- el script de importacion y el LEEME viajan dentro del paquete ------------
-Copy-Item (Join-Path $PSScriptRoot 'importar_bd.ps1') $paquete -Force -ErrorAction SilentlyContinue
-Copy-Item (Join-Path $PSScriptRoot 'LEEME_MIGRACION.txt') $paquete -Force -ErrorAction SilentlyContinue
+# --- el script de importacion y la guia viajan dentro del paquete ------------
+# El paquete se copia a otro equipo por USB o red, separado del repositorio, asi
+# que tiene que llevar dentro con que usarlo. Sin -ErrorAction SilentlyContinue:
+# si falta alguno, hay que enterarse AQUI y no cuando el receptor abra la
+# carpeta y no encuentre como seguir.
+Copy-Item (Join-Path $PSScriptRoot 'importar_bd.ps1') $paquete -Force
+$guia = Join-Path $Proyecto 'GUIA_REPLICACION.md'
+if (Test-Path $guia) { Copy-Item $guia $paquete -Force }
+else { Write-Host "      AVISO: no se encontro GUIA_REPLICACION.md en la raiz del proyecto." }
 
 Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
 

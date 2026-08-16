@@ -42,7 +42,7 @@
 # =============================================================================
 
 param(
-    [ValidateSet('Crear','Estado','Ejecutar','Escrow')]
+    [ValidateSet('Crear','Estado','Ejecutar','Escrow','Importar')]
     [string] $Accion = 'Estado',
     [string] $Script,
     [string] $Destino,
@@ -260,9 +260,11 @@ SI SE PIERDE
   respaldos de pg_basebackup contienen el dato YA CIFRADO.
 
 COMO SE RESTAURA
-  powershell -File gestionar_clave.ps1 -Accion Crear   (crea una clave NUEVA: no sirve)
-  Para reponer ESTA clave hay que volver a protegerla con DPAPI en el equipo
-  destino. Ver el procedimiento de recuperacion en CIFRADO.md, seccion 6.
+  En el equipo nuevo, con este mismo archivo a mano:
+      powershell -File gestionar_clave.ps1 -Accion Importar -Destino <ruta a este archivo>
+  Eso vuelve a protegerla con DPAPI en el equipo destino y deja la huella de
+  arriba. NO usar -Accion Crear: genera una clave NUEVA y los datos ya cifrados
+  quedarian ilegibles. Detalle en CIFRADO.md, seccion 6.
 
 CUSTODIA
   Este archivo contiene la clave EN CLARO. Guardarlo fuera del equipo y fuera
@@ -290,6 +292,111 @@ CUSTODIA
         Write-Host "     unidad extraible que NO sea la de los respaldos."
         Write-Host "  2. Borrar este archivo del disco."
         Write-Host "Mientras siga aqui, la clave y los datos que cifra estan en el mismo equipo."
+        exit 0
+  }
+
+  'Importar' {
+        <#  Instala en ESTE equipo una clave que YA EXISTE, traida de la custodia.
+            Es la contraparte de Escrow y el paso que faltaba para replicar el
+            entorno en otra maquina.
+
+            Por que hace falta una accion propia y no vale -Accion Crear: Crear
+            GENERA una clave nueva al azar. Si se usa en un equipo donde ya se
+            restauro la base, los bytea existentes quedan ilegibles para siempre,
+            porque fueron cifrados con la otra. La confusion es facil de cometer
+            y el dano es irreversible, asi que se separa en dos verbos.
+
+            DPAPI es por equipo: el blob clave.dpapi del equipo de origen NO se
+            puede copiar, hay que volver a proteger el texto de la clave aqui.  #>
+
+        $clave = $null
+
+        if ($Destino) {
+            if (-not (Test-Path $Destino)) { throw "No existe el archivo de custodia: $Destino" }
+            # Formato del archivo que escribe -Accion Escrow: una linea 'CLAVE:'
+            # y debajo la clave sola. Se lee asi y no con un indice de linea fijo
+            # para no romperse si la cabecera cambia de tamano.
+            $lineas = Get-Content $Destino
+            for ($i = 0; $i -lt $lineas.Count; $i++) {
+                if ($lineas[$i].Trim() -eq 'CLAVE:') {
+                    for ($j = $i + 1; $j -lt $lineas.Count; $j++) {
+                        if ($lineas[$j].Trim()) { $clave = $lineas[$j].Trim(); break }
+                    }
+                    break
+                }
+            }
+            if (-not $clave) { throw "El archivo no tiene una linea 'CLAVE:' seguida de la clave. Revisar que sea el que genero -Accion Escrow." }
+            Write-Host "Clave leida de $Destino"
+        } else {
+            # Sin -Destino se pide por consola. NO se acepta por parametro suelto
+            # a proposito: quedaria en el historial de PowerShell en claro.
+            Write-Host "Pega la clave de la custodia (no se mostrara en pantalla)."
+            $segura = Read-Host -AsSecureString "CLAVE"
+            $bstr   = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($segura)
+            try     { $clave = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr).Trim() }
+            finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+        }
+
+        if (-not $clave) { throw "No se recibio ninguna clave." }
+
+        # Comprobacion de forma: la clave son 32 bytes en base64 (44 caracteres
+        # con el relleno). Si lo pegado es media clave o lleva un salto de linea,
+        # se detecta AQUI y no tres pasos despues, cuando pgp_sym_decrypt empiece
+        # a devolver nulos sin decir por que.
+        try { $bytes = [Convert]::FromBase64String($clave) }
+        catch { throw "Lo pegado no es base64 valido. Debe ser la linea completa que sigue a 'CLAVE:'." }
+        if ($bytes.Length -ne 32) {
+            throw "La clave mide $($bytes.Length) bytes y deben ser 32. Probablemente se copio incompleta."
+        }
+
+        $huellaNueva = Get-Huella $clave
+
+        # Guarda: si aqui ya hay una clave DISTINTA, sobreescribirla haria
+        # ilegible lo que ya este cifrado en esta maquina. Se aborta.
+        if (Test-Path $AlmacenArch) {
+            $actual = Get-ClaveEnClaro
+            $huellaActual = Get-Huella $actual
+            $actual = $null
+            if ($huellaActual -eq $huellaNueva) {
+                Write-Host "Esta misma clave YA esta instalada (huella $huellaActual). No se hace nada."
+                $clave = $null
+                exit 0
+            }
+            throw ("ABORTADO: ya hay una clave distinta instalada (huella $huellaActual, " +
+                   "la que se importa es $huellaNueva). Sobreescribirla dejaria ilegibles los " +
+                   "datos ya cifrados con la actual. Si de verdad hay que reemplazarla, borrar " +
+                   "primero $AlmacenArch a conciencia.")
+        }
+
+        if (-not (Test-Path $AlmacenDir)) { New-Item -ItemType Directory -Path $AlmacenDir -Force | Out-Null }
+        $blob = Protect-Texto $clave
+        [System.IO.File]::WriteAllBytes($AlmacenArch, $blob)
+
+        # Misma ACL que en Crear: SID y no nombres, porque este Windows esta en
+        # espanol y "Administrators" no existe como cuenta.
+        icacls $AlmacenArch /inheritance:r `
+               /grant:r "*S-1-5-32-544:(R)" "*S-1-5-18:(R)" "$($env:USERDOMAIN)\$($env:USERNAME):(R)" | Out-Null
+
+        $ambito = 'Machine'
+        try {
+            [Environment]::SetEnvironmentVariable($VarEntorno, [Convert]::ToBase64String($blob), 'Machine')
+        } catch {
+            $ambito = 'User'
+            [Environment]::SetEnvironmentVariable($VarEntorno, [Convert]::ToBase64String($blob), 'User')
+            Write-Host "AVISO: sin permisos para la variable de MAQUINA (requiere consola elevada)."
+            Write-Host "       Se escribio en ambito USUARIO: solo la vera este usuario de Windows."
+        }
+
+        Write-Host ""
+        Write-Host "Clave importada en este equipo."
+        Write-Host "  Almacen DPAPI : $AlmacenArch"
+        Write-Host "  Variable      : $VarEntorno (ambito $ambito)"
+        Write-Host "  Huella        : $huellaNueva"
+        Write-Host ""
+        Write-Host "COMPROBAR: esta huella debe coincidir con la anotada en la custodia."
+        Write-Host "Si no coincide, la clave no es la de esta base y los datos personales"
+        Write-Host "seguiran saliendo vacios."
+        $clave = $null
         exit 0
   }
 }

@@ -55,6 +55,7 @@ La inspección decide el destino de cada línea: `apto_reventa` reingresa el sto
 | Documento | Contenido |
 |---|---|
 | **[SETUP_COMPLETO.md](./SETUP_COMPLETO.md)** | Orden exacto para levantar la BD desde cero, script por script, con query de verificación |
+| **[GUIA_REPLICACION.md](./GUIA_REPLICACION.md)** | Dejar el proyecto **funcionando igual en otro equipo**: paquete portable, clave de cifrado, TLS y respaldos, con los pasos que exigen intervención humana marcados |
 | **[MATRIZ_ROLES.md](./MATRIZ_ROLES.md)** | Matriz de navegación de los 6 roles × 3 capas (navbar / guard de ruta / backend) |
 | **[DEUDA_TECNICA.md](./DEUDA_TECNICA.md)** | Registro incremental por fase, inventario consolidado y trabajo futuro |
 | **[DEMO_CHECKLIST.md](./DEMO_CHECKLIST.md)** | Guion de demostración recorriendo los 4 ciclos, indicando el usuario de cada parte |
