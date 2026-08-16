@@ -2,9 +2,14 @@
 
 Guía para levantar la base de datos `mod_venta_inve` **desde cero en cualquier máquina**, en el **orden EXACTO** requerido. Cada paso depende del anterior.
 
-> **Base de datos:** `mod_venta_inve` — PostgreSQL 15+
+> **Base de datos:** `mod_venta_inve` — PostgreSQL 17+ (el proyecto usa la 18)
 > **Usuario:** `postgres` (ajusta según tu entorno)
 > **Todos los scripts SQL viven en** `marathon-backend/sql/`
+>
+> **Validado sobre un clúster limpio el 16/08/2026.** Los cuatro fallos que
+> aparecieron entonces —y que meses de trabajo sobre la base existente no podían
+> revelar— están corregidos y documentados al final, en
+> [Fallos que solo aparecen en un equipo limpio](#fallos-que-solo-aparecen-en-un-equipo-limpio).
 
 > ### ⚡ Atajo: hacer todo esto con un comando
 >
@@ -31,8 +36,12 @@ Guía para levantar la base de datos `mod_venta_inve` **desde cero en cualquier 
 
 ## Requisitos previos
 
-- PostgreSQL 15+ con cliente `psql` en el `PATH`
-- Java 17+ y Maven 3.9+ (para el paso 10, arrancar el backend)
+- **PostgreSQL 17 o superior** con cliente `psql` en el `PATH` (el proyecto usa
+  la **18**). Los pasos 1–15 de este documento funcionan desde la 15, pero las
+  fases 33–43 **no**: los respaldos diferenciales dependen de `summarize_wal` y
+  `pg_basebackup --incremental`, que no existen antes de la 17.
+- Java 17+ y Maven 3.9+ (para el **paso 12**, arrancar el backend). El
+  repositorio no incluye `mvnw`.
 - Acceso con un usuario con permisos para `CREATE DATABASE`
 
 Para todos los comandos, exporta la contraseña una vez (evita el prompt):
@@ -138,12 +147,32 @@ psql -U postgres -d mod_venta_inve -v ON_ERROR_STOP=1 -f marathon-backend/sql/fa
 
 `DataInitializer` crea los **roles**, **permisos** y los **6 usuarios demo** (incluido `admin@marathon.com`). Esto **debe correr ANTES del seed**, porque el seed de pedidos requiere que exista `admin@marathon.com` (aborta con excepción si no está).
 
-```bash
+> ### ⚠ Este arranque, y solo este, se hace como `postgres`
+>
+> **En este punto de la construcción no existe ni un solo `GRANT`.** Los otorga
+> `fase34_seguridad_roles.sql`, mucho después. Las 37 tablas son propiedad de
+> `postgres`, y `usr_admin_marathon` —el usuario que `application-local.properties`
+> configura para la aplicación— **no tiene ningún privilegio sobre ellas**, así que
+> el `DataInitializer` falla nada más intentar escribir.
+>
+> Es la **única** vez en todo el proyecto que la aplicación usa el superusuario.
+> A partir de la fase 34 manda el modelo de roles, y volver a usar `postgres`
+> anularía todos los `GRANT` (un superusuario los ignora).
+
+```powershell
 cd marathon-backend
-mvn spring-boot:run
+mvn -q -DskipTests spring-boot:run "-Dspring-boot.run.arguments=--spring.datasource.username=postgres --spring.datasource.password=<clave de postgres> --app.datasource.roles.enabled=false"
 ```
 
-Espera a ver el log de inicialización de usuarios y luego puedes detenerlo (Ctrl+C) si solo querías sembrar la BD.
+`--app.datasource.roles.enabled=false` es necesario por lo mismo: los otros cinco
+pools por rol (F37) tampoco tienen privilegios todavía, y el arranque fallaría al
+abrirlos.
+
+Espera a **`Datos iniciales cargados correctamente`** y detenlo con `Ctrl+C`.
+
+> Si `java -version` dice `1.8`, fuerza antes el JDK 17:
+> `$env:JAVA_HOME = 'C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot'`.
+> El repositorio **no tiene `mvnw`**: Maven debe estar instalado aparte.
 
 Usuarios demo creados (contraseña por defecto según `DataInitializer`):
 `admin@marathon.com`, `supervisor@marathon.com`, `bodega@marathon.com`, `pedidos@marathon.com`, `compras@marathon.com`, `produccion@marathon.com`.
@@ -157,6 +186,41 @@ psql -U postgres -d mod_venta_inve -v ON_ERROR_STOP=1 -f marathon-backend/sql/se
 ```
 
 > Carga ciudades, categorías, productos, proveedores, bodegas, inventario, clientes y pedidos. **NO** incluye roles/permisos/admin (los crea el `DataInitializer` en el paso 12). Ejecutar **UNA sola vez** (no es idempotente: reejecutarlo duplica datos o viola constraints UNIQUE).
+
+### 13.1 Unidades de medida que faltan en el seed (obligatorio antes del paso 14)
+
+Archivo: **`marathon-backend/sql/fase31_0_unidades_faltantes.sql`**
+
+```bash
+psql -U postgres -d mod_venta_inve -v ON_ERROR_STOP=1 -f marathon-backend/sql/fase31_0_unidades_faltantes.sql
+```
+
+> **Sin este paso, el paso 14 aborta en su primera sentencia:**
+>
+> ```
+> ERROR:  insert or update on table "materia_prima" violates foreign key constraint "fk_materia_prima_unidad"
+> DETAIL:  Key (id_unidad_medida)=(6) is not present in table "unidad_medida".
+> ```
+>
+> El seed del paso 13 crea **tres** unidades de medida (Unidad, Par, Caja), pero
+> `fase31` da de alta materias primas que referencian la **4** y la **6** —litros
+> para las tintas, metros para la cinta elástica—. Este script completa hasta
+> nueve.
+>
+> **Por qué no se había detectado nunca:** en la base de desarrollo había nueve
+> unidades desde el principio, dadas de alta *por la aplicación* a lo largo del
+> proyecto, y esas filas nunca llegaron a ningún script. Es la misma clase de
+> dependencia invisible que documenta `DEUDA_TECNICA.md` sobre el DDL base: algo
+> que solo existía en la base viva. Se destapó el 16/08/2026 al construir el
+> entorno entero sobre un clúster limpio.
+>
+> Los ids van **explícitos** y con `OVERRIDING SYSTEM VALUE` (las 37 claves
+> primarias son `GENERATED ALWAYS AS IDENTITY`). Si el orden lo decidiera la
+> secuencia, la unidad 6 podría acabar siendo «Litro» y las materias primas
+> quedarían medidas en unidades absurdas **sin violar ninguna restricción**:
+> exactamente la clase de fallo que las restricciones no pueden ver.
+>
+> Es idempotente.
 
 ### 14. Seed de demostración de los bloques nuevos (Compras, Devoluciones, Manufactura)
 
@@ -305,10 +369,17 @@ Resultado esperado (tras el seed base; el paso 14 añade productos e inventario)
 | 9 | Origen + BOM | `fase27_origen_producto_bom.sql` |
 | 10 | Órdenes de Producción | `fase28_ordenes_produccion.sql` |
 | 11 | Costeo de Producción (solo columnas + trigger) | `fase29_costeo_produccion.sql` |
-| 12 | Roles/permisos/usuarios demo | Arrancar backend (`DataInitializer`) |
+| 12 | Roles/permisos/usuarios demo | Arrancar backend (`DataInitializer`) — **como `postgres`**, ver el paso |
 | 13 | Datos de negocio | `seed_marathon_sports.sql` |
+| 13.1 | **Unidades de medida 4–9 (obligatorio)** | `fase31_0_unidades_faltantes.sql` |
 | 14 | Demo de Compras, Devoluciones y Manufactura | `fase31_seed_demo_bloques_nuevos.sql` |
 | 15 | **Correcciones de deuda técnica (obligatorio)** | `fase32_fixes.sql` |
+
+Y a partir de aquí el proyecto continúa hasta la **fase 43**: índices, los 6
+roles de PostgreSQL, respaldos, auditoría, cifrado y el millón de filas. Esa
+segunda mitad no se detalla en este documento; la ejecuta en orden
+`scripts\migracion\construir_desde_cero.ps1 -Etapa Datos` y está documentada en
+**[GUIA_REPLICACION.md](./GUIA_REPLICACION.md) §12**.
 
 > **Nota:** la fase 30 no tiene script SQL — es solo código de aplicación (reportes y dashboard de manufactura), no toca el esquema.
 
@@ -370,3 +441,41 @@ SELECT
   (SELECT COUNT(*) FROM inventario WHERE stock_actual < 0)             AS stock_negativo,
   (SELECT COUNT(*) FROM materia_prima WHERE stock_actual < 0)          AS mp_negativa;
 ```
+
+---
+
+## Fallos que solo aparecen en un equipo limpio
+
+Esta guía se validó durante meses **sobre una base que ya existía**, y eso oculta
+una clase entera de defectos: los que dependen de algo que estaba en la base viva
+pero en ningún script. El 16/08/2026 se construyó el entorno completo sobre un
+clúster recién creado con `initdb`, y aparecieron cuatro. Los cuatro están
+corregidos; se dejan documentados con su **síntoma**, porque es lo que se busca
+cuando algo falla.
+
+| # | Síntoma | Causa | Dónde |
+|---|---|---|---|
+| 1 | El `DataInitializer` falla al escribir, o el arranque no abre los pools | **No existe ningún `GRANT` hasta la fase 34.** `usr_admin_marathon` no tiene privilegios sobre unas tablas que son de `postgres` | Paso 12 |
+| 2 | `violates foreign key constraint "fk_materia_prima_unidad"` · `Key (id_unidad_medida)=(6) is not present` | El seed crea 3 unidades de medida y `fase31` referencia la 4 y la 6 **por número** | Paso 13.1 |
+| 3 | `summarize_wal quedo en "off" y debe estar en "on"` | Carrera: `fase35` comprobaba el valor tras un `pg_sleep(2)` fijo, y `pg_reload_conf()` es asíncrono. Sobre un clúster recién creado dos segundos no bastan | `fase35_respaldo_prerequisitos.sql`, ahora sondea 15 s |
+| 4 | El cifrado se aplica a la base equivocada | `gestionar_clave.ps1 -Accion Ejecutar` tenía `-h localhost -p 5432` **fijo**, así que `-Base` prometía algo que no cumplía | `gestionar_clave.ps1`, ahora acepta `-PgHost`/`-PgPort` |
+
+### Si vas a probar la cadena entera, hazlo en un clúster aparte
+
+**No uses una base desechable del mismo servidor.** `fase34_seguridad_roles.sql`
+hace `DROP ROLE` de los seis roles, y los roles son objetos del **clúster**, no
+de la base; además lleva `mod_venta_inve` escrito a mano en un
+`REVOKE ... ON DATABASE`. Ejecutarlo contra `mi_base_de_pruebas` toca los roles
+de la base real.
+
+```powershell
+initdb -D C:\pgtest -U postgres --pwfile=<archivo con la clave> -E UTF8
+pg_ctl -D C:\pgtest -o "-p 5434" -l C:\pgtest\server.log start
+# ... construir con -PgPort 5434 ...
+pg_ctl -D C:\pgtest -m fast stop
+```
+
+La construcción completa sobre ese clúster tarda **~60 s** (más el arranque del
+backend del paso 12), y termina con 38 tablas, 1.011.313 filas de negocio y los
+cuatro arneses en verde: **61/61** privilegios, **29/29** auditoría, **51/51**
+cifrado y 0 violaciones en 238 comprobaciones de integridad.
