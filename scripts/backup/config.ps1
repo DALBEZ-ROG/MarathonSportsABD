@@ -82,7 +82,15 @@ if ($env:MARATHON_BK_SECUNDARIO) { $Global:SecundarioRuta = $env:MARATHON_BK_SEC
 # Semanas de respaldos completos que se conservan. Cada FULL se guarda con sus
 # diferenciales; al eliminar un FULL se eliminan tambien sus diferenciales,
 # porque un diferencial sin su FULL no sirve para nada.
-$Global:SemanasRetencion = 4
+#
+# Bajado de 4 a 2 el 16/08/2026. Al crecer la base a 250 MB tras la F43, cada
+# full pasa de 303 a 326 MB: cuatro fulls son ~1,3 GB y el disco quedo en
+# 9,28 GB libres, con el umbral de aborto en 5 GB. Con 2 se recuperan ~650 MB.
+#
+# OJO: mientras el USB MARATHON_BK no este conectado, estas copias son las
+# UNICAS que hay, y ahora son dos en vez de cuatro. La retencion se aplica al
+# ejecutar el siguiente FULL, no al guardar este archivo.
+$Global:SemanasRetencion = 2
 
 # --- Umbral de espacio libre -------------------------------------------------
 # El disco C: tenia 11.7 GB libres al disenar esto. Si el margen baja de este

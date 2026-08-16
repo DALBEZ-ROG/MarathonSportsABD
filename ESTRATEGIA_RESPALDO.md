@@ -206,13 +206,34 @@ retención.
 | Parámetro | Valor | Dónde se cambia |
 |---|---|---|
 | Ubicación | `C:\respaldos\marathon` | `config.ps1` → `$BackupRoot` |
-| Completos conservados | 4 semanas | `$SemanasRetencion` |
+| Completos conservados | **2 semanas** (era 4, ver §5.1) | `$SemanasRetencion` |
 | Diferenciales por completo | 1 (el más reciente) | automático |
 | Umbral mínimo de disco libre | 5 GB | `$MinEspacioLibreGB` |
 
 La ubicación está **deliberadamente fuera de la carpeta del proyecto**, que vive
 dentro de OneDrive: sincronizar decenas de GB de respaldos a la nube en cada
 ejecución sería un problema, no una ventaja.
+
+### 5.1 Por qué la retención bajó de 4 a 2 (16/08/2026)
+
+La F43 llevó la base de 228 a 250 MB, y con ella cada completo de 303 a **326
+MB**. Con la retención en 4, los respaldos ocupaban ~1,6 GB sobre **9,28 GB
+libres**, y `verificar_respaldos.ps1` ya avisaba de que el margen se acercaba al
+umbral de aborto de 5 GB. Con 2 se recuperan unos 650 MB.
+
+**Lo que se pierde:** la ventana de recuperación baja de 4 semanas a 2. Para una
+base cuyo RPO es de 24 h no es una degradación real —lo que protege ante un
+error humano descubierto tarde es la profundidad del histórico, y dos semanas
+siguen cubriendo el ciclo de trabajo—, pero conviene saberlo.
+
+> **Mientras el USB `MARATHON_BK` siga sin conectarse, estas copias son las
+> únicas que existen, y ahora son dos en vez de cuatro.** La regla 3-2-1 no está
+> cumplida: si se pierde el disco `C:`, se pierde todo. Bajar la retención es
+> aceptable *porque* la réplica externa está prevista; sin ella, es el único
+> ejemplar de cada respaldo.
+
+La retención se aplica **al ejecutar el siguiente completo**, no al guardar
+`config.ps1`.
 
 Al eliminar un completo por retención se eliminan también sus diferenciales: un
 diferencial sin su base no sirve para nada.
@@ -459,9 +480,10 @@ conviene poder recortarla sin tocar la política principal. Antes de copiar se
 comprueba el espacio libre (`$SecundarioMinLibreGB = 2`) y, si no llega, no se
 copia: mejor no tener réplica que tener una a medias que parezca válida.
 
-En `C:` quedan **10,7 GB libres**. Con 4 semanas de retención y la base en
-228 MB sobra, pero conviene vigilarlo; `verificar_respaldos.ps1` avisa cuando el
-margen se acerca al umbral.
+En `C:` quedan **9,28 GB libres** (16/08/2026). Con la base en 250 MB tras la
+F43, la retención del primario se bajó a 2 semanas por ese margen (§5.1); la del
+secundario sigue en 4 porque el USB aún no está conectado y no consume nada.
+`verificar_respaldos.ps1` avisa cuando el margen se acerca al umbral.
 
 ### CIFRA EL USB CON BITLOCKER TO GO
 
