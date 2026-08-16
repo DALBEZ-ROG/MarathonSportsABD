@@ -518,11 +518,100 @@ Los puntos 1 y 2 se corrigieron en el steering en esta misma fase. El punto 3 qu
 
 ---
 
+## Construcción desde cero — la clase de defecto que una BD preexistente no puede revelar (2026-08-16)
+
+El 16/08/2026 se construyó el entorno **completo** sobre un clúster de PostgreSQL
+recién creado con `initdb`, y aparecieron cuatro fallos. Ninguno era nuevo:
+llevaban meses en el repositorio. Lo que los hacía invisibles es que **todo el
+desarrollo ocurrió sobre una base que ya existía**.
+
+### El patrón: dependencias que solo vivían en la BD
+
+Este es el **segundo** hallazgo del mismo tipo, y por eso deja de ser un
+accidente y pasa a ser un patrón que conviene nombrar.
+
+| # | Fecha | Qué faltaba | Cómo se detectó |
+|---|---|---|---|
+| 1 | 2026-07-23 | **El DDL de las 20 tablas base.** Los scripts `fase21`–`fase27` asumían que existían | Al escribir `SETUP_COMPLETO.md` |
+| 2 | 2026-08-16 | **Seis filas de `unidad_medida`.** `fase31` referencia las unidades 4 y 6 *por número*; el seed solo crea tres | Al construir sobre un clúster limpio |
+
+En los dos casos, algo que el sistema necesitaba **existía en la base de
+desarrollo pero en ningún archivo versionado**. En el primero fue un esquema
+entero; en el segundo, seis filas de un catálogo dadas de alta por la aplicación
+durante el desarrollo. La diferencia de tamaño no importa: el efecto es idéntico
+—el repositorio no basta para reconstruir el sistema— y el síntoma es igual de
+desconcertante, porque falla un script que «siempre había funcionado».
+
+El segundo caso tiene un agravante que conviene entender. La corrección
+(`fase31_0_unidades_faltantes.sql`) inserta los ids **explícitamente**, con
+`OVERRIDING SYSTEM VALUE`. Si se dejara elegir a la secuencia, la unidad 6 podría
+acabar siendo «Litro» en vez de «Metro», y las materias primas quedarían medidas
+en unidades absurdas **satisfaciendo todas las claves foráneas**. Es la misma
+lección que dejó la F38 con las cinco fechas: *las restricciones garantizan que
+los datos sean válidos, no que sean correctos.*
+
+### La otra mitad: código que solo se ejercita en otro entorno
+
+Los otros dos fallos no son dependencias ocultas sino rutas de código que un solo
+entorno nunca recorre:
+
+- **`gestionar_clave.ps1 -Accion Ejecutar` tenía `-h localhost -p 5432` fijo.** El
+  parámetro `-Base` prometía algo que no cumplía: pedir otra base en otro clúster
+  ejecutaba igualmente contra el servidor de producción. Con un único servidor
+  nunca se nota, porque el valor fijo *siempre* coincide con el correcto.
+- **`fase35` comprobaba `summarize_wal` tras un `pg_sleep(2)` fijo**, y
+  `pg_reload_conf()` es asíncrono. Sobre un clúster recién creado dos segundos no
+  bastan y abortaba diciendo que el parámetro seguía en `off` cuando se activaba
+  un instante después. Un fallo que depende del reloj no se manifiesta hasta que
+  la máquina va más lenta.
+
+### Coste de no haberlo hecho antes
+
+Los cuatro se arreglaron en una sesión. Pero cualquiera que hubiera seguido
+`SETUP_COMPLETO.md` en una máquina limpia —un compañero de grupo, un evaluador,
+el propio autor tras formatear— se habría estrellado en el paso 12 y otra vez en
+el 14, sin ninguna pista de por qué una guía «validada» no funciona.
+
+**La única forma de detectar esta clase de defecto es construir desde cero,
+periódicamente y sobre un entorno limpio de verdad.** No basta con borrar la base
+y recrearla en el mismo servidor: `fase34_seguridad_roles.sql` hace `DROP ROLE` de
+los seis roles, que son objetos del **clúster**, y lleva `mod_venta_inve` escrito
+a mano en un `REVOKE ... ON DATABASE`. Hace falta un clúster aparte:
+
+```powershell
+initdb -D C:\pgtest -U postgres --pwfile=<archivo> -E UTF8
+pg_ctl -D C:\pgtest -o "-p 5434" -l C:\pgtest\server.log start
+powershell -File scripts\migracion\construir_desde_cero.ps1 -Etapa Esquema -PgPort 5434
+#   ... arrancar el backend una vez, COMO postgres ...
+powershell -File scripts\migracion\construir_desde_cero.ps1 -Etapa Datos -PgPort 5434
+pg_ctl -D C:\pgtest -m fast stop
+```
+
+Son unos 60 s de scripts más el arranque del backend. Al terminar: 38 tablas,
+1.011.313 filas de negocio y los cuatro arneses en verde (**61/61** privilegios,
+**29/29** auditoría, **51/51** cifrado, 0 violaciones en 238 comprobaciones).
+
+Detalle por síntoma en `SETUP_COMPLETO.md` §*Fallos que solo aparecen en un equipo
+limpio*, y el procedimiento completo en `GUIA_REPLICACION.md` §12.
+
+---
+
 # TRABAJO FUTURO
 
 Lo que se pospuso conscientemente, con el motivo. Un proyecto honesto documenta sus límites.
 
 ## Alta prioridad si el sistema siguiera evolucionando
+
+**Reconstruir desde cero cada vez que se cierre una fase.** Es la única prueba
+que detecta dependencias que solo viven en la base de desarrollo, y ya ha
+encontrado dos (el DDL base y las unidades de medida) más dos fallos de entorno.
+El procedimiento está arriba y cuesta unos minutos; hacerlo al cerrar cada fase
+lo mantendría en «un fallo como mucho» en vez de acumular cuatro. Lo natural
+sería un script `verificar_construccion_limpia.ps1` que levante el clúster
+temporal, ejecute las dos etapas, corra los cuatro arneses y lo destruya — pero
+no se automatizó porque el paso 12 (arrancar el backend para que el
+`DataInitializer` cree los roles de aplicación) exige un proceso Spring vivo y
+pararlo en el momento justo, y eso es lo único de la cadena que no es un script.
 
 **Costos estándar por producto.** Tabla nueva con tarifa de mano de obra y tasa de indirectos por producto, para que el costo estimado por BOM sea comparable con el costo real de una orden. Hoy el estimado solo cubre materia prima y lo declara en el campo `advertencia`. Pospuesto por ser cambio de esquema + funcionalidad nueva a pocos días de la entrega.
 
