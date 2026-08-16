@@ -1,7 +1,7 @@
 # Auditoría final de los 8 requisitos — `mod_venta_inve`
 
-**Fecha:** 15/08/2026 (cierre, F42) · **PostgreSQL:** 18.3 · **Tamaño:** 228 MB ·
-**Tablas:** 38 · **Filas:** 1.041.830
+**Fecha:** 16/08/2026 (F43) · **PostgreSQL:** 18.3 · **Tamaño:** 250 MB ·
+**Tablas:** 38 · **Filas:** 1.271.200 (**1.011.103 de negocio**)
 
 > Auditoría de **solo lectura**. Todo verificado contra el estado real de la base
 > —consultas al catálogo de PostgreSQL y al sistema de archivos— y no contra la
@@ -21,7 +21,7 @@
 | 4b | Seguridad — cifrado | ❌ | **✅** | **F41** · F42 |
 | 5 | Configuración | ⚠️ | **✅** | F36 · F39 |
 | 6 | Optimización | ⚠️ | **✅** | F33 · F39 · F41 |
-| 7 | Volumen (1 millón) | ❌ | **✅** | F38 · F38.1 |
+| 7 | Volumen (1 millón) | ❌ | **✅** | F38 · F38.1 · **F43** |
 | 8 | Auditoría | ⚠️ | **✅** | F40 |
 
 **Siete de ocho en verde.** El único que no lo está es el requisito 1, y no por
@@ -328,29 +328,67 @@ SELECT count(*) FROM pg_stat_user_tables
 ## Requisito 7 — Volumen (1 millón de filas) ✅
 
 ```sql
-SELECT sum(n_live_tup) FROM pg_stat_user_tables WHERE schemaname='public';  -- 1.041.830
-SELECT pg_size_pretty(pg_database_size('mod_venta_inve'));                   -- 228 MB
+-- COUNT(*) exacto tabla por tabla, no n_live_tup (ver abajo por qué)
+WITH exactos AS (
+  SELECT relname, (xpath('/row/c/text()', query_to_xml(
+           format('SELECT count(*) AS c FROM public.%I', relname), false, true, '')))[1]::text::bigint AS filas
+  FROM pg_stat_user_tables WHERE schemaname='public')
+SELECT sum(filas) AS totales,
+       sum(filas) FILTER (WHERE relname NOT IN ('log_accion','historial_inventario','auditoria_cambios')) AS negocio
+FROM exactos;                                                    -- 1.271.200 | 1.011.103
 ```
 
-| | Inicial | Ahora |
-|---|--:|--:|
-| Filas | ~1.100 | **1.041.830** |
-| Tamaño | 12 MB | **228 MB** |
-| Pedidos | — | 165.000 |
-| Detalles de pedido | — | 450.000 |
-| `log_accion` | — | 200.062 |
+| | Inicial | Tras F38 | **Ahora (F43)** |
+|---|--:|--:|--:|
+| Filas totales | ~1.100 | 1.041.830 | **1.271.200** |
+| **Filas de negocio** | ~1.100 | 781.733 | **1.011.103** |
+| Tamaño | 12 MB | 228 MB | **250 MB** |
+| Pedidos | 25 | 165.000 | **230.000** |
+| Detalles de pedido | 68 | 450.000 | **614.370** |
 
-**No basta con que las filas existan.** La F38 terminó una carga sin un solo
-error, pasó todas las verificaciones de integridad, y aun así dejó 165.000
-pedidos repartidos en **5 fechas**. La F38.1 existe por eso, y verifica:
+### El millón tiene que estar en las tablas de negocio
+
+El requisito no pide un millón de filas cualesquiera: pide volumen **en las
+tablas transaccionales**. Tras la F38 el total superaba el millón, pero
+**260.097 de esas filas eran bitácoras** —`log_accion` (200.062),
+`historial_inventario` (60.000) y `auditoria_cambios` (35)—, así que el negocio
+real se quedaba en **781.733**. Inflar una tabla de log para llegar al millón es
+justamente lo que el requisito excluye.
+
+La **F43** cargó **65.000 pedidos y 164.370 líneas de detalle**, que es donde
+vive el negocio, y dejó las bitácoras intactas. Descontándolas, quedan
+**1.011.103 filas de negocio**: el requisito se cumple bajo la lectura estricta,
+no solo bajo la permisiva.
+
+### La trampa del recuento: `n_live_tup` es un estimador
+
+La primera corrida de la F43 se dio por buena con **235.000 pedidos y 627.009
+líneas** leyendo `pg_stat_user_tables.n_live_tup`. Las cifras reales eran
+**230.000 y 614.370**: el recolector de estadísticas actualiza ese contador de
+forma asíncrona y, justo después de una carga masiva, sobreestima. **Un
+requisito que se mide en número de filas no puede verificarse con una
+estimación**, así que la verificación pasó a `COUNT(*)` tabla por tabla.
+
+### No basta con que las filas existan
+
+La F38 terminó una carga sin un solo error, pasó todas las verificaciones de
+integridad, y aun así dejó 165.000 pedidos repartidos en **5 fechas**. La F38.1
+existe por eso. **Reejecutada sobre el volumen nuevo:**
 
 - **6 invariantes de recálculo** (`pedido.total` frente a la suma de sus
-  detalles, y equivalentes en compras, cuentas por pagar y producción): **0
-  discrepancias**, «cuadran al centavo».
+  detalles, y equivalentes en compras, cuentas por pagar y producción):
+  **230.000 pedidos verificados, 0 discrepancias**, «cuadran al centavo».
 - **Integridad estructural**: **0 violaciones en 238 comprobaciones** (claves
   foráneas, `CHECK`, unicidad, `NOT NULL`).
+- **Distribuciones**: 732 fechas distintas, estados 71,2/11,2/8,4/6,2/3,1 %,
+  media de 2,67 líneas por pedido. El dataset no se aplanó al ampliarlo.
+- **61/61 pruebas de privilegios** de la F34: la carga no tocó la seguridad.
 
-Reejecutado en esta fase: sigue en 0 y 0.
+**Lo que la F43 deliberadamente no tocó:** los 30.000 pedidos ya facturados. Su
+total es validado por `trg_validar_total_comprobante` contra
+`comprobante_interno`, así que el `UPDATE` de reconstrucción se acotó a las filas
+cuyo total no cuadraba con la fórmula. Verificado después: **30.000
+comprobantes, 0 descuadres con su pedido**.
 
 ---
 
@@ -397,6 +435,7 @@ están todos activos (`tgenabled='O'`). Verificado por las **29 pruebas** de
 | **F40** | `auditoria_cambios` genérica + `log_accion` en 13 servicios | 8 |
 | **F41** | Cifrado `pgp_sym_encrypt`, HMAC, TLS, −4 índices | 4b, 6 |
 | **F42** | 3-2-1 con USB, restauración verificada, `verify-full`, arneses reparados | **4a**, 4b |
+| **F43** | +65.000 pedidos y +164.370 líneas: el millón, en tablas de negocio | **7** |
 
 ---
 

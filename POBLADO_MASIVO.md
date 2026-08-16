@@ -334,3 +334,55 @@ Ninguna de las tres baterías se degradó con el millón de filas.
 
 Antes de tocar nada se tomó un respaldo completo verificado:
 `C:\respaldos\marathon\full\full_20260815_110734` (100 MB, `pg_verifybackup` OK).
+
+---
+
+## 12. Ampliación posterior (F43): el millón, pero **en tablas de negocio**
+
+`fase43_ampliacion_negocio.sql`. La F38 dejó 1.041.830 filas, pero 260.097 eran
+bitácoras (`log_accion`, `historial_inventario`, `auditoria_cambios`). Las tablas
+de negocio se quedaban en **781.733**, y el requisito 7 pide el volumen ahí, no
+en un log. La F43 cargó **+65.000 pedidos** y **+164.370 líneas de detalle**:
+
+| | F38 | F43 |
+|---|--:|--:|
+| `pedido` | 165.000 | **230.000** |
+| `detalle_pedido` | 450.000 | **614.370** |
+| Filas de negocio | 781.733 | **1.011.103** |
+
+Mismo generador y mismas distribuciones que §7, para no deformar el dataset ya
+medido en la F39. Tres diferencias de método, y las tres por un motivo:
+
+**1. El `UPDATE` de reconstrucción se acotó a las filas descuadradas.** La F38
+recalculaba el total de los 165.000 pedidos de una vez; aquí eso rompería la
+facturación, porque 30.000 de ellos ya tienen `comprobante_interno` y
+`trg_validar_total_comprobante` exige que ambos totales coincidan. El filtro es
+`WHERE p.total <> GREATEST(suma - descuento, 0)`, que además hace el script
+idempotente: reejecutado, no mueve una sola fila.
+
+**2. La media de líneas por pedido es 2,53, no 2,78.** El generador de §7 no
+produce la distribución que documenta, porque el `CASE` anidado **vuelve a
+llamar a `random()` en cada rama**:
+
+```sql
+CASE WHEN random() < 0.10 THEN 1 WHEN random() < 0.45 THEN 2 ... END
+```
+
+La segunda rama no se evalúa sobre «el 90 % restante según la misma tirada»,
+sino sobre una tirada nueva. Las probabilidades reales son
+0,100 / 0,405 / 0,371 / 0,114 / 0,010 → esperanza **2,53**. La F38 llegaba a 2,73
+solo porque su bucle de relleno añadía líneas sueltas hasta cuadrar los 450.000
+exactos. No se corrigió el generador —cambiarlo deformaría lo ya medido—: se
+ajustó el número de pedidos usando la media real.
+
+**3. La verificación cuenta con `COUNT(*)`, no con `n_live_tup`.** La primera
+corrida se dio por buena con 235.000 pedidos y 627.009 líneas leyendo
+`pg_stat_user_tables`. Las cifras reales eran **230.000 y 614.370**: el
+recolector de estadísticas es asíncrono y sobreestima justo después de una carga
+masiva. Un requisito que se mide en número de filas no se verifica con un
+estimador.
+
+**Verificación al volumen nuevo:** F38.1 completa (6 invariantes con 230.000
+pedidos y 0 discrepancias; 238 comprobaciones de integridad y 0 violaciones),
+30/30 triggers activos, 30.000 comprobantes sin un solo descuadre, 732 fechas
+distintas, y **61/61** pruebas de privilegios de la F34.
