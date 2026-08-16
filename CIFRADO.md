@@ -355,7 +355,7 @@ Declarado, no escondido:
 |---|---|
 | `fase41_pruebas_cifrado.sql` | **51 / 51** |
 | `fase34_pruebas_roles.sql` | **61 / 61** (sin cambios) |
-| `fase40_pruebas_auditoria.sql` | **29 / 29** (con `psql -1`, ver §10) |
+| `fase40_pruebas_auditoria.sql` | **29 / 29** (corregido, ver §10) |
 | `fase37_pruebas_endpoints.ps1` | **66 / 66** |
 | `fase37_pruebas_navbar.ps1` | **20 / 20** |
 | Arranque con `ddl-auto=validate` | ✅ 4,12 s |
@@ -387,16 +387,31 @@ esta fase. **La reparación se hizo con los datos que la propia
 `auditoria_cambios` había registrado** (ids 1029-1031 y 1046), que es exactamente
 para lo que sirve una bitácora de cambios.
 
-Dos formas de arreglarlo, ambas verificadas:
+### Corregido
 
-```powershell
-psql -1 -f fase40_pruebas_auditoria.sql     # una transacción para todo el script
-```
+`fase40_pruebas_auditoria.sql` lleva ahora **`BEGIN;` como primera sentencia**,
+para que el `ROLLBACK` del final tenga algo que revertir. Se corrigieron también
+los dos comentarios del archivo que afirmaban lo contrario.
 
-o añadir `BEGIN;` como primera sentencia del archivo. Con `-1` el arnés sigue
-dando **29/29 y no deja daño**.
+Verificado ejecutándolo **cuatro veces sin `psql -1`**, que es exactamente como
+rompía:
 
-`fase41_pruebas_cifrado.sql` abre con `BEGIN;` por este motivo.
+| | Antes de correr | Después de 4 corridas |
+|---|---|---|
+| `usuario` #1 | `activo`, hash de 60 car. | `activo`, hash de 60 car. |
+| Filas en `rol_permiso` | 56 | 56 |
+| Filas en `auditoria_cambios` | 30 | 30 |
+| Resultado del arnés | — | **29/29** en las cuatro |
+
+Ni siquiera las filas de auditoría que generan las propias pruebas sobreviven, que
+es lo que se espera de un arnés que dice no modificar datos. Endpoints 66/66 y
+navbar 20/20 después de las corridas.
+
+`psql -1` sigue funcionando como red adicional —solo emite un aviso de que ya hay
+una transacción en curso— pero ya no hace falta.
+
+`fase41_pruebas_cifrado.sql` abrió con `BEGIN;` desde el principio por este mismo
+motivo.
 
 ---
 
