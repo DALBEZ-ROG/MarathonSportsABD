@@ -9,6 +9,20 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import org.hibernate.annotations.Formula;
+
+/**
+ * Proveedor. Sus datos de contacto estan CIFRADOS en la base desde la F41.
+ *
+ * <p>{@code contacto}, {@code correo}, {@code telefono} y {@code direccion} son
+ * campos {@link Formula} de solo lectura sobre las columnas {@code bytea}
+ * {@code contacto_enc}, {@code correo_enc}, {@code telefono_enc} y
+ * {@code direccion_enc}. La explicacion completa del mecanismo esta en
+ * {@link Cliente}; aqui aplica igual, con una diferencia: proveedor NO tiene
+ * columna hash del correo, porque nunca tuvo {@code UNIQUE(correo)} ni hay
+ * ninguna consulta que busque proveedores por correo. Anadirla habria sido
+ * superficie de ataque sin funcion.
+ */
 @Entity
 @Table(name = "proveedor")
 public class Proveedor {
@@ -21,16 +35,16 @@ public class Proveedor {
     @Column(name = "nombre", nullable = false)
     private String nombre;
 
-    @Column(name = "contacto")
+    @Formula("fn_descifrar(contacto_enc)")
     private String contacto;
 
-    @Column(name = "correo")
+    @Formula("fn_descifrar(correo_enc)")
     private String correo;
 
-    @Column(name = "telefono")
+    @Formula("fn_descifrar(telefono_enc)")
     private String telefono;
 
-    @Column(name = "direccion")
+    @Formula("fn_descifrar(direccion_enc)")
     private String direccion;
 
     @Column(name = "estado", nullable = false)

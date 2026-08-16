@@ -27,15 +27,18 @@ public class ClienteService {
     private final PedidoRepository pedidoRepository;
 
     private final LogService logService;
+    private final CifradoService cifradoService;
 
     public ClienteService(ClienteRepository clienteRepository,
                           CiudadRepository ciudadRepository,
                           PedidoRepository pedidoRepository,
-                      LogService logService) {
+                      LogService logService,
+                      CifradoService cifradoService) {
         this.clienteRepository = clienteRepository;
         this.ciudadRepository = ciudadRepository;
         this.pedidoRepository = pedidoRepository;
         this.logService = logService;
+        this.cifradoService = cifradoService;
     }
 
     public PageResponseDTO<ClienteResponseDTO> listar(int page, int size, String nombre, String estado) {
@@ -66,9 +69,27 @@ public class ClienteService {
         return toDTO(cliente);
     }
 
+    /**
+     * Clientes activos para el selector de "Pedido nuevo".
+     *
+     * <p>F41: NO devuelve correo, telefono ni direccion, y es intencionado. La
+     * pantalla que consume esto solo muestra "nombre apellido (cedula)", asi
+     * que descifrar los tres campos de las 4.620 filas activas costaba 6
+     * segundos de respuesta para no enseñar ninguno. Ver
+     * {@code ClienteRepository.listarActivosSinContacto} para las mediciones.
+     */
     public List<ClienteResponseDTO> listarActivos() {
-        return clienteRepository.findByEstadoOrderByApellidoAsc("activo").stream()
-                .map(this::toDTO)
+        return clienteRepository.listarActivosSinContacto("activo").stream()
+                .map(fila -> {
+                    ClienteResponseDTO dto = new ClienteResponseDTO();
+                    dto.setIdCliente((Integer) fila[0]);
+                    dto.setNombre((String) fila[1]);
+                    dto.setApellido((String) fila[2]);
+                    dto.setEstado((String) fila[3]);
+                    dto.setIdCiudad((Integer) fila[4]);
+                    dto.setCiudadNombre((String) fila[5]);
+                    return dto;
+                })
                 .collect(Collectors.toList());
     }
 
@@ -81,7 +102,12 @@ public class ClienteService {
             cliente.setEstado("activo");
         }
 
-        cliente = clienteRepository.save(cliente);
+        // saveAndFlush y no save: el UPDATE de cifrado necesita que la fila ya
+        // exista y que id_cliente este asignado. Con save() a secas, Hibernate
+        // podria retrasar el INSERT hasta el commit y el UPDATE no encontraria
+        // nada que actualizar.
+        cliente = clienteRepository.saveAndFlush(cliente);
+        cifradoService.guardarDatosCliente(cliente, dto.getEmail(), dto.getTelefono(), dto.getDireccion());
 
         logService.registrarAccion("clientes", "crear",
                 "Cliente #" + cliente.getIdCliente() + " '" + cliente.getNombre() + " "
@@ -97,7 +123,8 @@ public class ClienteService {
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente", id));
 
         mapearDatos(cliente, dto);
-        cliente = clienteRepository.save(cliente);
+        cliente = clienteRepository.saveAndFlush(cliente);
+        cifradoService.guardarDatosCliente(cliente, dto.getEmail(), dto.getTelefono(), dto.getDireccion());
 
         logService.registrarAccion("clientes", "actualizar",
                 "Cliente #" + id + " '" + cliente.getNombre() + " " + cliente.getApellido() + "' modificado");
@@ -128,9 +155,10 @@ public class ClienteService {
     private void mapearDatos(Cliente cliente, ClienteRequestDTO dto) {
         cliente.setNombre(dto.getNombre());
         cliente.setApellido(dto.getApellido());
-        cliente.setCorreo(dto.getEmail());
-        cliente.setTelefono(dto.getTelefono());
-        cliente.setDireccion(dto.getDireccion());
+        // F41: correo, telefono y direccion NO se asignan aqui. Son campos
+        // @Formula de solo lectura sobre columnas cifradas; asignarlos daria la
+        // falsa impresion de que se guardan. Los persiste CifradoService, que
+        // es quien puede emitir el fn_cifrar().
         if (dto.getEstado() != null && !dto.getEstado().isEmpty()) {
             cliente.setEstado(dto.getEstado());
         }

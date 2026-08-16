@@ -619,3 +619,82 @@ La causa era que Hibernate añade un `RETURNING` para recuperar la clave
 `IDENTITY`, y `RETURNING` exige `SELECT`. Se resolvió con un `INSERT` nativo en
 `LogService`, **sin otorgar `SELECT`**: la decisión de mínimo privilegio se
 mantiene intacta. Detalle en `AUDITORIA.md` §8.
+
+---
+
+## 11. Fase 41 — privilegios sobre las columnas cifradas
+
+Los datos de contacto de `cliente` y `proveedor` pasaron a columnas `bytea`
+cifradas con `pgcrypto` (ver `CIFRADO.md`). Las columnas en claro **ya no
+existen**, así que sus privilegios desaparecieron con ellas y hubo que reponer la
+matriz sobre las nuevas.
+
+**El criterio fue no mover ni un privilegio.** Cifrar no es excusa para relajar
+el acceso: quien no podía leer el correo en claro tampoco puede leer el cifrado.
+La matriz de la F34 se replicó columna a columna, tomada de
+`information_schema.column_privileges` **antes** de la migración.
+
+### 11.1 La matriz
+
+| Tabla | Rol | Antes (`correo`, `telefono`, `direccion`, `contacto`) | Ahora (`*_enc`, `correo_hash`) |
+|---|---|---|---|
+| `cliente` | `rol_administrador` | INSERT SELECT UPDATE | INSERT SELECT UPDATE |
+| `cliente` | `rol_operador_pedidos` | INSERT SELECT UPDATE | INSERT SELECT UPDATE |
+| `cliente` | `rol_operador_bodega` | SELECT | SELECT |
+| `cliente` | `rol_supervisor` | SELECT | SELECT |
+| `cliente` | `rol_encargado_compras` | — | — |
+| `cliente` | `rol_encargado_produccion` | — | — |
+| `proveedor` | `rol_administrador` | INSERT SELECT UPDATE | INSERT SELECT UPDATE |
+| `proveedor` | `rol_encargado_compras` | SELECT | SELECT |
+| `proveedor` | `rol_supervisor` | SELECT | SELECT |
+
+Privilegios de columna registrados: **2.125 → 2.155** (+30, por las cuatro
+columnas nuevas de `cliente` y las cuatro de `proveedor`).
+
+Verificado en las pruebas 28-36 de `fase41_pruebas_cifrado.sql`.
+
+### 11.2 El privilegio de columna no es lo que protege el dato
+
+Un matiz que conviene tener claro y que esta fase hace evidente: **tener `SELECT`
+sobre `correo_enc` no significa poder leer el correo.**
+
+`rol_operador_bodega` puede seleccionar la columna y lo que obtiene es
+`\x c30d0407...`. Para leerla necesita además que su sesión tenga publicada
+`app.crypto_key`, y eso solo lo hace la aplicación. Un operador de bodega
+conectándose por `psql` con su propia credencial ve texto cifrado.
+
+Son dos capas independientes:
+
+| Capa | Qué controla | Quién la impone |
+|---|---|---|
+| `GRANT` por columna | Si la columna se puede seleccionar | PostgreSQL |
+| Clave en la sesión | Si el contenido es legible | La aplicación, al tomar la conexión |
+
+Por eso `fn_descifrar()` **no es `SECURITY DEFINER`**, a diferencia de la función
+de auditoría de la F40. Si lo fuera, correría con los privilegios de `postgres` y
+cualquier rol con `SELECT` sobre `cliente` descifraría sin conocer la clave: la
+segunda capa desaparecería y el cifrado no protegería de nada. Comprobado en las
+pruebas 49-51.
+
+### 11.3 Una restricción que se perdió por el camino
+
+Al eliminar `cliente.correo` cayeron con ella dos restricciones:
+
+| Restricción | Destino |
+|---|---|
+| `uq_cliente_correo` | **Repuesta** sobre `correo_hash` (HMAC-SHA256, determinista) |
+| `chk_cliente_correo` (formato de correo) | **Perdida, sin sustituto en la base** |
+
+No se puede validar con una expresión regular un dato que la base no puede leer.
+La garantía **baja de nivel**: pasa a depender de `@Email` en
+`ClienteRequestDTO`. Es una pérdida real —quien escriba por `psql` ya no
+encuentra esa red— y queda declarada, no silenciada.
+
+### 11.4 Recuento de objetos
+
+| | Antes de la F41 | Después |
+|---|--:|--:|
+| Tablas | 38 | **38** |
+| Índices en `public` | 126 | **122** (−4 de la F39, +1 `uq_cliente_correo_hash`, −1 `uq_cliente_correo`) |
+| Triggers (todos en `tgenabled='O'`) | 29 | **30** (+`trg_cliente_hash_correo`) |
+| Privilegios de columna | 2.125 | **2.155** |

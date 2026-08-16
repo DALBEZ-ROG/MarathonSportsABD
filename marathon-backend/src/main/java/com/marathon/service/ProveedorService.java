@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.marathon.dto.PageResponseDTO;
 import com.marathon.dto.proveedor.ProveedorRequestDTO;
@@ -20,11 +21,14 @@ public class ProveedorService {
 
     private final ProveedorRepository proveedorRepository;
     private final LogService logService;
+    private final CifradoService cifradoService;
 
     public ProveedorService(ProveedorRepository proveedorRepository,
-                        LogService logService) {
+                        LogService logService,
+                        CifradoService cifradoService) {
         this.proveedorRepository = proveedorRepository;
         this.logService = logService;
+        this.cifradoService = cifradoService;
     }
 
     public PageResponseDTO<ProveedorResponseDTO> listar(int page, int size, String nombre, String estado) {
@@ -55,12 +59,22 @@ public class ProveedorService {
         return toDTO(proveedor);
     }
 
+    // @Transactional desde la F41: el alta son ahora DOS sentencias (el INSERT
+    // de Hibernate y el UPDATE de cifrado) que deben ir juntas. Sin ella, un
+    // fallo al cifrar dejaria un proveedor guardado con los datos de contacto
+    // vacios. Ademas, el SET LOCAL app.current_user_id de fijarContextoUsuario
+    // solo sobrevive dentro de una transaccion.
+    @Transactional
     public ProveedorResponseDTO crear(ProveedorRequestDTO dto) {
         logService.fijarContextoUsuario();
         Proveedor proveedor = new Proveedor();
         mapFromDTO(proveedor, dto);
         proveedor.setEstado(dto.getEstado() != null ? dto.getEstado() : "activo");
-        proveedor = proveedorRepository.save(proveedor);
+        // saveAndFlush: el UPDATE de cifrado necesita la fila ya insertada y con
+        // id_proveedor asignado.
+        proveedor = proveedorRepository.saveAndFlush(proveedor);
+        cifradoService.guardarDatosProveedor(proveedor, dto.getRuc(), dto.getEmail(),
+                                             dto.getTelefono(), dto.getDireccion());
 
         logService.registrarAccion("proveedores", "crear",
                 "Proveedor #" + proveedor.getIdProveedor() + " '" + proveedor.getNombre() + "' creado");
@@ -68,6 +82,7 @@ public class ProveedorService {
         return toDTO(proveedor);
     }
 
+    @Transactional
     public ProveedorResponseDTO actualizar(Integer id, ProveedorRequestDTO dto) {
         logService.fijarContextoUsuario();
         Proveedor proveedor = proveedorRepository.findById(id)
@@ -77,7 +92,9 @@ public class ProveedorService {
         if (dto.getEstado() != null) {
             proveedor.setEstado(dto.getEstado());
         }
-        proveedor = proveedorRepository.save(proveedor);
+        proveedor = proveedorRepository.saveAndFlush(proveedor);
+        cifradoService.guardarDatosProveedor(proveedor, dto.getRuc(), dto.getEmail(),
+                                             dto.getTelefono(), dto.getDireccion());
 
         logService.registrarAccion("proveedores", "actualizar",
                 "Proveedor #" + id + " '" + proveedor.getNombre() + "' modificado");
@@ -85,6 +102,7 @@ public class ProveedorService {
         return toDTO(proveedor);
     }
 
+    @Transactional
     public void eliminar(Integer id) {
         logService.fijarContextoUsuario();
         Proveedor proveedor = proveedorRepository.findById(id)
@@ -98,10 +116,9 @@ public class ProveedorService {
 
     private void mapFromDTO(Proveedor proveedor, ProveedorRequestDTO dto) {
         proveedor.setNombre(dto.getNombre());
-        proveedor.setContacto(dto.getRuc());
-        proveedor.setDireccion(dto.getDireccion());
-        proveedor.setTelefono(dto.getTelefono());
-        proveedor.setCorreo(dto.getEmail());
+        // F41: contacto, direccion, telefono y correo NO se asignan aqui. Son
+        // campos @Formula de solo lectura sobre columnas cifradas; los persiste
+        // CifradoService.
     }
 
     private ProveedorResponseDTO toDTO(Proveedor proveedor) {

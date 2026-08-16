@@ -96,7 +96,17 @@ servidor. El análisis completo está en `DECISION_PGAUDIT.md`.
 | `listen_addresses` | `*` | Escucha en todas las interfaces, pero **`pg_hba.conf` solo admite `127.0.0.1/32` y `::1/128`**, así que en la práctica el acceso es local. Restringirlo a `localhost` sería más coherente; anotado como mejora. |
 | `port` | 5432 | La instancia de producción. **5433 es el respaldo congelado.** |
 | `password_encryption` | `scram-sha-256` (defecto) | Método moderno. Los seis `usr_*_marathon` tienen su contraseña con SCRAM, verificado en `pg_authid`. |
-| `ssl` | **off** | Sin TLS. Aceptable mientras todo el tráfico sea `127.0.0.1`; **obligatorio de revisar si la base se mueve a otro host**. Es uno de los puntos abiertos del requisito 4b. |
+| `ssl` | **on** *(F41)* | TLS activo con certificado autofirmado. `pg_stat_ssl` confirma **TLSv1.3 / TLS_AES_256_GCM_SHA384** en las conexiones del pool. Fijado con `ALTER SYSTEM` (escribe en `postgresql.auto.conf`, no en `postgresql.conf`), contexto `sighup`: se activó **sin reiniciar el servidor**. Detalle en `CIFRADO.md` §6. |
+| `ssl_cert_file` | `server.crt` *(F41)* | Autofirmado, `CN=localhost`, 825 días, con `subjectAltName` para `localhost` e `IP:127.0.0.1`. En el directorio de datos. |
+| `ssl_key_file` | `server.key` *(F41)* | Clave privada **sin contraseña**: con contraseña, PostgreSQL la pediría por consola en cada arranque y el servicio no podría iniciarse desatendido. Permisos restringidos a `NT AUTHORITY\NetworkService` (la cuenta del servicio) y Administradores. |
+
+> **El cliente usa `sslmode=require`, no `verify-full`.** El tráfico va cifrado
+> pero **el servidor no queda autenticado**: con un certificado autofirmado,
+> `verify-full` exigiría distribuirlo como CA a cada cliente. Para `127.0.0.1` es
+> una compensación razonable; **si la base se mueve a otro host, hay que
+> revisarla**, porque `require` no protege de un intermediario.
+>
+> Revertir: `scripts\cifrado\configurar_tls.ps1 -Revertir`.
 
 ### `pg_hba.conf`
 

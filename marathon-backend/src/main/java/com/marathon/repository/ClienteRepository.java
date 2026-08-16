@@ -21,4 +21,27 @@ public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
     Page<Cliente> findByNombreOrApellidoAndEstado(@Param("search") String search, @Param("estado") String estado, Pageable pageable);
 
     List<Cliente> findByEstadoOrderByApellidoAsc(String estado);
+
+    /**
+     * Clientes activos SIN los datos de contacto cifrados, para el selector de
+     * "Pedido nuevo".
+     *
+     * <p><b>Por que una proyeccion y no la entidad.</b> Desde la F41,
+     * {@code Cliente.correo}, {@code telefono} y {@code direccion} son campos
+     * {@code @Formula} que llaman a {@code fn_descifrar()}, asi que cargar la
+     * entidad descifra TRES campos POR FILA. Medido sobre las 4.620 filas
+     * activas: 2,4 ms sin descifrar frente a <b>4.904 ms descifrando</b>, y el
+     * endpoint completo pasaba de milisegundos a <b>6 segundos</b>.
+     *
+     * <p>Y el descifrado ahi no servia para nada: el selector solo pinta
+     * "nombre apellido (cedula)". Se estaban descifrando 13.860 datos
+     * personales para no mostrar ninguno. Seleccionar solo las columnas que se
+     * usan es a la vez lo rapido y lo correcto en proteccion de datos.
+     *
+     * <p>Devuelve {@code Object[]}: idCliente, nombre, apellido, estado,
+     * idCiudad, nombreCiudad.
+     */
+    @Query("SELECT c.idCliente, c.nombre, c.apellido, c.estado, ci.idCiudad, ci.nombre "
+         + "FROM Cliente c JOIN c.ciudad ci WHERE c.estado = :estado ORDER BY c.apellido ASC")
+    List<Object[]> listarActivosSinContacto(@Param("estado") String estado);
 }

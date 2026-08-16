@@ -295,6 +295,51 @@ esperar al domingo.
 
 ---
 
+## 6.5 Custodia de la clave de cifrado (F41)
+
+Desde la F41 los datos de contacto de `cliente` y `proveedor` están cifrados en
+la base. Eso cambia lo que significa «tener un respaldo».
+
+> **Un respaldo sin la clave no es un respaldo.** `pg_basebackup` copia el dato
+> **ya cifrado**. Restaurar sin la clave devuelve `bytea` ilegibles: la base
+> arranca, la aplicación funciona, y los correos, teléfonos y direcciones salen
+> vacíos. **Sin clave, esos datos están perdidos de forma definitiva.**
+
+| | |
+|---|---|
+| Copia operativa | `C:\ProgramData\MarathonSports\crypto\clave.dpapi`, blob DPAPI de máquina |
+| **Deliberadamente fuera de** | `C:\respaldos\marathon` |
+| Copia de custodia | **Manual, fuera del equipo** — ver abajo |
+| Huella de verificación | `472b43907ba05386` (SHA-256 truncada; permite comprobar que dos entornos usan la misma clave sin mostrarla) |
+
+**Por qué la clave no está en la carpeta de respaldos.** Si viajara dentro del
+mismo respaldo que los datos que cifra, cifrar no habría servido de nada: quien
+se lleve el respaldo se lleva las dos mitades. La separación no es un detalle
+organizativo, es lo que hace que el cifrado signifique algo frente al robo de un
+respaldo.
+
+**Y una limitación que agrava lo anterior:** DPAPI en ámbito `LocalMachine` ata
+el blob a **este equipo**. Es la misma limitación ya anotada para
+`configuracion_secretos.zip.dpapi` en §5, pero aquí la consecuencia es mayor: el
+ZIP de configuración se puede reconstruir a mano, y los datos personales
+cifrados, no. **Perder el equipo sin copia de custodia = perder los datos**,
+aunque los respaldos estén íntegros y verificados.
+
+### Pendiente manual del usuario
+
+```powershell
+powershell -File scripts\cifrado\gestionar_clave.ps1 -Accion Escrow -Destino E:\custodia\clave.txt
+```
+
+El script rechaza como destino el repositorio y `C:\respaldos\marathon`. El
+archivo generado contiene la clave **en claro** y debe trasladarse a un soporte
+fuera del equipo — caja fuerte, gestor de contraseñas o unidad extraíble bajo
+llave — y borrarse de disco después.
+
+El procedimiento completo de reposición está en `CIFRADO.md` §4.
+
+---
+
 ## 7. Lo que falta: la regla 3-2-1
 
 Este esquema **no cumple la regla 3-2-1** (3 copias, 2 medios, 1 fuera del sitio).

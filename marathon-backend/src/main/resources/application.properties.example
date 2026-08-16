@@ -2,6 +2,17 @@
 spring.datasource.password=
 app.jwt.secret=
 
+# F41 — TLS. Si se define aquí spring.datasource.url, este archivo PISA al de
+# application.properties, así que el sufijo sslmode debe repetirse o el tráfico
+# viajará en claro aunque el servidor tenga ssl=on.
+#spring.datasource.url=jdbc:postgresql://localhost:5432/mod_venta_inve?sslmode=require
+
+# F41 — clave de cifrado de datos personales.
+# NO se pone aquí. Llega por la variable de entorno MARATHON_CRYPTO_KEY, que
+# fija scripts\cifrado\iniciar_backend.ps1 tras descifrar el almacén DPAPI.
+# Escribirla en un .properties la deja en disco en claro, que es exactamente lo
+# que esta fase evita. Ver CIFRADO.md §4.
+
 # Asistente IA (Anthropic)
 anthropic.api.key=
 anthropic.api.url=https://api.anthropic.com/v1/messages

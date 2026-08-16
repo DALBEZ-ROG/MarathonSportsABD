@@ -12,6 +12,31 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+import org.hibernate.annotations.Formula;
+
+/**
+ * Cliente. Sus datos de contacto estan CIFRADOS en la base desde la F41.
+ *
+ * <p><b>Como funcionan {@code correo}, {@code telefono} y {@code direccion}.</b>
+ * Las columnas en claro ya no existen: en su lugar hay {@code correo_enc},
+ * {@code telefono_enc} y {@code direccion_enc} de tipo {@code bytea}, escritas
+ * con {@code pgp_sym_encrypt}. Estos tres campos son {@link Formula}, es decir
+ * <b>solo lectura</b>: Hibernate inyecta {@code fn_descifrar(columna)} en el
+ * SELECT y devuelve el texto claro, siempre que la sesion tenga publicada
+ * {@code app.crypto_key}. Si no la tiene, llegan a {@code null}.
+ *
+ * <p><b>Por que solo lectura.</b> La clave nunca entra en el JVM para cifrar:
+ * el cifrado ocurre dentro de PostgreSQL. Un setter que pareciera persistir
+ * seria una trampa. Las escrituras pasan por
+ * {@code CifradoService.guardarDatosCliente(...)}, que ejecuta el
+ * {@code UPDATE ... fn_cifrar(?)} y refresca la entidad. Los setters siguen
+ * existiendo porque los DTO los usan, pero no persisten nada por si solos.
+ *
+ * <p>Las columnas {@code *_enc} NO se mapean como atributos. {@code ddl-auto}
+ * sigue en {@code validate} y valida las entidades contra el esquema, no al
+ * reves: una columna sin atributo no rompe el arranque, y mapearla invitaria a
+ * escribir texto cifrado desde Java.
+ */
 @Entity
 @Table(name = "cliente")
 public class Cliente {
@@ -31,13 +56,13 @@ public class Cliente {
     @Column(name = "apellido", nullable = false)
     private String apellido;
 
-    @Column(name = "correo")
+    @Formula("fn_descifrar(correo_enc)")
     private String correo;
 
-    @Column(name = "telefono")
+    @Formula("fn_descifrar(telefono_enc)")
     private String telefono;
 
-    @Column(name = "direccion")
+    @Formula("fn_descifrar(direccion_enc)")
     private String direccion;
 
     @Column(name = "estado", nullable = false)

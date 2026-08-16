@@ -7,6 +7,7 @@ import javax.sql.DataSource;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -38,6 +39,15 @@ public class DataSourceConfig {
      * retira el pool que esa autoconfiguracion habria creado, pero no sus
      * propiedades, que se siguen inyectando.
      */
+    /**
+     * Clave de cifrado de los datos personales (F41). Llega por variable de
+     * entorno del PROCESO, que pone {@code scripts\cifrado\iniciar_backend.ps1}
+     * tras descifrar el almacen DPAPI de la maquina. No esta en
+     * {@code application.properties} ni en el repositorio, y no debe estarlo.
+     */
+    @Value("${app.cifrado.clave:}")
+    private String claveCifrado;
+
     @Bean
     @Primary
     public DataSource dataSource(DataSourceProperties porDefecto, RoleDataSourceProperties roles) {
@@ -52,7 +62,7 @@ public class DataSourceConfig {
             log.warn("Enrutado por rol DESACTIVADO (app.datasource.roles.enabled=false): "
                    + "toda la aplicacion se conecta como '{}' y los otros cinco roles de "
                    + "PostgreSQL quedan fuera del camino de ejecucion.", porDefecto.getUsername());
-            return poolAdministrador;
+            return new ClaveCifradoDataSource(poolAdministrador, claveCifrado);
         }
 
         Map<Object, Object> pools = new LinkedHashMap<>();
@@ -90,6 +100,11 @@ public class DataSourceConfig {
         routing.setTargetDataSources(pools);
         routing.setDefaultTargetDataSource(poolAdministrador);
         routing.afterPropertiesSet();
-        return routing;
+
+        // El envoltorio del cifrado va POR FUERA del enrutador, no por dentro
+        // de cada pool: asi la clave se publica sea cual sea el rol que acabe
+        // atendiendo la peticion, y no hay que repetir la configuracion seis
+        // veces ni arriesgarse a olvidar un pool.
+        return new ClaveCifradoDataSource(routing, claveCifrado);
     }
 }
