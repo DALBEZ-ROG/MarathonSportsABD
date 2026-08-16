@@ -576,20 +576,18 @@ el 14, sin ninguna pista de por qué una guía «validada» no funciona.
 periódicamente y sobre un entorno limpio de verdad.** No basta con borrar la base
 y recrearla en el mismo servidor: `fase34_seguridad_roles.sql` hace `DROP ROLE` de
 los seis roles, que son objetos del **clúster**, y lleva `mod_venta_inve` escrito
-a mano en un `REVOKE ... ON DATABASE`. Hace falta un clúster aparte:
+a mano en un `REVOKE ... ON DATABASE`. Hace falta un clúster aparte, y de eso se
+encarga un script:
 
 ```powershell
-initdb -D C:\pgtest -U postgres --pwfile=<archivo> -E UTF8
-pg_ctl -D C:\pgtest -o "-p 5434" -l C:\pgtest\server.log start
-powershell -File scripts\migracion\construir_desde_cero.ps1 -Etapa Esquema -PgPort 5434
-#   ... arrancar el backend una vez, COMO postgres ...
-powershell -File scripts\migracion\construir_desde_cero.ps1 -Etapa Datos -PgPort 5434
-pg_ctl -D C:\pgtest -m fast stop
+powershell -ExecutionPolicy Bypass -File scripts\migracion\verificar_construccion_limpia.ps1
 ```
 
-Son unos 60 s de scripts más el arranque del backend. Al terminar: 38 tablas,
-1.011.313 filas de negocio y los cuatro arneses en verde (**61/61** privilegios,
-**29/29** auditoría, **51/51** cifrado, 0 violaciones en 238 comprobaciones).
+Levanta el clúster temporal, construye las dos etapas, arranca y para el backend,
+corre los cuatro arneses y lo destruye todo. **93 segundos.** Al terminar: 38
+tablas, ~1.011.000 filas de negocio y los cuatro arneses en verde (**61/61**
+privilegios, **29/29** auditoría, **51/51** cifrado, 0 violaciones en 238
+comprobaciones).
 
 Detalle por síntoma en `SETUP_COMPLETO.md` §*Fallos que solo aparecen en un equipo
 limpio*, y el procedimiento completo en `GUIA_REPLICACION.md` §12.
@@ -605,13 +603,26 @@ Lo que se pospuso conscientemente, con el motivo. Un proyecto honesto documenta 
 **Reconstruir desde cero cada vez que se cierre una fase.** Es la única prueba
 que detecta dependencias que solo viven en la base de desarrollo, y ya ha
 encontrado dos (el DDL base y las unidades de medida) más dos fallos de entorno.
-El procedimiento está arriba y cuesta unos minutos; hacerlo al cerrar cada fase
-lo mantendría en «un fallo como mucho» en vez de acumular cuatro. Lo natural
-sería un script `verificar_construccion_limpia.ps1` que levante el clúster
-temporal, ejecute las dos etapas, corra los cuatro arneses y lo destruya — pero
-no se automatizó porque el paso 12 (arrancar el backend para que el
-`DataInitializer` cree los roles de aplicación) exige un proceso Spring vivo y
-pararlo en el momento justo, y eso es lo único de la cadena que no es un script.
+Hacerlo al cerrar cada fase lo mantiene en «un fallo como mucho» en vez de
+acumular cuatro.
+
+**Ya está automatizado:** `scripts\migracion\verificar_construccion_limpia.ps1`
+levanta un clúster temporal con `initdb`, ejecuta las dos etapas, corre los
+cuatro arneses y lo destruye. **93 segundos**, un solo comando, sin intervención.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\migracion\verificar_construccion_limpia.ps1
+```
+
+El paso 12 —arrancar el backend para que el `DataInitializer` cree los roles de
+aplicación— parecía el obstáculo, porque exige un proceso Spring vivo y pararlo
+en el momento justo. Se resuelve arrancando Maven en segundo plano, **sondeando
+la tabla `rol`** hasta que se puebla y matando el árbol de procesos con
+`taskkill /T`. La clave es esperar al **efecto observable** y no a un tiempo
+fijo: la compilación tarda lo que tarde según la máquina y según si el
+repositorio local de Maven está caliente. (`/T` es necesario porque `mvn.cmd`
+lanza un `java` hijo; matar solo al padre deja el puerto y una conexión a la base
+abiertos, y el `pg_ctl stop` del final se queda esperando.)
 
 **Costos estándar por producto.** Tabla nueva con tarifa de mano de obra y tasa de indirectos por producto, para que el costo estimado por BOM sea comparable con el costo real de una orden. Hoy el estimado solo cubre materia prima y lo declara en el campo `advertencia`. Pospuesto por ser cambio de esquema + funcionalidad nueva a pocos días de la entrega.
 

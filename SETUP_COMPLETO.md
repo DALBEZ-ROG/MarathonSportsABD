@@ -460,22 +460,26 @@ cuando algo falla.
 | 3 | `summarize_wal quedo en "off" y debe estar en "on"` | Carrera: `fase35` comprobaba el valor tras un `pg_sleep(2)` fijo, y `pg_reload_conf()` es asíncrono. Sobre un clúster recién creado dos segundos no bastan | `fase35_respaldo_prerequisitos.sql`, ahora sondea 15 s |
 | 4 | El cifrado se aplica a la base equivocada | `gestionar_clave.ps1 -Accion Ejecutar` tenía `-h localhost -p 5432` **fijo**, así que `-Base` prometía algo que no cumplía | `gestionar_clave.ps1`, ahora acepta `-PgHost`/`-PgPort` |
 
-### Si vas a probar la cadena entera, hazlo en un clúster aparte
-
-**No uses una base desechable del mismo servidor.** `fase34_seguridad_roles.sql`
-hace `DROP ROLE` de los seis roles, y los roles son objetos del **clúster**, no
-de la base; además lleva `mod_venta_inve` escrito a mano en un
-`REVOKE ... ON DATABASE`. Ejecutarlo contra `mi_base_de_pruebas` toca los roles
-de la base real.
+### Comprobar que esta guía sigue funcionando
 
 ```powershell
-initdb -D C:\pgtest -U postgres --pwfile=<archivo con la clave> -E UTF8
-pg_ctl -D C:\pgtest -o "-p 5434" -l C:\pgtest\server.log start
-# ... construir con -PgPort 5434 ...
-pg_ctl -D C:\pgtest -m fast stop
+powershell -ExecutionPolicy Bypass -File scripts\migracion\verificar_construccion_limpia.ps1
 ```
 
-La construcción completa sobre ese clúster tarda **~60 s** (más el arranque del
-backend del paso 12), y termina con 38 tablas, 1.011.313 filas de negocio y los
-cuatro arneses en verde: **61/61** privilegios, **29/29** auditoría, **51/51**
-cifrado y 0 violaciones en 238 comprobaciones de integridad.
+Levanta un clúster de PostgreSQL temporal con `initdb`, construye la base entera
+—incluido el arranque del backend del paso 12, que automatiza sondeando la tabla
+`rol`—, ejecuta los cuatro arneses y lo destruye. **93 segundos, un comando, sin
+intervención.** Termina con 38 tablas, ~1.011.000 filas de negocio y **61/61**
+privilegios, **29/29** auditoría, **51/51** cifrado y 0 violaciones en 238
+comprobaciones.
+
+**Conviene ejecutarlo al cerrar cada fase.** Un fallo ahí no significa que la
+base real esté mal: significa que el repositorio ya no basta para reconstruirla,
+que es justo lo que esta guía promete.
+
+> **No lo intentes con una base desechable del mismo servidor.**
+> `fase34_seguridad_roles.sql` hace `DROP ROLE` de los seis roles, y los roles son
+> objetos del **clúster**, no de la base; además lleva `mod_venta_inve` escrito a
+> mano en un `REVOKE ... ON DATABASE`. Ejecutarlo contra `mi_base_de_pruebas`
+> toca los roles y los privilegios de la base real. Por eso el script levanta un
+> clúster propio en otro puerto.

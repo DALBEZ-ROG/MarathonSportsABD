@@ -44,30 +44,59 @@ SELECT pg_reload_conf();
 -- ============================================================================
 DO $$
 DECLARE
-    v_sw   text;
-    v_keep text;
-    v_wl   text;
+    v_sw     text;
+    v_keep   text;
+    v_wl     text;
+    v_disco  text;
+    v_error  text;
 BEGIN
-    -- pg_reload_conf() es asincrono: hay que esperar a que el postmaster procese
-    -- la senal y este backend refresque su vista de los GUC de contexto sighup.
+    -- POR QUE NO BASTA CON MIRAR pg_settings AQUI.
     --
-    -- Antes habia un pg_sleep(2) fijo y era una carrera: sobre un cluster recien
-    -- creado, o con la maquina cargada, dos segundos no siempre bastan y el
-    -- script abortaba diciendo que summarize_wal seguia en "off" cuando en
-    -- realidad se activaba un instante despues. Se detecto construyendo el
-    -- entorno desde cero. Ahora se sondea hasta 15 segundos y solo se falla si
-    -- de verdad no se aplico.
-    FOR i IN 1..15 LOOP
-        PERFORM pg_sleep(1);
-        SELECT setting INTO v_sw FROM pg_settings WHERE name = 'summarize_wal';
-        EXIT WHEN v_sw = 'on';
-    END LOOP;
+    -- pg_reload_conf() envia SIGHUP, y un backend solo relee la configuracion
+    -- ENTRE SENTENCIAS: nunca en mitad de una. Este bloque DO es UNA sola
+    -- sentencia, asi que por mucho que duerma dentro, su vista de
+    -- pg_settings.summarize_wal NO cambia. Dormir mas no arregla nada.
+    --
+    -- Historia de este bloque, porque las dos versiones anteriores estaban mal
+    -- por el mismo motivo mal diagnosticado:
+    --   1. pg_sleep(2) fijo  -> "carrera", se creia que faltaba tiempo.
+    --   2. sondeo de 15 s    -> parecio funcionar, pero solo porque el cluster
+    --      de prueba ya traia summarize_wal=on en postgresql.auto.conf de una
+    --      ejecucion anterior, y el backend lo habia leido AL CONECTARSE.
+    -- Sobre un cluster recien creado con initdb, las dos fallan.
+    --
+    -- La comprobacion correcta tiene dos partes:
+    --   a) pg_file_settings lee los ARCHIVOS de configuracion del disco, no la
+    --      vista de esta sesion. Ahi si aparece lo que acaba de escribir
+    --      ALTER SYSTEM, y su columna 'error' delata un valor invalido.
+    --   b) pg_settings dice si YA esta en vigor en esta sesion.
+    -- Si (a) esta bien pero (b) todavia no, no hay ningun problema: el valor
+    -- entra en vigor y la proxima conexion lo vera. Eso NO es un fallo.
 
+    SELECT setting INTO v_sw   FROM pg_settings WHERE name = 'summarize_wal';
     SELECT setting INTO v_keep FROM pg_settings WHERE name = 'wal_summary_keep_time';
     SELECT setting INTO v_wl   FROM pg_settings WHERE name = 'wal_level';
 
+    SELECT f.setting, f.error INTO v_disco, v_error
+    FROM pg_file_settings f
+    WHERE f.name = 'summarize_wal'
+    ORDER BY f.seqno DESC
+    LIMIT 1;
+
+    IF v_error IS NOT NULL THEN
+        RAISE EXCEPTION 'summarize_wal quedo escrito con error: %', v_error;
+    END IF;
+
+    IF v_disco IS DISTINCT FROM 'on' THEN
+        RAISE EXCEPTION 'ALTER SYSTEM no dejo summarize_wal = on en la configuracion (valor en disco: %). El respaldo diferencial no funcionara.',
+                        COALESCE(v_disco, 'ausente');
+    END IF;
+
     IF v_sw <> 'on' THEN
-        RAISE EXCEPTION 'summarize_wal quedo en "%" y debe estar en "on". El respaldo diferencial no funcionara.', v_sw;
+        -- Escrito y valido, pero esta sesion todavia ve el valor viejo. Es lo
+        -- normal en un cluster recien arrancado y no rompe nada.
+        RAISE NOTICE 'summarize_wal = on ya esta en la configuracion; entrara en vigor en las conexiones nuevas (esta sesion todavia ve "%").', v_sw;
+        v_sw := 'on';
     END IF;
 
     IF v_wl NOT IN ('replica', 'logical') THEN
