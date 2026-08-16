@@ -5,13 +5,44 @@
 --
 --     psql -U postgres -d mod_venta_inve -f fase40_pruebas_auditoria.sql
 --
--- NO MODIFICA DATOS: cada intento corre en una subtransaccion que SIEMPRE se
--- revierte, incluso cuando la operacion tiene exito (se fuerza un error
--- centinela), igual que el arnes de la F34.
+-- NO MODIFICA DATOS. Hay DOS mecanismos, y hacen falta los dos:
+--
+--   1. Las pruebas de privilegios corren dentro de pg_temp.probar, que abre una
+--      subtransaccion y la revierte SIEMPRE, incluso cuando la operacion tiene
+--      exito (se fuerza un error centinela). Igual que el arnes de la F34.
+--
+--   2. El script entero va dentro de una transaccion explicita: BEGIN aqui
+--      abajo, ROLLBACK en la ultima linea.
+--
+-- POR QUE HIZO FALTA EL SEGUNDO (corregido en la F41).
+-- El archivo terminaba en ROLLBACK pero NO abria transaccion, y psql trabaja en
+-- autocommit: cada sentencia de nivel superior —incluido cada bloque DO— se
+-- confirmaba sola, asi que el ROLLBACK final no tenia nada que revertir. La
+-- salvaguarda (1) cubre las pruebas de privilegios, pero NO los bloques DO que
+-- hacen cambios reales para comprobar que la auditoria los registra.
+--
+-- Efecto medido, POR CADA EJECUCION del arnes:
+--   - usuario #1 (el administrador) quedaba con estado='inactivo' y no podia
+--     iniciar sesion;
+--   - su contrasena quedaba en 61 caracteres terminados en 'AAA' (un hash
+--     BCrypt son exactamente 60), con lo que el login era irrecuperable;
+--   - se borraba una fila de rol_permiso, una distinta en cada corrida.
+--
+-- Se detecto en la F41 porque el login de administrador fallaba en la prueba
+-- funcional, y se reparo con los datos que la propia auditoria_cambios habia
+-- registrado. Detalle en CIFRADO.md, seccion 10.
+--
+-- NOTA: si ademas se lanza con `psql -1`, psql avisa de que ya hay una
+-- transaccion en curso. Es inofensivo y redundante: con el BEGIN de abajo, el
+-- -1 ya no hace falta.
 -- ============================================================================
 
 \set ON_ERROR_STOP on
 \pset pager off
+
+-- Todo el arnes en una sola transaccion. Sin este BEGIN, el ROLLBACK del final
+-- es decorativo.
+BEGIN;
 
 \echo ''
 \echo '=== FASE 40: pruebas de la auditoria de cambios ==='
@@ -216,5 +247,10 @@ BEGIN
     END IF;
 END $$;
 
--- Todo lo anterior corrio dentro de la transaccion de psql: se revierte entera.
+-- Revierte la transaccion abierta con el BEGIN de la cabecera: las filas de
+-- auditoria generadas por las pruebas, el usuario desactivado y la fila de
+-- rol_permiso borrada vuelven a su sitio.
+--
+-- Si alguna prueba fallo, el RAISE de arriba ya aborto la transaccion y psql
+-- salio por ON_ERROR_STOP; la reversion ocurre igual al cerrar la conexion.
 ROLLBACK;
