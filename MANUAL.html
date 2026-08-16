@@ -1,0 +1,1084 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manual Marathon Sports</title>
+<style>:root{color-scheme:light dark;--md-bg:#fff;--md-text:rgba(0,0,0,.8);--md-muted:rgba(0,0,0,.6);--md-fill:rgba(0,0,0,.04);--md-fill-strong:rgba(0,0,0,.06);--md-rule:rgba(0,0,0,.1);--md-rule-strong:rgba(0,0,0,.16);--md-link:hsl(210 100% 45%)}@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){--md-bg:#0d0d0d;--md-text:rgba(255,255,255,.85);--md-muted:rgba(255,255,255,.6);--md-fill:rgba(255,255,255,.06);--md-fill-strong:rgba(255,255,255,.09);--md-rule:rgba(255,255,255,.14);--md-rule-strong:rgba(255,255,255,.22);--md-link:hsl(210 100% 72%)}}:root[data-theme="dark"]{color-scheme:dark;--md-bg:#0d0d0d;--md-text:rgba(255,255,255,.85);--md-muted:rgba(255,255,255,.6);--md-fill:rgba(255,255,255,.06);--md-fill-strong:rgba(255,255,255,.09);--md-rule:rgba(255,255,255,.14);--md-rule-strong:rgba(255,255,255,.22);--md-link:hsl(210 100% 72%)}:root[data-theme="light"]{color-scheme:light}@media print{:root,:root[data-theme="dark"]{color-scheme:light;--md-bg:#fff;--md-text:rgba(0,0,0,.8);--md-muted:rgba(0,0,0,.6);--md-fill:rgba(0,0,0,.04);--md-fill-strong:rgba(0,0,0,.06);--md-rule:rgba(0,0,0,.1);--md-rule-strong:rgba(0,0,0,.16);--md-link:hsl(210 100% 45%)}}body{background:var(--md-bg);color:var(--md-text);max-width:720px;margin:0 auto;padding:32px;display:flex;flex-direction:column;gap:10px;font:14px/1.55 -apple-system,BlinkMacSystemFont,'SF Pro','Segoe UI',sans-serif;overflow-wrap:break-word}body>:first-child{margin-top:0}h1,h2,h3,h4,h5,h6{margin:6px 0 0;line-height:1.25;font-weight:600;text-wrap:balance}h1{font-size:1.35em}h2{font-size:1.15em;color:var(--md-muted)}h3,h4,h5,h6{font-size:1em}p,ul,ol,blockquote,table,pre,hr{margin:0}strong{font-weight:600}a{color:var(--md-link);text-decoration:none}a:hover{text-decoration:underline}ul,ol{display:flex;flex-direction:column;gap:6px;padding-left:22px}ul{list-style:disc}ol{list-style:decimal}:is(li,td,th)>*+:is(p,ul,ol,blockquote){margin-top:6px}blockquote{display:flex;flex-direction:column;gap:10px;border-left:2px solid var(--md-rule);padding-left:10px;color:var(--md-muted)}:not(pre)>code{background:var(--md-fill);padding:1px 3px;border-radius:4px;font:.92em 'SF Mono',ui-monospace,Menlo,Consolas,monospace}a>code{background:none;color:inherit}pre{background:var(--md-fill);padding:10px 12px;border-radius:6px;overflow-x:auto;font:12px/1.5 'SF Mono',ui-monospace,Menlo,Consolas,monospace;margin-block:4px}pre code{background:none;padding:0;font:inherit}table{width:100%;border-collapse:separate;border-spacing:2px;font:inherit}th,td{padding:6px 8px;border-radius:3px;text-align:left;vertical-align:top}th{background:var(--md-fill-strong);font-weight:600}td{background:var(--md-fill)}:is(th,td) :not(pre)>code{background:transparent}hr{border:0;border-top:1px solid var(--md-rule-strong);margin-block:10px}img{max-width:100%;height:auto;border-radius:4px}
+body{max-width:820px}
+@media print{body{max-width:none;padding:0}}
+</style>
+</head>
+<body>
+
+<h1>Manual de operación — Marathon Sports / <code>mod_venta_inve</code></h1>
+<p>Todo lo que hay que saber para arrancar, operar, auditar y recuperar este
+sistema. Cubre las fases 33 a 42.</p>
+<p><strong>Estado:</strong> proyecto cerrado. 7 de los 8 requisitos en ✅; el restante es una
+decisión de diseño argumentada, no trabajo pendiente.</p>
+<hr>
+<h2>0. Cómo usar este manual</h2>
+<p>Este documento es el <strong>punto de entrada</strong>. Cada área tiene además un documento
+propio con el detalle y las mediciones:</p>
+<table>
+<thead>
+<tr>
+<th>Si necesitas…</th>
+<th>Ve a</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Arrancar el sistema hoy</td>
+<td>§2 de este manual</td>
+</tr>
+<tr>
+<td>Entender el modelo de seguridad</td>
+<td><code>SEGURIDAD_ROLES.md</code></td>
+</tr>
+<tr>
+<td>Saber qué está cifrado y cómo</td>
+<td><code>CIFRADO.md</code></td>
+</tr>
+<tr>
+<td>Restaurar un respaldo</td>
+<td><code>ESTRATEGIA_RESPALDO.md</code> §9</td>
+</tr>
+<tr>
+<td>Justificar un parámetro del servidor</td>
+<td><code>CONFIGURACION_BD.md</code></td>
+</tr>
+<tr>
+<td>Ver la trazabilidad de los 8 requisitos</td>
+<td><code>AUDITORIA_FINAL_8_REQUISITOS.md</code></td>
+</tr>
+<tr>
+<td>Entender la auditoría de cambios</td>
+<td><code>AUDITORIA.md</code></td>
+</tr>
+<tr>
+<td>Reproducir el estudio de rendimiento</td>
+<td><code>OPTIMIZACION_CONSULTAS_V2.md</code></td>
+</tr>
+<tr>
+<td>Montar la base desde cero</td>
+<td><code>SETUP_COMPLETO.md</code></td>
+</tr>
+<tr>
+<td>Hacer la demostración</td>
+<td><code>DEMO_CHECKLIST.md</code></td>
+</tr>
+<tr>
+<td>Saber qué quedó a medias y por qué</td>
+<td><code>DEUDA_TECNICA.md</code></td>
+</tr>
+</tbody></table>
+<p><strong>Si algo no funciona, salta al §10 (Cuando algo falla).</strong> Ahí están todas las
+trampas que ya nos costaron tiempo una vez.</p>
+<hr>
+<h2>1. El sistema de un vistazo</h2>
+<h3>Cifras</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th align="right"></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Tablas</td>
+<td align="right">38</td>
+</tr>
+<tr>
+<td>Filas</td>
+<td align="right">1.041.830</td>
+</tr>
+<tr>
+<td>Tamaño de la base</td>
+<td align="right">228 MB</td>
+</tr>
+<tr>
+<td>Índices</td>
+<td align="right">122</td>
+</tr>
+<tr>
+<td>Triggers (todos activos)</td>
+<td align="right">30</td>
+</tr>
+<tr>
+<td>Privilegios de columna</td>
+<td align="right">2.155</td>
+</tr>
+<tr>
+<td>Usuarios de PostgreSQL</td>
+<td align="right">6</td>
+</tr>
+<tr>
+<td>Roles de PostgreSQL</td>
+<td align="right">6</td>
+</tr>
+<tr>
+<td>Pruebas automatizadas</td>
+<td align="right">227</td>
+</tr>
+</tbody></table>
+<h3>Piezas</h3>
+<pre><code>Angular 17  ──HTTP/JWT──▶  Spring Boot 3 (Java 17)  ──TLS 1.3──▶  PostgreSQL 18.3
+                                    │                                    │
+                          RoleRoutingDataSource              6 usuarios / 6 roles
+                          (un pool por rol)                  privilegios por columna
+                                    │                        pgcrypto · auditoría
+                          ClaveCifradoDataSource                    │
+                          (publica app.crypto_key)          C:\respaldos\marathon
+                                                            + disco externo USB
+</code></pre>
+<h3>Dónde está cada cosa</h3>
+<table>
+<thead>
+<tr>
+<th>Ruta</th>
+<th>Qué es</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>marathon-backend/</code></td>
+<td>Backend Spring Boot</td>
+</tr>
+<tr>
+<td><code>marathon-frontend/</code></td>
+<td>Frontend Angular</td>
+</tr>
+<tr>
+<td><code>marathon-backend/sql/</code></td>
+<td>Scripts de todas las fases y arneses de prueba</td>
+</tr>
+<tr>
+<td><code>scripts/backup/</code></td>
+<td>Respaldo, verificación, restauración, tareas programadas</td>
+</tr>
+<tr>
+<td><code>scripts/cifrado/</code></td>
+<td>Clave, arranque, TLS, búsqueda de filtraciones</td>
+</tr>
+<tr>
+<td><code>C:\respaldos\marathon\</code></td>
+<td>Respaldos (fuera del repo, fuera de OneDrive)</td>
+</tr>
+<tr>
+<td><code>C:\ProgramData\MarathonSports\crypto\</code></td>
+<td>Almacén DPAPI de la clave de cifrado</td>
+</tr>
+<tr>
+<td><code>C:\ProgramData\MarathonSports\tls\</code></td>
+<td>Certificado para <code>verify-full</code></td>
+</tr>
+<tr>
+<td><code>C:\Program Files\PostgreSQL\18\</code></td>
+<td>Servidor y binarios</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>2. Arrancar y operar</h2>
+<h3>Arrancar el backend — la forma correcta</h3>
+<pre><code class="language-powershell">powershell -ExecutionPolicy Bypass -File scripts\cifrado\iniciar_backend.ps1
+</code></pre>
+<blockquote>
+<p><strong>No lo arranques con <code>mvn spring-boot:run</code> a secas.</strong> Arrancará igual, pero
+<strong>sin la clave de cifrado</strong>: los correos, teléfonos y direcciones de clientes y
+proveedores se mostrarán <strong>vacíos</strong> y solo quedará un <code>WARN</code> en el registro.
+El script descifra la clave del almacén DPAPI y se la pasa al proceso Java.</p>
+</blockquote>
+<p>El arranque tarda ~4 s. Señales de que fue bien:</p>
+<pre><code>c.m.config.ClaveCifradoDataSource : Clave de cifrado cargada (44 caracteres).
+c.marathon.MarathonBackendApplication : Started MarathonBackendApplication in 4.0 s
+</code></pre>
+<h3>Entorno de la máquina</h3>
+<p>Cosas que no se deducen leyendo el repositorio:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>PostgreSQL</td>
+<td><strong>18.3</strong>, servicio <code>postgresql-x64-18</code>, binarios en <code>C:\Program Files\PostgreSQL\18\bin</code></td>
+</tr>
+<tr>
+<td>Java</td>
+<td>El <code>java</code> del PATH es <strong>1.8 y no sirve</strong>. Hay que forzar <code>JAVA_HOME=C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot</code></td>
+</tr>
+<tr>
+<td>Maven</td>
+<td><strong>No hay <code>mvnw</code></strong>. Está fuera del proyecto: <code>...\apache-maven-3.9.16\bin\mvn.cmd</code></td>
+</tr>
+<tr>
+<td>Perfil activo</td>
+<td><code>local</code> → <strong><code>application-local.properties</code> manda sobre el <code>.env</code></strong></td>
+</tr>
+<tr>
+<td>Puerto 5432</td>
+<td>Producción</td>
+</tr>
+<tr>
+<td>Puerto <strong>5433</strong></td>
+<td><strong>Respaldo congelado. No se toca jamás.</strong></td>
+</tr>
+</tbody></table>
+<h3>Credenciales</h3>
+<p><strong>No hay contraseñas en este manual y no debe haberlas.</strong> Viven en:</p>
+<ul>
+<li><code>.env</code> (gitignored) — dos juegos separados: <code>DB_USER</code>/<code>DB_PASSWORD</code> para la
+aplicación (<code>usr_admin_marathon</code>) y <code>PG_SUPERUSER</code>/<code>PG_SUPERUSER_PASSWORD</code>
+para los respaldos (<code>postgres</code>, porque <code>pg_basebackup</code> exige <code>REPLICATION</code> y
+la cuenta web no debe tenerlo).</li>
+<li><code>application-local.properties</code> (gitignored) — credenciales de los seis pools.</li>
+<li>Usuarios de demostración de la aplicación: <code>DEMO_CHECKLIST.md</code>. El de
+administrador es <code>admin@marathon.com</code>.</li>
+</ul>
+<h3>Conectarse por psql</h3>
+<pre><code class="language-powershell">$env:PGPASSWORD = &#39;&lt;PG_SUPERUSER_PASSWORD del .env&gt;&#39;
+&amp; &#39;C:\Program Files\PostgreSQL\18\bin\psql.exe&#39; -h localhost -p 5432 -U postgres -d mod_venta_inve
+</code></pre>
+<p>Para ejecutar SQL <strong>que necesite descifrar</strong> datos personales, no uses <code>psql</code>
+directamente: usa el envoltorio que publica la clave en la sesión.</p>
+<pre><code class="language-powershell">powershell -File scripts\cifrado\gestionar_clave.ps1 -Accion Ejecutar -Script &lt;ruta.sql&gt;
+</code></pre>
+<hr>
+<h2>3. Seguridad: usuarios, roles y privilegios</h2>
+<p>Detalle completo en <code>SEGURIDAD_ROLES.md</code>.</p>
+<h3>El modelo</h3>
+<p><strong>Seis roles de grupo (<code>NOLOGIN</code>)</strong> que contienen los privilegios, y <strong>seis
+usuarios (<code>LOGIN</code>)</strong> que son miembros de ellos:</p>
+<table>
+<thead>
+<tr>
+<th>Rol</th>
+<th>Usuario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>rol_administrador</code></td>
+<td><code>usr_admin_marathon</code></td>
+</tr>
+<tr>
+<td><code>rol_supervisor</code></td>
+<td><code>usr_supervisor_marathon</code></td>
+</tr>
+<tr>
+<td><code>rol_operador_bodega</code></td>
+<td><code>usr_bodega_marathon</code></td>
+</tr>
+<tr>
+<td><code>rol_operador_pedidos</code></td>
+<td><code>usr_pedidos_marathon</code></td>
+</tr>
+<tr>
+<td><code>rol_encargado_compras</code></td>
+<td><code>usr_compras_marathon</code></td>
+</tr>
+<tr>
+<td><code>rol_encargado_produccion</code></td>
+<td><code>usr_produccion_marathon</code></td>
+</tr>
+</tbody></table>
+<p>Ninguno es superusuario, ninguno tiene <code>CREATEROLE</code> ni <code>BYPASSRLS</code>. <code>PUBLIC</code>
+está revocado sobre las 38 tablas.</p>
+<h3>Un pool de conexiones por rol (F37)</h3>
+<p>Hasta la F36 toda la aplicación se conectaba como administrador: el modelo de
+privilegios existía pero solo separaba «la aplicación» de «psql». Un operador de
+bodega llegaba a la base con privilegios de administrador y lo único que lo
+frenaba era <code>SecurityConfig</code>.</p>
+<p><code>RoleRoutingDataSource</code> elige el pool según el rol del usuario autenticado.
+<strong>Falla cerrado</strong>: si un usuario autenticado tiene un rol sin pool configurado,
+lanza excepción en lugar de caer al pool del administrador — lo contrario
+convertiría un rol mal configurado en una escalada silenciosa.</p>
+<p>Tres momentos usan el pool por defecto a propósito: el arranque, el login (que
+tiene que leer <code>usuario</code> antes de saber quién es quién) y el filtro JWT.</p>
+<h3>Privilegios por columna</h3>
+<p>2.155 privilegios de columna. Ejemplo real: <code>rol_operador_bodega</code> puede leer
+<code>cliente</code> pero no escribirlo; <code>rol_encargado_compras</code> no puede leer <code>cliente</code> en
+absoluto.</p>
+<blockquote>
+<p><strong>Un privilegio de columna no protege el contenido cifrado.</strong> Tener <code>SELECT</code>
+sobre <code>correo_enc</code> devuelve <code>\x c30d0407...</code>. Para leerlo hace falta <em>además</em>
+la clave en la sesión, y eso solo lo hace la aplicación. Son dos capas
+independientes: <code>GRANT</code> decide si puedes seleccionar la columna, la clave
+decide si el contenido significa algo.</p>
+</blockquote>
+<h3>Tres trampas del ORM que encontramos</h3>
+<p>Ninguna se ve leyendo el código: solo aparecen ejercitando la aplicación con el
+rol real.</p>
+<ol>
+<li><strong><code>@DynamicUpdate</code> (F37).</strong> Un <code>GRANT UPDATE(columna)</code> no sirve de nada si
+Hibernate emite <code>UPDATE</code> con <strong>todas</strong> las columnas: el privilegio se evalúa
+sobre las columnas de la sentencia, no sobre las que cambiaron.</li>
+<li><strong><code>RETURNING</code> invisible (F40).</strong> <code>log_accion.id_log</code> es <code>GENERATED ALWAYS AS IDENTITY</code>, así que Hibernate recupera la clave con <code>getGeneratedKeys()</code>, que
+el driver implementa añadiendo <code>RETURNING</code>. <strong><code>RETURNING</code> exige <code>SELECT</code></strong>, y
+bodega y pedidos tienen <code>INSERT</code> pero no <code>SELECT</code> sobre la bitácora — a
+propósito. Se resolvió con un <code>INSERT</code> nativo sin <code>RETURNING</code>, sin conceder
+<code>SELECT</code>.</li>
+<li><strong><code>@Formula</code> para leer columnas cifradas (F41).</strong> Ver §4.</li>
+</ol>
+<hr>
+<h2>4. Cifrado</h2>
+<p>Detalle completo en <code>CIFRADO.md</code>.</p>
+<h3>Qué está cifrado y qué no</h3>
+<table>
+<thead>
+<tr>
+<th>Dato</th>
+<th>Estado</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>cliente.correo</code> / <code>telefono</code> / <code>direccion</code></td>
+<td><strong>Cifrado</strong> (<code>pgp_sym_encrypt</code>)</td>
+</tr>
+<tr>
+<td><code>proveedor.correo</code> / <code>telefono</code> / <code>direccion</code> / <code>contacto</code></td>
+<td><strong>Cifrado</strong></td>
+</tr>
+<tr>
+<td><code>cliente.correo_hash</code></td>
+<td>HMAC-SHA256 — repone el <code>UNIQUE(correo)</code></td>
+</tr>
+<tr>
+<td><code>usuario.password</code></td>
+<td>Hash BCrypt (no cifrado: no debe poder revertirse)</td>
+</tr>
+<tr>
+<td><strong><code>cliente.nombre</code> y <code>apellido</code></strong></td>
+<td><strong>EN CLARO</strong></td>
+</tr>
+<tr>
+<td><strong><code>usuario.correo</code></strong></td>
+<td><strong>EN CLARO</strong></td>
+</tr>
+<tr>
+<td>Pedidos, importes, inventario, bitácoras</td>
+<td>EN CLARO</td>
+</tr>
+</tbody></table>
+<p><strong>Las exclusiones son decisiones, no olvidos.</strong> Cifrar <code>nombre</code>/<code>apellido</code>
+rompería la búsqueda por nombre, el orden alfabético y el listado — funciones
+reales de la aplicación. <code>usuario.correo</code> es la credencial de acceso: se consulta
+en cada login y en cada petición con JWT.</p>
+<blockquote>
+<p>La regla que se siguió: <strong>se cifra lo que la aplicación solo necesita mostrar,
+no lo que necesita consultar.</strong></p>
+</blockquote>
+<h3>Cómo funciona en el código</h3>
+<p>Las columnas en claro <strong>ya no existen</strong>. En su lugar hay <code>*_enc</code> de tipo <code>bytea</code>.
+Las entidades JPA leen mediante <code>@Formula</code>, de <strong>solo lectura</strong>:</p>
+<pre><code class="language-java">@Formula(&quot;fn_descifrar(correo_enc)&quot;)
+private String correo;
+</code></pre>
+<p>Así <code>findAll</code>, los filtros, la paginación y los joins siguen funcionando sin
+tocarlos. Las escrituras pasan por <strong><code>CifradoService</code></strong>, que emite el
+<code>UPDATE ... fn_cifrar(?)</code> con parámetros enlazados y refresca la entidad.</p>
+<p><strong>La clave nunca entra en el JVM para cifrar</strong>: el cifrado ocurre dentro de
+PostgreSQL.</p>
+<h3>La clave</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Qué es</td>
+<td>32 bytes de un generador criptográfico, en base64 (44 caracteres)</td>
+</tr>
+<tr>
+<td>Dónde vive</td>
+<td>Blob DPAPI de máquina en <code>C:\ProgramData\MarathonSports\crypto\clave.dpapi</code></td>
+</tr>
+<tr>
+<td>Variable</td>
+<td><code>MARATHON_CRYPTO_KEY_PROTECTED</code> (ámbito <strong>máquina</strong>)</td>
+</tr>
+<tr>
+<td>Huella</td>
+<td><code>472b43907ba05386</code></td>
+</tr>
+<tr>
+<td>Cómo llega a la sesión</td>
+<td><code>set_config(&#39;app.crypto_key&#39;, ?, false)</code> <strong>con parámetro enlazado</strong>, en cada conexión</td>
+</tr>
+</tbody></table>
+<p><strong>Por qué parámetro enlazado y no literal:</strong> con <code>log_statement = mod</code> y
+<code>log_parameter_max_length = -1</code>, una sentencia con la clave escrita dentro
+acabaría en <code>postgresql-%a.log</code> en texto plano durante siete días.</p>
+<p>Comandos:</p>
+<pre><code class="language-powershell"># ver estado sin revelar la clave (imprime solo la huella)
+powershell -File scripts\cifrado\gestionar_clave.ps1 -Accion Estado
+
+# ejecutar SQL con la clave publicada en la sesión
+powershell -File scripts\cifrado\gestionar_clave.ps1 -Accion Ejecutar -Script &lt;ruta.sql&gt;
+
+# exportar copia de custodia
+powershell -File scripts\cifrado\gestionar_clave.ps1 -Accion Escrow -Destino &lt;ruta&gt;
+
+# comprobar que no se filtró a ningún registro
+powershell -File scripts\cifrado\buscar_filtraciones.ps1
+</code></pre>
+<h3>Custodia y recuperación</h3>
+<blockquote>
+<p><strong>Si se pierde la clave, los datos cifrados son irrecuperables.</strong> No hay puerta
+trasera, y los respaldos contienen el dato <strong>ya cifrado</strong>: restaurar sin la
+clave devuelve los mismos <code>bytea</code> ilegibles.</p>
+<p>Peor: <strong>DPAPI <code>LocalMachine</code> muere con la máquina.</strong> El blob no se puede
+descifrar en otro equipo.</p>
+</blockquote>
+<p>El script de escrow <strong>rechaza tres destinos</strong>: el repositorio (acabaría en un
+commit), <code>C:\respaldos\marathon</code> (la clave viajaría con los datos que cifra) y
+<strong>cualquier ruta de OneDrive</strong> (se sincronizaría a la nube y quedaría en el
+historial de versiones aunque después se borre el archivo). En este equipo el
+Escritorio y Documentos <strong>están dentro de OneDrive</strong>.</p>
+<p><strong>Qué pasa exactamente si falta la clave</strong> (ensayado, no supuesto):</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>¿Arranca la aplicación?</td>
+<td><strong>Sí</strong>, con un <code>WARN</code></td>
+</tr>
+<tr>
+<td><code>fn_descifrar</code></td>
+<td>Devuelve <code>NULL</code></td>
+</tr>
+<tr>
+<td>Lectura</td>
+<td>Nombre, ciudad y estado correctos; contacto en <code>null</code></td>
+</tr>
+<tr>
+<td>Escritura</td>
+<td><strong>Rechazada</strong> en voz alta; la transacción revierte entera</td>
+</tr>
+<tr>
+<td>¿Filas a medias?</td>
+<td><strong>No.</strong> Cero</td>
+</tr>
+</tbody></table>
+<p>Degrada, no cae. Y no corrompe.</p>
+<h3>TLS</h3>
+<p><code>ssl = on</code> con certificado autofirmado; el cliente usa <strong><code>sslmode=verify-full</code></strong>
+con <code>sslrootcert</code> apuntando al certificado (no se tocó el truststore del JDK,
+que se habría perdido en la primera actualización de Java).</p>
+<p>Resultado verificado: <strong>TLSv1.3 / <code>TLS_AES_256_GCM_SHA384</code></strong>, y rechaza una CA
+ajena con <code>certificate verify failed</code>. El tráfico va cifrado <strong>y el servidor
+queda autenticado</strong>.</p>
+<h3>Qué costó cifrar</h3>
+<table>
+<thead>
+<tr>
+<th>Capacidad</th>
+<th>Estado</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Unicidad del correo</td>
+<td><strong>Repuesta</strong> con HMAC + índice único (0,009 ms)</td>
+</tr>
+<tr>
+<td>Validación de formato</td>
+<td><strong>Movida</strong> a <code>CifradoService</code> (era un <code>CHECK</code>)</td>
+</tr>
+<tr>
+<td>Búsqueda parcial <code>LIKE</code></td>
+<td><strong>Perdida</strong></td>
+</tr>
+<tr>
+<td>Ordenamiento</td>
+<td><strong>Perdido</strong></td>
+</tr>
+<tr>
+<td>Lectura</td>
+<td>≈0,2–0,35 ms por dato descifrado</td>
+</tr>
+<tr>
+<td>Tamaño</td>
+<td>+65 bytes por valor</td>
+</tr>
+</tbody></table>
+<p><strong>La lección de rendimiento:</strong> <code>GET /api/clientes/activos</code> pasó a tardar
+<strong>6.038 ms</strong> al cifrar, porque descifraba 13.860 datos personales para un
+selector que solo muestra <code>nombre apellido</code>. Con una proyección que selecciona
+solo lo que se usa: <strong>154 ms</strong>. No descifres lo que no vas a mostrar — es a la
+vez lo rápido y lo correcto en protección de datos.</p>
+<hr>
+<h2>5. Auditoría</h2>
+<p>Detalle completo en <code>AUDITORIA.md</code>.</p>
+<p><strong>Cuatro mecanismos</strong>, cada uno cubriendo lo que los otros no:</p>
+<table>
+<thead>
+<tr>
+<th>Mecanismo</th>
+<th>Capa</th>
+<th>Qué registra</th>
+<th>Alcance</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Registro nativo</td>
+<td>Servidor</td>
+<td>Toda sentencia de modificación, con usuario, origen y <code>xid</code></td>
+<td>38 tablas</td>
+</tr>
+<tr>
+<td><code>log_accion</code></td>
+<td>Aplicación</td>
+<td>Operación de negocio legible + usuario</td>
+<td>22 servicios</td>
+</tr>
+<tr>
+<td><code>historial_inventario</code></td>
+<td>Trigger</td>
+<td>Stock anterior y nuevo</td>
+<td><code>inventario</code></td>
+</tr>
+<tr>
+<td><code>auditoria_cambios</code></td>
+<td>Trigger</td>
+<td><strong>Campo a campo</strong>, con dos usuarios y <code>txid</code></td>
+<td>5 tablas críticas</td>
+</tr>
+</tbody></table>
+<h3><code>auditoria_cambios</code></h3>
+<p>Registra <strong>una fila por campo que cambió</strong>, no un volcado JSON de la fila entera:
+una auditoría en la que hay que diffear dos JSON a mano no responde «qué valor
+tenía antes» sin trabajo extra. El <code>txid</code> reagrupa los cambios de un mismo acto.</p>
+<p><strong>Append-only incluso para el administrador.</strong> El administrador <em>lee</em> su propia
+auditoría; no la reescribe. Solo <code>postgres</code> puede purgar. Los seis roles generan
+filas igualmente, mediante una función <code>SECURITY DEFINER</code> con <code>search_path</code>
+fijado dentro.</p>
+<h3>Las dos columnas de usuario</h3>
+<p>Es la pieza que compensa que haya una cuenta de PostgreSQL <strong>por rol</strong> y no por
+persona:</p>
+<ul>
+<li><strong><code>usuario_bd</code></strong> (<code>session_user</code>) dice <em>el rol</em>: «un operador de bodega», no cuál.</li>
+<li><strong><code>usuario_app</code></strong> dice <em>la persona</em>, pero solo si la aplicación fijó
+<code>app.current_user_id</code>.</li>
+</ul>
+<blockquote>
+<p><strong><code>usuario_app</code> nulo con <code>usuario_bd</code> presente = un cambio hecho fuera de la
+aplicación.</strong> Por psql, por un script, o por alguien con la credencial. Es el
+caso que más le interesa a una auditoría, y por eso el nulo no se rellena con
+un valor por defecto: significa algo.</p>
+</blockquote>
+<p><strong>Campos enmascarados</strong> (se registra que cambiaron, nunca a qué): <code>password</code> y
+todas las columnas cifradas. Un hash BCrypt en la bitácora es material para un
+ataque offline.</p>
+<hr>
+<h2>6. Respaldos</h2>
+<p>Detalle completo en <code>ESTRATEGIA_RESPALDO.md</code>.</p>
+<h3>Esquema</h3>
+<p><code>pg_basebackup</code> <strong>completo</strong> semanal + <strong>diferencial</strong> diario, fusionados con
+<code>pg_combinebackup</code> al restaurar. Manifiesto SHA-256 y verificación con
+<code>pg_verifybackup</code> en <strong>cada</strong> corrida — un respaldo que no se verifica no es un
+respaldo, es una suposición.</p>
+<h3>Regla 3-2-1</h3>
+<table>
+<thead>
+<tr>
+<th>Requisito</th>
+<th>Cómo se cumple</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>3 copias</td>
+<td>original + completo + diferencial + réplica externa</td>
+</tr>
+<tr>
+<td>2 medios</td>
+<td>disco interno + <strong>disco externo USB</strong></td>
+</tr>
+<tr>
+<td>1 fuera del sitio</td>
+<td>el USB sale del equipo</td>
+</tr>
+</tbody></table>
+<p>El destino secundario se localiza por <strong>etiqueta de volumen</strong> (<code>MARATHON_BK</code>),
+no por letra: Windows no garantiza que el mismo pendrive reciba siempre la misma
+letra, y un respaldo configurado contra <code>E:</code> empieza a copiar en el disco
+equivocado el día que <code>E:</code> es otra cosa.</p>
+<p><strong>Con el USB desconectado el respaldo local se completa y se verifica igual.</strong>
+El código de salida lo distingue:</p>
+<table>
+<thead>
+<tr>
+<th>Código</th>
+<th>Significado</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>0</code></td>
+<td>Local <strong>y</strong> réplica externa correctos</td>
+</tr>
+<tr>
+<td><code>10</code></td>
+<td>Local correcto, <strong>réplica no hecha</strong> (3-2-1 incompleta)</td>
+</tr>
+<tr>
+<td><code>1</code>–<code>5</code></td>
+<td>Fallo del respaldo</td>
+</tr>
+</tbody></table>
+<p><strong>Cifra el USB con BitLocker To Go.</strong> Es el medio más fácil de robar de toda la
+instalación. El cifrado de la F41 protege correos y teléfonos, pero <strong>nombre,
+apellido, pedidos e importes van en claro</strong> en el respaldo. El cifrado de
+columnas y el de volumen resuelven problemas distintos y no se sustituyen.</p>
+<h3>Tareas programadas</h3>
+<p>Registradas en <code>\MarathonSports\</code>, corriendo como <code>SYSTEM</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Tarea</th>
+<th>Horario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>Marathon_Respaldo_Full</code></td>
+<td>domingos 23:00</td>
+</tr>
+<tr>
+<td><code>Marathon_Respaldo_Diferencial</code></td>
+<td>lunes a sábado 22:00</td>
+</tr>
+<tr>
+<td><code>Marathon_Respaldo_Aplicacion</code></td>
+<td>domingos 23:30</td>
+</tr>
+<tr>
+<td><code>Marathon_Verificar_Respaldos</code></td>
+<td>diario 08:00</td>
+</tr>
+</tbody></table>
+<p><code>verificar_respaldos.ps1</code> <strong>avisa por ausencia</strong>: el fallo más peligroso no es
+que un respaldo dé error —eso se ve en el log— sino que el job <strong>deje de
+ejecutarse</strong> y nadie lo note, porque entonces no hay ningún error que mirar.</p>
+<h3>Restaurar</h3>
+<pre><code class="language-powershell"># ensayo (no destructivo). OJO: pasar siempre un puerto distinto de 5433
+powershell -File scripts\backup\restaurar.ps1 -Modo Prueba -PuertoPrueba 5434
+
+# desde el disco externo
+powershell -File scripts\backup\restaurar.ps1 -Modo Prueba -Desde Secundario -PuertoPrueba 5434
+
+# desastre real (DESTRUCTIVO)
+powershell -File scripts\backup\restaurar.ps1 -Modo Produccion -Confirmar
+</code></pre>
+<p><strong>RTO medido: 15 s</strong> (objetivo 120 min), restaurando 165.000 pedidos y 450.000
+detalles desde el destino secundario. El modo Producción no borra el directorio
+actual: lo renombra con sufijo <code>.reemplazado_&lt;fecha&gt;</code> para poder volver atrás.</p>
+<hr>
+<h2>7. Rendimiento</h2>
+<p>Detalle en <code>OPTIMIZACION_CONSULTAS_V2.md</code> y <code>CONFIGURACION_BD.md</code>.</p>
+<h3>El protocolo de medición</h3>
+<p><code>EXPLAIN (ANALYZE, BUFFERS)</code>, <strong>3 ejecuciones, se reporta la 3.ª</strong> (caché
+caliente). Las 18 consultas del catálogo están <strong>extraídas del código</strong>, no
+inventadas: cada una cita la clase Java y el método del que sale.</p>
+<blockquote>
+<p><strong>El ruido medido entre corridas idénticas es del 12,7 %.</strong> Nada por debajo de
+eso se llama mejora ni degradación. Es lo que evita confundir varianza con
+resultado — y ya nos salvó una vez de reportar como regresión una lectura
+atípica de 140 ms que al repetirse volvió a 35 ms con el mismo plan.</p>
+</blockquote>
+<h3>Parámetros ajustados</h3>
+<table>
+<thead>
+<tr>
+<th>Parámetro</th>
+<th>Valor</th>
+<th>Por qué</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>random_page_cost</code></td>
+<td>1.1</td>
+<td>SSD: el acceso aleatorio no cuesta 4× el secuencial</td>
+</tr>
+<tr>
+<td><code>effective_cache_size</code></td>
+<td>12 GB</td>
+<td>~75 % de la RAM</td>
+</tr>
+<tr>
+<td><code>log_min_duration_statement</code></td>
+<td>20 ms</td>
+<td>~10× el p99 medido (2,083 ms); captura el 0,55 % del tráfico</td>
+</tr>
+</tbody></table>
+<p>Los que siguen en su valor por defecto (<code>work_mem</code>, <code>wal_level</code>,
+<code>max_connections</code>) están así <strong>como decisión medida</strong>, no por omisión.</p>
+<h3>Reglas arquitectónicas que no se rompen</h3>
+<ul>
+<li><code>pedido.total</code>, <code>orden_compra.total</code>, <code>cuenta_por_pagar.monto_total</code> y
+<code>orden_produccion.costo_total</code> <strong>los mantienen triggers</strong>: nunca se escriben
+fila a fila.</li>
+<li><code>detalle_pedido.subtotal</code> y <code>cuenta_por_pagar.saldo_pendiente</code> son
+<code>GENERATED</code>.</li>
+<li><code>usuario.password</code> siempre pre-hasheado BCrypt, <strong>exactamente 60 caracteres</strong>.</li>
+<li>Todo cambio de stock requiere <code>SET LOCAL app.current_user_id</code>.</li>
+<li><strong><code>ddl-auto</code> permanece en <code>validate</code>.</strong> Es el detector de que las entidades y
+el esquema siguen alineados. Si falla, es un hallazgo: se investiga, no se
+tapa bajando la validación.</li>
+<li><strong>El PostgreSQL del puerto 5433 es un respaldo congelado: no se toca jamás.</strong></li>
+</ul>
+<hr>
+<h2>8. Pruebas</h2>
+<p>Cinco arneses, 227 comprobaciones. <strong>Todos son seguros de ejecutar sin banderas.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Arnés</th>
+<th>Qué comprueba</th>
+<th align="right">Resultado</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>fase34_pruebas_roles.sql</code></td>
+<td>Privilegios por rol</td>
+<td align="right">61/61</td>
+</tr>
+<tr>
+<td><code>fase40_pruebas_auditoria.sql</code></td>
+<td>Auditoría e inmutabilidad</td>
+<td align="right">29/29</td>
+</tr>
+<tr>
+<td><code>fase41_pruebas_cifrado.sql</code></td>
+<td>Cifrado, clave, vías laterales</td>
+<td align="right">51/51</td>
+</tr>
+<tr>
+<td><code>scripts\fase37_pruebas_endpoints.ps1</code></td>
+<td>Acceso por rol contra la API real</td>
+<td align="right">66/66</td>
+</tr>
+<tr>
+<td><code>scripts\fase37_pruebas_navbar.ps1</code></td>
+<td>Navegación por rol</td>
+<td align="right">20/20</td>
+</tr>
+</tbody></table>
+<p>Más <code>fase38_1_cierre_verificacion.sql</code>: <strong>6 invariantes</strong> de recálculo y
+<strong>238 comprobaciones</strong> de integridad estructural.</p>
+<pre><code class="language-powershell"># SQL (los tres primeros)
+&amp; &#39;C:\Program Files\PostgreSQL\18\bin\psql.exe&#39; -h localhost -U postgres -d mod_venta_inve -f marathon-backend\sql\fase34_pruebas_roles.sql
+
+# el de cifrado necesita la clave
+powershell -File scripts\cifrado\gestionar_clave.ps1 -Accion Ejecutar -Script marathon-backend\sql\fase41_pruebas_cifrado.sql
+
+# los de endpoints exigen el backend arriba
+powershell -File scripts\fase37_pruebas_endpoints.ps1
+</code></pre>
+<blockquote>
+<p><strong>Por qué son seguros.</strong> Los tres arneses SQL abren <code>BEGIN</code> y terminan en
+<code>ROLLBACK</code>. <code>fase38_1</code> <strong>no</strong> lleva <code>ROLLBACK</code> a propósito: su etapa 2 es una
+reparación deliberada que se omite sobre una base sana («ETAPA 2 OMITIDA»).</p>
+<p>Esto no siempre fue así, y la historia importa — ver §10.</p>
+</blockquote>
+<hr>
+<h2>9. Los 8 requisitos</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Requisito</th>
+<th align="center">Estado</th>
+<th>Resuelto en</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Usuarios PostgreSQL</td>
+<td align="center">⚠️ <strong>por diseño</strong></td>
+<td>F37</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Roles PostgreSQL</td>
+<td align="center">✅</td>
+<td>F34</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Privilegios sobre objetos</td>
+<td align="center">✅</td>
+<td>F34 · F41</td>
+</tr>
+<tr>
+<td>4a</td>
+<td>Seguridad — respaldos</td>
+<td align="center">✅</td>
+<td>F35 · F42</td>
+</tr>
+<tr>
+<td>4b</td>
+<td>Seguridad — cifrado</td>
+<td align="center">✅</td>
+<td>F41 · F42</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Configuración</td>
+<td align="center">✅</td>
+<td>F36 · F39</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Optimización</td>
+<td align="center">✅</td>
+<td>F33 · F39 · F41</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Volumen (1 millón)</td>
+<td align="center">✅</td>
+<td>F38 · F38.1</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Auditoría</td>
+<td align="center">✅</td>
+<td>F40</td>
+</tr>
+</tbody></table>
+<p><strong>El requisito 1 en una frase:</strong> hay una cuenta de PostgreSQL <strong>por rol</strong>, no por
+persona. Es el estándar de la industria —ninguna aplicación con pool abre una
+conexión por persona— y no degrada el control de acceso, porque los privilegios
+se otorgan al rol de todos modos. La atribución individual, que es lo que el
+requisito persigue de verdad, la da <code>auditoria_cambios.usuario_app</code>. Argumentado
+con evidencia en <code>AUDITORIA_FINAL_8_REQUISITOS.md</code> §1.</p>
+<hr>
+<h2>10. Cuando algo falla</h2>
+<p>Todas estas ya nos costaron tiempo una vez.</p>
+<h3>Aplicación</h3>
+<table>
+<thead>
+<tr>
+<th>Síntoma</th>
+<th>Causa</th>
+<th>Solución</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Los correos y teléfonos salen vacíos</td>
+<td>El backend arrancó sin la clave</td>
+<td>Arrancar con <code>iniciar_backend.ps1</code></td>
+</tr>
+<tr>
+<td><code>permiso denegado a la tabla log_accion</code> con <code>INSERT</code> concedido</td>
+<td>Hibernate añadió <code>RETURNING</code>, que exige <code>SELECT</code></td>
+<td><code>INSERT</code> nativo sin <code>RETURNING</code> (ya aplicado)</td>
+</tr>
+<tr>
+<td>Un <code>GRANT UPDATE(columna)</code> no surte efecto</td>
+<td>Hibernate emite <code>UPDATE</code> con todas las columnas</td>
+<td><code>@DynamicUpdate</code> en la entidad</td>
+</tr>
+<tr>
+<td>El backend no arranca tras cambiar el esquema</td>
+<td><code>ddl-auto=validate</code> detectó desalineación</td>
+<td><strong>Es un hallazgo.</strong> Arreglar el mapeo, no bajar la validación</td>
+</tr>
+<tr>
+<td>Cambié el <code>.env</code> y no surte efecto</td>
+<td>El perfil <code>local</code> pisa el <code>.env</code></td>
+<td>Editar <code>application-local.properties</code></td>
+</tr>
+</tbody></table>
+<h3>Base de datos</h3>
+<table>
+<thead>
+<tr>
+<th>Síntoma</th>
+<th>Causa</th>
+<th>Solución</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ALTER SYSTEM</code> falla por el MCP</td>
+<td>El MCP envuelve todo en una transacción</td>
+<td>Usar <code>psql -f</code></td>
+</tr>
+<tr>
+<td><code>pgaudit</code> no existe</td>
+<td>No está disponible en esta instalación</td>
+<td>Registro nativo; ver <code>DECISION_PGAUDIT.md</code></td>
+</tr>
+<tr>
+<td>Un <code>SELECT</code> sobre columna cifrada devuelve <code>\x c30d...</code></td>
+<td>No hay clave en la sesión</td>
+<td>Es el comportamiento correcto</td>
+</tr>
+</tbody></table>
+<h3>PowerShell y Windows</h3>
+<table>
+<thead>
+<tr>
+<th>Síntoma</th>
+<th>Causa</th>
+<th>Solución</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>`El token &#39;</td>
+<td></td>
+<td>&#39; no es un separador válido`</td>
+</tr>
+<tr>
+<td>Un here-string <code>@&quot;…&quot;@</code> no parsea</td>
+<td>Saltos de línea LF</td>
+<td>Usar CRLF, o cadenas de una línea</td>
+</tr>
+<tr>
+<td><code>openssl</code> aborta con una línea de puntos</td>
+<td>Escribe su progreso en <strong>stderr</strong>, y <code>ErrorActionPreference=&#39;Stop&#39;</code> lo vuelve excepción</td>
+<td>Bajar la preferencia durante la llamada y decidir por el resultado</td>
+</tr>
+<tr>
+<td><code>icacls</code> dice «no se efectuó ninguna asignación»</td>
+<td>Windows en español: el grupo se llama «Administradores»</td>
+<td>Usar SID (<code>*S-1-5-32-544</code>), invariantes al idioma</td>
+</tr>
+<tr>
+<td><code>Start-Process -Verb RunAs</code> no acepta <code>-RedirectStandardOutput</code></td>
+<td>Conjuntos de parámetros incompatibles</td>
+<td>Que el propio script elevado haga <code>*&gt;&amp;1 | Out-File</code></td>
+</tr>
+<tr>
+<td>La salida de un proceso elevado se pierde</td>
+<td>Su ventana se cierra al terminar</td>
+<td>Igual que arriba</td>
+</tr>
+<tr>
+<td><code>pg_ctl start</code> cuelga el script</td>
+<td>El servidor hereda el descriptor de salida del padre</td>
+<td>Redirigir a archivos con <code>Start-Process -Wait</code></td>
+</tr>
+</tbody></table>
+<h3>La historia que conviene recordar</h3>
+<p><strong>Un arnés de pruebas que decía no tocar datos, los borraba.</strong></p>
+<p><code>fase40_pruebas_auditoria.sql</code> declaraba «NO MODIFICA DATOS» y terminaba en
+<code>ROLLBACK</code>. Pero <strong>nunca abría transacción</strong>, y psql trabaja en autocommit: cada
+sentencia de nivel superior —incluido cada bloque <code>DO</code>— se confirmaba sola, así
+que el <code>ROLLBACK</code> final no tenía nada que revertir.</p>
+<p>Por cada ejecución del arnés:</p>
+<ul>
+<li>el administrador quedaba <code>estado=&#39;inactivo&#39;</code> y no podía iniciar sesión;</li>
+<li>su contraseña quedaba en 61 caracteres terminados en <code>AAA</code> (BCrypt son
+exactamente 60), con lo que el login era irrecuperable;</li>
+<li>se borraba una fila de <code>rol_permiso</code>, distinta en cada corrida.</li>
+</ul>
+<p>Se descubrió porque el login de administrador falló en una prueba funcional. <strong>La
+reparación se hizo con los datos que la propia <code>auditoria_cambios</code> había
+registrado</strong> — que es exactamente para lo que sirve una bitácora de cambios.</p>
+<p>Tres lecciones que valen para cualquier proyecto:</p>
+<ol>
+<li><strong>Un bloque plpgsql solo abre subtransacción si tiene cláusula <code>EXCEPTION</code>.</strong>
+El ayudante <code>pg_temp.probar</code> la tenía; los bloques <code>DO</code> que se añadieron
+después, no. Ahí estuvo el hueco.</li>
+<li><strong>Un comentario que afirma una garantía no es la garantía.</strong> La cabecera decía
+lo correcto durante meses mientras el archivo hacía lo contrario.</li>
+<li><strong>Verifica la reversión ejecutando y comparando.</strong> Se comprobó corriendo cada
+arnés varias veces con conteo <strong>exacto</strong> de las 38 tablas antes y después. Un
+<code>n_live_tup</code> no habría servido: es un estimador.</li>
+</ol>
+<hr>
+<h2>11. Lo que queda</h2>
+<h3>Decisiones de diseño (no son deuda)</h3>
+<ol>
+<li><strong>Una cuenta de PostgreSQL por rol, no por persona.</strong> Cambiarlo empeoraría el
+rendimiento sin mejorar el control de acceso.</li>
+<li><strong><code>nombre</code>, <code>apellido</code> y <code>usuario.correo</code> sin cifrar.</strong> §4.</li>
+<li><strong>3 filas de <code>auditoria_cambios</code> con correos legibles</strong>, escritas antes de que
+el cifrado existiera. No se borran: la tabla es append-only por diseño y
+reescribir la bitácora para tapar un hallazgo sería peor que el hallazgo. Son
+datos de prueba. El arnés exige que ese conjunto <strong>no crezca</strong>.</li>
+</ol>
+<h3>Acciones pendientes del usuario</h3>
+<ol>
+<li><strong>Sacar del equipo la copia de custodia de la clave.</strong> Ya está generada y
+verificada en <code>C:\Users\dbeni\custodia_marathon\clave_cifrado_marathon.txt</code>
+(descifra 5.005 de 5.005 correos). Falta copiarla a un gestor de contraseñas
+o unidad extraíble —<strong>que no sea la de los respaldos</strong>— y <strong>borrar el archivo
+del disco</strong>. Mientras siga en <code>C:</code>, la clave y los datos que cifra están en el
+mismo equipo.</li>
+<li><strong>Conectar un USB con etiqueta de volumen <code>MARATHON_BK</code></strong> y cifrarlo con
+BitLocker To Go.</li>
+</ol>
+<h3>Mejoras propuestas, no pedidas</h3>
+<ul>
+<li><strong>Sacar <code>password</code> del mapeo de la entidad <code>Usuario</code>.</strong> Hoy los cinco roles
+no-admin tienen <code>SELECT</code> sobre la tabla <code>usuario</code> completa, incluido el hash,
+porque Hibernate materializa la entidad entera.</li>
+<li><strong><code>auditoria_cambios</code> cubre 5 de 38 tablas.</strong> Las transaccionales no tienen
+auditoría campo a campo; el sobrecoste sobre tablas de alto volumen no se ha
+medido.</li>
+<li><strong>Retención del registro nativo: 7 días</strong> por la rotación <code>postgresql-%a.log</code>.</li>
+</ul>
+<hr>
+<h2>12. Trazabilidad</h2>
+<table>
+<thead>
+<tr>
+<th>Fase</th>
+<th>Qué hizo</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>F33</strong></td>
+<td>Índices sobre las consultas críticas</td>
+</tr>
+<tr>
+<td><strong>F34</strong></td>
+<td>6 roles, privilegios por objeto y columna, 61 pruebas</td>
+</tr>
+<tr>
+<td><strong>F35</strong></td>
+<td>Respaldos completo + diferencial, verificación, restauración</td>
+</tr>
+<tr>
+<td><strong>F36</strong></td>
+<td>Auditoría nativa de PostgreSQL</td>
+</tr>
+<tr>
+<td><strong>F37</strong></td>
+<td>Un pool por rol; retirado <code>CREATEROLE</code> del administrador</td>
+</tr>
+<tr>
+<td><strong>F38</strong></td>
+<td>Poblado a 1.000.000 de filas</td>
+</tr>
+<tr>
+<td><strong>F38.1</strong></td>
+<td>Verificación: 6 invariantes, 238 comprobaciones</td>
+</tr>
+<tr>
+<td><strong>F39</strong></td>
+<td>Estudio de planes, <code>CONFIGURACION_BD.md</code>, ruido del 12,7 %</td>
+</tr>
+<tr>
+<td><strong>F40</strong></td>
+<td><code>auditoria_cambios</code> genérica + <code>log_accion</code> en 13 servicios</td>
+</tr>
+<tr>
+<td><strong>F41</strong></td>
+<td>Cifrado, HMAC para unicidad, TLS, −4 índices</td>
+</tr>
+<tr>
+<td><strong>F42</strong></td>
+<td>Regla 3-2-1 con USB, restauración verificada, <code>verify-full</code>, arneses reparados, auditoría final</td>
+</tr>
+</tbody></table>
+
+
+</body>
+</html>
