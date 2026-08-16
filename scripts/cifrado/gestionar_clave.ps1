@@ -228,6 +228,18 @@ switch ($Accion) {
             throw "Destino invalido: esta dentro de $respaldos. La clave no puede viajar con los datos que cifra."
         }
 
+        # Tercer destino prohibido, anadido en la F42: cualquier carpeta
+        # sincronizada con OneDrive. En este equipo el Escritorio y Documentos
+        # ESTAN dentro de OneDrive, asi que "guardarla en el escritorio" subiria
+        # la clave en claro a un servicio de terceros, la replicaria en todos los
+        # dispositivos vinculados y la dejaria en el historial de versiones aunque
+        # despues se borre el archivo. Es una fuga silenciosa y permanente.
+        if ($env:OneDrive -and $rutaCompleta.StartsWith($env:OneDrive, 'OrdinalIgnoreCase')) {
+            throw ("Destino invalido: '$rutaCompleta' esta dentro de OneDrive ($env:OneDrive). " +
+                   "La clave en claro se sincronizaria a la nube y quedaria en el historial de versiones. " +
+                   "Usar una ruta local no sincronizada o una unidad extraible.")
+        }
+
         $clave = Get-ClaveEnClaro
         @"
 CLAVE DE CIFRADO — Marathon Sports / mod_venta_inve
@@ -259,8 +271,25 @@ CUSTODIA
 "@ | Set-Content -Path $rutaCompleta -Encoding utf8
         $clave = $null
 
+        # El archivo contiene la clave EN CLARO. Mientras este en disco, que solo
+        # pueda leerlo quien lo genero. Se usan SID y no nombres porque este
+        # Windows esta en espanol y "Administrators" no existe como tal.
+        try {
+            icacls $rutaCompleta /inheritance:r `
+                   /grant:r "$($env:USERDOMAIN)\$($env:USERNAME):(R,W)" "*S-1-5-32-544:(R)" | Out-Null
+        } catch {
+            Write-Host "AVISO: no se pudieron restringir los permisos del archivo. Revisarlos a mano."
+        }
+
         Write-Host "Copia de custodia escrita en $rutaCompleta"
-        Write-Host "Contiene la clave EN CLARO: trasladarla a un soporte seguro y no dejarla en disco."
+        Write-Host "Permisos restringidos a $($env:USERNAME) y Administradores."
+        Write-Host ""
+        Write-Host "ESTE ARCHIVO ES UN PASO INTERMEDIO, NO EL DESTINO FINAL."
+        Write-Host "Contiene la clave EN CLARO. Ahora:"
+        Write-Host "  1. Copiar su contenido a un gestor de contrasenas, o el archivo a una"
+        Write-Host "     unidad extraible que NO sea la de los respaldos."
+        Write-Host "  2. Borrar este archivo del disco."
+        Write-Host "Mientras siga aqui, la clave y los datos que cifra estan en el mismo equipo."
         exit 0
   }
 }

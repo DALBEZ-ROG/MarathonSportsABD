@@ -325,7 +325,44 @@ ZIP de configuración se puede reconstruir a mano, y los datos personales
 cifrados, no. **Perder el equipo sin copia de custodia = perder los datos**,
 aunque los respaldos estén íntegros y verificados.
 
-### Pendiente manual del usuario
+### Estado: copia de custodia GENERADA, pendiente de trasladar
+
+```
+C:\Users\dbeni\custodia_marathon\clave_cifrado_marathon.txt
+```
+
+| Comprobación | Resultado |
+|---|---|
+| Huella anotada en el archivo | `472b43907ba05386` |
+| ¿Es la misma clave que la operativa? | ✅ |
+| **¿Descifra de verdad?** | ✅ **5.005 de 5.005 correos de cliente y 6 de 6 proveedores**, usando *solo* la clave del archivo |
+| ¿Está dentro de OneDrive? | ❌ (ruta local no sincronizada) |
+| Permisos | Solo `dbeni` (R,W) y Administradores (R) |
+
+Que el archivo exista no prueba nada: podría contener una clave equivocada y
+nadie lo sabría hasta necesitarla. Por eso la verificación **usa** la clave
+custodiada para descifrar, ignorando el almacén DPAPI.
+
+> **Sigue siendo un paso intermedio.** Mientras el archivo esté en `C:`, la clave
+> y los datos que cifra viven en el mismo equipo, que es justo lo que la custodia
+> pretende evitar. **Quedan dos acciones del usuario:** copiar el contenido a un
+> gestor de contraseñas o el archivo a una unidad extraíble —**que no sea la de
+> los respaldos**—, y después **borrarlo del disco**.
+
+### Tres destinos que el script rechaza, y por qué
+
+`gestionar_clave.ps1 -Accion Escrow` no acepta:
+
+| Destino | Motivo |
+|---|---|
+| Dentro del repositorio | Acabaría en un commit |
+| Dentro de `C:\respaldos\marathon` | La clave viajaría con los datos que cifra |
+| **Dentro de OneDrive** | Se sincronizaría a la nube y quedaría en el historial de versiones **aunque después se borre el archivo** |
+
+El tercero se añadió en la F42 al comprobar que en este equipo **el Escritorio y
+Documentos están dentro de OneDrive**: «guardarla en el escritorio» habría subido
+la clave en claro a un servicio de terceros y replicado en todos los dispositivos
+vinculados. Es una fuga silenciosa y permanente, y la más fácil de cometer.
 
 ```powershell
 powershell -File scripts\cifrado\gestionar_clave.ps1 -Accion Escrow -Destino <ruta fuera del equipo>
