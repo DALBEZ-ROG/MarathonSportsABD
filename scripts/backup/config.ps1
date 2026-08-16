@@ -43,6 +43,41 @@ $Global:AppRoot    = Join-Path $BackupRoot 'aplicacion'
 $Global:LogRoot    = Join-Path $BackupRoot 'logs'
 $Global:RestoreRoot= Join-Path $BackupRoot 'restauracion'
 
+# --- Destino SECUNDARIO: disco externo USB (regla 3-2-1, F42) ----------------
+# El esquema hasta la F41 tenia las tres copias en el MISMO disco que la base:
+# protegia de un borrado accidental y de una corrupcion logica, no de la perdida
+# del equipo. Este segundo destino es lo que cierra el requisito 4a.
+#
+# COMO SE LOCALIZA EL DESTINO, en este orden:
+#   1. $SecundarioRuta   ruta explicita (una carpeta, un recurso de red, o una
+#                        unidad ya montada). Gana sobre todo lo demas.
+#   2. $SecundarioLetra  letra de unidad fija, p.ej. 'E:'
+#   3. $SecundarioEtiqueta  etiqueta del volumen. Es la forma RECOMENDADA para
+#                        un USB: Windows no garantiza que el mismo pendrive
+#                        reciba siempre la misma letra, asi que buscarlo por
+#                        etiqueta es lo unico estable.
+#
+# CIFRA EL USB CON BITLOCKER TO GO. Es un medio extraible que puede salir del
+# edificio en un bolsillo. Desde la F41 el respaldo lleva correos, telefonos y
+# direcciones ya cifrados, pero 'nombre' y 'apellido' siguen EN CLARO, igual que
+# todo el resto del negocio. Ver ESTRATEGIA_RESPALDO.md.
+$Global:SecundarioHabilitado = $true
+$Global:SecundarioEtiqueta   = 'MARATHON_BK'
+$Global:SecundarioLetra      = ''
+$Global:SecundarioRuta       = ''
+$Global:SecundarioSubcarpeta = 'marathon'
+
+# Retencion propia del secundario. Se declara aparte del primario porque un USB
+# suele ser mas pequeno que el disco interno y conviene poder recortarla sin
+# tocar la politica principal.
+$Global:SecundarioSemanas    = 4
+$Global:SecundarioMinLibreGB = 2
+
+# Sobrescritura por variable de entorno. Sirve para dos cosas reales: apuntar a
+# un recurso de red sin editar este archivo, y hacer un simulacro de
+# restauracion contra una carpeta cualquiera sin desconfigurar el USB de verdad.
+if ($env:MARATHON_BK_SECUNDARIO) { $Global:SecundarioRuta = $env:MARATHON_BK_SECUNDARIO }
+
 # --- Retencion ---------------------------------------------------------------
 # Semanas de respaldos completos que se conservan. Cada FULL se guarda con sus
 # diferenciales; al eliminar un FULL se eliminan tambien sus diferenciales,
@@ -155,6 +190,147 @@ function Get-TamanoMB {
     $b = (Get-ChildItem $Ruta -Recurse -File -ErrorAction SilentlyContinue |
           Measure-Object -Property Length -Sum).Sum
     return [math]::Round($b / 1MB, 2)
+}
+
+function Get-DestinoSecundario {
+    <#
+      Devuelve la ruta raiz del destino secundario, o $null si no esta
+      disponible. NUNCA lanza excepcion: que el USB este desconectado es una
+      situacion normal, no un error.
+    #>
+    param([string] $Archivo)
+
+    if (-not $SecundarioHabilitado) { return $null }
+
+    $raiz = $null
+
+    if ($SecundarioRuta) {
+        if (Test-Path $SecundarioRuta) { $raiz = $SecundarioRuta }
+        else { Write-Log "Destino secundario: la ruta configurada '$SecundarioRuta' no existe." 'AVISO' $Archivo; return $null }
+    }
+    elseif ($SecundarioLetra) {
+        $l = $SecundarioLetra.TrimEnd(':') + ':\'
+        if (Test-Path $l) { $raiz = $l }
+        else { Write-Log "Destino secundario: la unidad $SecundarioLetra no esta montada." 'AVISO' $Archivo; return $null }
+    }
+    elseif ($SecundarioEtiqueta) {
+        $vol = Get-CimInstance Win32_LogicalDisk -ErrorAction SilentlyContinue |
+               Where-Object { $_.VolumeName -eq $SecundarioEtiqueta } |
+               Select-Object -First 1
+        if ($vol) { $raiz = $vol.DeviceID + '\' }
+        else { Write-Log "Destino secundario: no hay ningun volumen con etiqueta '$SecundarioEtiqueta' conectado." 'AVISO' $Archivo; return $null }
+    }
+    else {
+        Write-Log "Destino secundario habilitado pero sin configurar (ni ruta, ni letra, ni etiqueta)." 'AVISO' $Archivo
+        return $null
+    }
+
+    $destino = Join-Path $raiz $SecundarioSubcarpeta
+    try {
+        if (-not (Test-Path $destino)) { New-Item -ItemType Directory -Path $destino -Force | Out-Null }
+    } catch {
+        Write-Log "Destino secundario: no se pudo crear '$destino'. $($_.Exception.Message)" 'AVISO' $Archivo
+        return $null
+    }
+
+    # Espacio libre del volumen del secundario. Se comprueba ANTES de copiar
+    # para no dejar una copia a medias que parezca valida.
+    try {
+        $unidad = (Get-Item $destino).PSDrive.Name
+        $libre  = [math]::Round((Get-PSDrive $unidad).Free / 1GB, 2)
+        if ($libre -lt $SecundarioMinLibreGB) {
+            Write-Log "Destino secundario: solo quedan $libre GB (minimo $SecundarioMinLibreGB GB). NO se copiara." 'AVISO' $Archivo
+            return $null
+        }
+        Write-Log "Destino secundario disponible: $destino ($libre GB libres)" 'INFO' $Archivo
+    } catch {
+        Write-Log "Destino secundario: no se pudo medir el espacio libre de '$destino'." 'AVISO' $Archivo
+        return $null
+    }
+
+    return $destino
+}
+
+function Copy-ARespaldoSecundario {
+    <#
+      Replica un respaldo ya completado y verificado en el destino secundario.
+
+      DEVUELVE $true si copio, $false si no habia destino o fallo la copia.
+      El llamador decide que hacer con eso; lo que NO debe hacer nunca es fallar
+      el respaldo entero porque un USB este desenchufado. El respaldo local ya
+      esta hecho y verificado en ese punto: perderlo por no poder replicarlo
+      seria cambiar un problema pequeno por uno grande.
+    #>
+    param(
+        [Parameter(Mandatory)][string] $Origen,   # carpeta del respaldo recien hecho
+        [Parameter(Mandatory)][string] $Tipo,     # full | diferencial | aplicacion
+        [string] $Archivo
+    )
+
+    $destinoRaiz = Get-DestinoSecundario -Archivo $Archivo
+    if (-not $destinoRaiz) {
+        Write-Log "COPIA SECUNDARIA OMITIDA ($Tipo). El respaldo primario esta completo y verificado; solo falta la replica fuera del equipo." 'AVISO' $Archivo
+        return $false
+    }
+
+    $carpetaTipo = Join-Path $destinoRaiz $Tipo
+    if (-not (Test-Path $carpetaTipo)) { New-Item -ItemType Directory -Path $carpetaTipo -Force | Out-Null }
+
+    $nombre  = Split-Path $Origen -Leaf
+    $destino = Join-Path $carpetaTipo $nombre
+
+    try {
+        $t0 = Get-Date
+        if (Test-Path $Origen -PathType Container) {
+            # Se copia a una carpeta temporal y se renombra al final. Si la copia
+            # se interrumpe (el USB se retira a media escritura, que es
+            # exactamente lo que pasa con los medios extraibles), lo que queda
+            # es una carpeta .parcial que nadie confundira con un respaldo bueno.
+            $temporal = "$destino.parcial"
+            if (Test-Path $temporal) { Remove-Item $temporal -Recurse -Force -ErrorAction SilentlyContinue }
+            Copy-Item -Path $Origen -Destination $temporal -Recurse -Force -ErrorAction Stop
+            if (Test-Path $destino) { Remove-Item $destino -Recurse -Force -ErrorAction SilentlyContinue }
+            Rename-Item -Path $temporal -NewName $nombre -ErrorAction Stop
+        } else {
+            Copy-Item -Path $Origen -Destination $destino -Force -ErrorAction Stop
+        }
+        $seg = [int]((Get-Date) - $t0).TotalSeconds
+        $mb  = Get-TamanoMB $destino
+        Write-Log "COPIA SECUNDARIA OK ($Tipo): $destino - $mb MB en $seg s" 'OK' $Archivo
+    }
+    catch {
+        Write-Log "COPIA SECUNDARIA FALLO ($Tipo): $($_.Exception.Message)" 'AVISO' $Archivo
+        Write-Log "El respaldo primario NO se ve afectado." 'AVISO' $Archivo
+        return $false
+    }
+
+    # --- retencion propia del secundario ---
+    try {
+        $copias = Get-ChildItem $carpetaTipo -Directory -ErrorAction SilentlyContinue |
+                  Where-Object { $_.Name -notlike '*.parcial' } |
+                  Sort-Object Name -Descending
+        if ($copias.Count -gt $SecundarioSemanas) {
+            foreach ($vieja in $copias | Select-Object -Skip $SecundarioSemanas) {
+                Remove-Item $vieja.FullName -Recurse -Force -ErrorAction SilentlyContinue
+                Write-Log "Retencion secundaria: eliminada $($vieja.Name)" 'INFO' $Archivo
+            }
+        }
+    } catch {
+        Write-Log "Retencion secundaria: no se pudo aplicar. $($_.Exception.Message)" 'AVISO' $Archivo
+    }
+
+    # Marca legible por maquina, para que verificar_respaldos.ps1 sepa cuando fue
+    # la ultima replica sin tener que recorrer el USB (que puede no estar).
+    $estado = [ordered]@{
+        tipo      = $Tipo
+        resultado = 'OK'
+        fecha     = (Get-Date -Format 'o')
+        destino   = $destino
+        equipo    = $env:COMPUTERNAME
+    }
+    $estado | ConvertTo-Json | Set-Content -Path (Join-Path $LogRoot "estado_secundario_$Tipo.json") -Encoding utf8
+
+    return $true
 }
 
 function Invoke-PgTool {

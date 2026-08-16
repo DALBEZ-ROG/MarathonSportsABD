@@ -115,6 +115,68 @@ try {
         $avisos++
     }
 
+    # ----------------------------------------------- destino secundario 3-2-1 --
+    # Se comprueban LOS DOS destinos y se reporta la antiguedad de la copia mas
+    # reciente en cada uno. Un secundario que dejo de actualizarse hace tres
+    # semanas es peor que no tenerlo: da una sensacion de cobertura que no
+    # existe.
+    Write-Log "--- Destino secundario (regla 3-2-1) ---" 'INFO' $log
+    if (-not $SecundarioHabilitado) {
+        Write-Log "AVISO: el destino secundario esta DESHABILITADO. La regla 3-2-1 no se cumple: todas las copias estan en el mismo disco que la base." 'AVISO' $log
+        $avisos++
+    }
+    else {
+        $destSec = Get-DestinoSecundario -Archivo $log
+
+        foreach ($t in @('full','diferencial')) {
+            $marca = Join-Path $LogRoot "estado_secundario_$t.json"
+            if (-not (Test-Path $marca)) {
+                Write-Log "AVISO   [secundario/$t] nunca se ha replicado fuera del equipo." 'AVISO' $log
+                $avisos++
+                continue
+            }
+            $e = Get-Content $marca -Raw | ConvertFrom-Json
+            $h = [math]::Round(((Get-Date) - [datetime]$e.fecha).TotalHours, 1)
+            # Mismos margenes que el primario: 8 dias para el full, 48 h para el
+            # diferencial, mas un margen porque el USB puede estar desconectado
+            # algun dia y eso es una situacion prevista, no una averia.
+            $max = if ($t -eq 'full') { 8 * 24 * 2 } else { 48 * 2 }
+            if ($h -gt $max) {
+                Write-Log "AVISO   [secundario/$t] la ultima replica fue hace $h h (maximo tolerado $max h). Conectar el disco externo." 'AVISO' $log
+                $avisos++
+            } else {
+                Write-Log "OK      [secundario/$t] replicado hace $h h en $($e.destino)" 'OK' $log
+            }
+        }
+
+        if ($destSec) {
+            # El USB esta conectado AHORA: se puede comprobar que lo que hay en
+            # el es realmente utilizable, no solo que el log diga que se copio.
+            foreach ($t in @('full','diferencial')) {
+                $carpeta = Join-Path $destSec $t
+                if (Test-Path $carpeta) {
+                    $ult = Get-ChildItem $carpeta -Directory -EA SilentlyContinue |
+                           Where-Object { $_.Name -notlike '*.parcial' } |
+                           Sort-Object Name -Descending | Select-Object -First 1
+                    if ($ult) {
+                        $edad = [math]::Round(((Get-Date) - $ult.CreationTime).TotalHours, 1)
+                        Write-Log "OK      [secundario/$t] copia mas reciente en disco: $($ult.Name) (hace $edad h)" 'OK' $log
+                    } else {
+                        Write-Log "AVISO   [secundario/$t] la carpeta existe pero esta vacia." 'AVISO' $log; $avisos++
+                    }
+                }
+                $parciales = Get-ChildItem (Join-Path $destSec $t) -Directory -Filter '*.parcial' -EA SilentlyContinue
+                if ($parciales) {
+                    Write-Log "AVISO   [secundario/$t] hay $($parciales.Count) copia(s) .parcial: una replica se interrumpio a medias. Se pueden borrar." 'AVISO' $log
+                    $avisos++
+                }
+            }
+        } else {
+            Write-Log "AVISO: el destino secundario NO esta disponible ahora mismo. El respaldo local sigue funcionando; la regla 3-2-1 no." 'AVISO' $log
+            $avisos++
+        }
+    }
+
     # ------------------------------------------------------------- espacio ------
     $libre = [math]::Round((Get-PSDrive ((Get-Item $BackupRoot).PSDrive.Name)).Free / 1GB, 2)
     $ocupa = Get-TamanoMB $BackupRoot

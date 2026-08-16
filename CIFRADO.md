@@ -119,8 +119,19 @@ rompe el arranque, y mapearla invitaría a escribir texto cifrado desde Java.
 
 ```
 C:\ProgramData\MarathonSports\crypto\clave.dpapi     blob DPAPI (ámbito máquina)
-MARATHON_CRYPTO_KEY_PROTECTED                        variable de entorno, base64 del mismo blob
+MARATHON_CRYPTO_KEY_PROTECTED                        variable de entorno de MÁQUINA, base64 del mismo blob
 ```
+
+> **F42: la variable pasó de ámbito de usuario a ámbito de máquina.** En la F41
+> se quedó en el del usuario porque escribir la de máquina exige consola
+> elevada. **No era un problema de seguridad** —lo que se guarda ahí es el blob
+> DPAPI cifrado, no la clave— sino de disponibilidad: en ámbito de usuario solo
+> la ve la cuenta que la creó, así que un backend corriendo como servicio de
+> Windows (SYSTEM o una cuenta de servicio) no la habría encontrado y habría
+> arrancado mostrando los datos de contacto vacíos. Se promueve con
+> `scripts\cifrado\completar_instalacion.ps1`, que pide UAC una sola vez.
+> Verificado tras el cambio: misma huella `472b43907ba05386`, backend arranca y
+> descifra igual.
 
 32 bytes de `RandomNumberGenerator`, en base64 (44 caracteres). **No se deriva de
 ninguna contraseña existente**: reutilizar la de la base pondría la clave al
@@ -206,6 +217,31 @@ caja fuerte, gestor de contraseñas o unidad extraíble bajo llave.
 5. Arrancar con `iniciar_backend.ps1` y comprobar que un listado devuelve correos
    legibles.
 
+### Ensayo en seco: qué pasa exactamente si falta la clave
+
+Un procedimiento de recuperación que nadie ha ensayado no sirve. Se arrancó el
+backend **sin** `MARATHON_CRYPTO_KEY` y se midió el comportamiento real:
+
+| Qué se comprobó | Resultado |
+|---|---|
+| ¿Arranca la aplicación? | **Sí**, en 4,05 s |
+| Aviso en el registro | `WARN ... No hay clave de cifrado ... se mostraran VACIOS` |
+| ¿Qué devuelve `fn_descifrar`? | `NULL` |
+| Lectura de un cliente | `nombre`, `apellido`, ciudad y estado **correctos**; `email`, `telefono` y `direccion` en `null` |
+| Alta de un cliente | **Rechazada** con `app.crypto_key no esta fijada en la sesion: no se puede cifrar` |
+| ¿Queda un cliente a medias? | **No.** 0 filas con `correo_enc IS NULL` |
+
+Las dos conclusiones que importan:
+
+1. **Degrada, no cae.** Sin clave la aplicación sigue en pie y el resto del
+   negocio —pedidos, inventario, compras— funciona con normalidad. Es
+   deliberado: preferimos una aplicación que arranca y no muestra datos
+   personales a una que no arranca.
+2. **No corrompe.** La escritura falla en voz alta y, como `crear` es
+   `@Transactional`, la transacción entera revierte. No queda ningún cliente
+   guardado con los datos de contacto vacíos, que sería la forma silenciosa de
+   perder información.
+
 ---
 
 ## 5. Sobrecoste medido
@@ -260,6 +296,84 @@ pesa mucho en campos cortos como el teléfono.
 
 ---
 
+## 5.bis Qué costó cifrar
+
+Es la primera pregunta que hace quien sabe del tema, así que conviene que esté
+respondida antes de que la haga. **Cifrar una columna no es cambiarle el tipo: es
+renunciar a todo lo que la base sabía hacer con su contenido.**
+
+| Capacidad perdida | Estado | Cómo se compensó |
+|---|---|---|
+| **Unicidad** (`UNIQUE(correo)`) | **Repuesta** | Columna `correo_hash` con HMAC-SHA256 determinista e índice único. Búsqueda en **0,009 ms** |
+| **Validación de formato** (`CHECK` regex) | **Movida fuera de la base** | Misma expresión en `CifradoService`, más `@Email` en el DTO |
+| **Búsqueda parcial** (`LIKE '%texto%'`) | **Perdida** | Ninguna. Requeriría descifrar las 5.009 filas en cada búsqueda: **1.815 ms** medidos |
+| **Ordenamiento** (`ORDER BY correo`) | **Perdida** | Ninguna. El cifrado aleatorizado destruye el orden |
+| **Rango / comparación** (`BETWEEN`, `<`) | **Perdida** | Ninguna. No aplica a datos de contacto |
+| **Rendimiento de lectura** | **Degradado y mitigado** | 0,33 ms por dato; proyección que no descifra lo que no se muestra |
+| **Tamaño** | **+65 bytes por valor** | Cabecera PGP fija. Pesa mucho en campos cortos como el teléfono |
+
+### Las dos pérdidas que no tienen vuelta
+
+**Búsqueda parcial y ordenamiento sobre los campos cifrados no se pueden
+recuperar** sin renunciar al cifrado. Es la razón exacta por la que
+`cliente.nombre` y `apellido` **se quedaron en claro**: la aplicación busca por
+nombre y ordena por apellido, y cifrarlos habría roto dos funciones reales a
+cambio de proteger un dato que la propia pantalla muestra igualmente.
+
+La regla que se siguió: **se cifra lo que la aplicación solo necesita mostrar,
+no lo que necesita consultar.**
+
+### La validación bajó de nivel, y eso importa
+
+El `CHECK chk_cliente_correo` era una garantía **de la base**: se aplicaba a
+cualquier escritura, viniera de donde viniera. Ahora vive en `CifradoService`, y
+eso significa que **quien escriba por `psql` se la salta**. Se puso ahí y no solo
+en el DTO porque este servicio es el único punto por el que pasan todas las
+escrituras de datos cifrados —de cliente y de proveedor—, así que cubre también a
+un servicio futuro que olvide anotar su DTO.
+
+Que aporta cobertura real está comprobado: `@Email` acepta `a@b`, y el `CHECK`
+original lo rechazaba. Hoy lo rechaza `CifradoService`:
+
+```
+{"status":400,"message":"El correo de cliente no tiene un formato valido: a@b"}
+```
+
+### La alternativa que se evaluó y se descartó: `s2k-mode=0`
+
+`pgp_sym_encrypt` deriva la clave con S2K **iterado y salado** en cada llamada, y
+ahí se va casi todo el coste. Con `s2k-mode=0` esa derivación desaparece.
+Medido sobre 2.000 descifrados:
+
+| | Tiempo | Por dato | Tamaño |
+|---|--:|--:|--:|
+| S2K por defecto (iterado) | 410,6 ms | 0,205 ms | 91 bytes |
+| `s2k-mode=0` | **6,7 ms** | **0,0033 ms** | 82 bytes |
+| Diferencia | — | **61× más rápido** | −9 bytes |
+
+**Y sin embargo se descartó.** El argumento a favor es fuerte: el estiramiento
+S2K existe para encarecer el ataque por fuerza bruta a contraseñas *de baja
+entropía*, y la nuestra son **32 bytes de un generador criptográfico**. Contra una
+clave de 256 bits reales, iterar la derivación no protege de nada porque nadie va
+a probar 2²⁵⁶ combinaciones, y la sal solo evita precomputación entre objetivos
+múltiples, que aquí tampoco aplica.
+
+La razón de conservarlo es otra, y es de diseño defensivo:
+
+> **`s2k-mode=0` convierte un error futuro en una brecha.** El día que alguien
+> rote la clave y, en lugar de generarla con el script, escriba una frase que
+> pueda recordar —que es exactamente el tipo de cosa que pasa—, con S2K por
+> defecto esa frase débil seguiría costando 65.536 iteraciones por intento; con
+> `s2k-mode=0` se rompería en minutos. El valor por defecto **falla seguro** y el
+> otro **falla abierto**.
+
+A eso se suma que el coste ya es aceptable tras la proyección de la F41 (154 ms
+el listado completo, 15 ms una página), y que cambiarlo obligaría a recifrar las
+5.009 filas. **Se gana un 61 % de un coste que ya no molesta, a cambio de perder
+el margen de seguridad ante un error humano previsible.** No compensa.
+
+---
+
 ## 6. TLS en tránsito
 
 Cifrar en reposo mientras la conexión viaja en claro es incoherente, aunque todo
@@ -272,18 +386,41 @@ ahí pasan las contraseñas de los seis roles en cada arranque.
 | Ubicación | `server.crt` / `server.key` en el directorio de datos |
 | Permisos de la clave | Solo `NT AUTHORITY\NetworkService` (cuenta del servicio) y Administradores |
 | Activación | `ALTER SYSTEM SET ssl = on` + `pg_reload_conf()` — contexto `sighup`, **sin reiniciar** |
-| JDBC | `sslmode=require` |
-| Verificado | `pg_stat_ssl`: **TLSv1.3 / TLS_AES_256_GCM_SHA384** en las 10 conexiones del pool |
+| JDBC | **`sslmode=verify-full`** + `sslrootcert` *(F42)* |
+| Verificado | `pg_stat_ssl`: **TLSv1.3 / TLS_AES_256_GCM_SHA384** en las conexiones del pool |
 
 `ALTER SYSTEM` escribe en `postgresql.auto.conf`, así que la configuración del
 planificador de la F39 queda intacta y esto se revierte con una línea.
 
-> **`require` y no `verify-full`, con su consecuencia.** `verify-full` exige
-> validar el certificado contra una CA de confianza, y este es autofirmado. Con
-> `require` el tráfico va **cifrado pero el servidor no queda autenticado**: no
-> protege de un intermediario. Para `localhost` es una compensación razonable;
-> para una base en otra máquina no lo sería, y habría que distribuir el
-> certificado como CA a los clientes.
+### F42: de `require` a `verify-full`
+
+La F41 se quedó en `require`, que **cifra pero no autentica al servidor**: no
+protege de un intermediario. El obstáculo era el certificado autofirmado, que
+`verify-full` exige validar contra una CA de confianza.
+
+**Se resolvió sin tocar el truststore del JDK.** El driver de PostgreSQL acepta
+`sslrootcert` apuntando al certificado, que se copia a
+`C:\ProgramData\MarathonSports\tls\server.crt`. Importarlo al `cacerts` del JDK
+habría atado la aplicación a esa instalación concreta de Java y se habría perdido
+en la primera actualización.
+
+```
+jdbc:postgresql://localhost:5432/mod_venta_inve?sslmode=verify-full&sslrootcert=C:/ProgramData/MarathonSports/tls/server.crt
+```
+
+`verify-full` comprueba además el **nombre del host**, así que el certificado
+necesita `subjectAltName`; el nuestro lleva `DNS:localhost` e `IP:127.0.0.1`.
+
+**Probado que verifica de verdad, no que lleva la etiqueta:**
+
+| Prueba | Resultado |
+|---|---|
+| Con el certificado correcto | Conecta, `ssl=true TLSv1.3` |
+| Con el fichero ausente | `root certificate file ... does not exist` |
+| Con una **CA ajena válida** | `SSL error: certificate verify failed` |
+
+La tercera es la que importa: un intermediario con su propio certificado válido
+es rechazado.
 
 Revertir: `configurar_tls.ps1 -Revertir`.
 
@@ -334,14 +471,15 @@ Declarado, no escondido:
 2. **No protege de `postgres`.** El superusuario puede leer
    `current_setting('app.crypto_key')` de una sesión de la aplicación.
 3. **La identidad no está cifrada.** `nombre` y `apellido` en claro (§2).
-4. **El CHECK de formato de correo se perdió.** Al caer la columna cayó
-   `chk_cliente_correo`, y no tiene sustituto posible en la base: no se valida
-   con una expresión regular un dato que la base no puede leer. La garantía
-   **baja de nivel**, de la base a `@Email` en `ClienteRequestDTO`. Es una pérdida
-   real: quien escriba por `psql` ya no encuentra esa red de seguridad.
+4. **El CHECK de formato de correo se perdió como garantía de base de datos.**
+   Se repuso en `CifradoService` (§5.bis), pero quien escriba por `psql` se la
+   salta. La garantía bajó de nivel; no desapareció, pero tampoco es la que era.
 5. **Los respaldos no están cifrados aparte.** Contienen el dato ya cifrado, que
-   es lo relevante, pero el resto del contenido va en claro.
-6. **`sslmode=require` no autentica al servidor** (§6).
+   es lo relevante, pero `nombre`, `apellido` y todo el resto del negocio van en
+   claro. Por eso el USB de la regla 3-2-1 debe llevar BitLocker To Go: ver
+   `ESTRATEGIA_RESPALDO.md`.
+6. ~~`sslmode=require` no autentica al servidor~~ — **resuelto en la F42** con
+   `verify-full` (§6).
 7. **Toda escritura reescribe las tres columnas cifradas**, incluso si el valor
    no cambió, porque `pgp_sym_encrypt` nunca produce el mismo `bytea`. La
    auditoría no puede distinguir «se volvió a cifrar lo mismo» de «cambió de

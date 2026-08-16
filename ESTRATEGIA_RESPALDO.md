@@ -328,42 +328,145 @@ aunque los respaldos estén íntegros y verificados.
 ### Pendiente manual del usuario
 
 ```powershell
-powershell -File scripts\cifrado\gestionar_clave.ps1 -Accion Escrow -Destino E:\custodia\clave.txt
+powershell -File scripts\cifrado\gestionar_clave.ps1 -Accion Escrow -Destino <ruta fuera del equipo>
 ```
 
 El script rechaza como destino el repositorio y `C:\respaldos\marathon`. El
 archivo generado contiene la clave **en claro** y debe trasladarse a un soporte
-fuera del equipo — caja fuerte, gestor de contraseñas o unidad extraíble bajo
-llave — y borrarse de disco después.
+fuera del equipo y borrarse de disco después.
 
-El procedimiento completo de reposición está en `CIFRADO.md` §4.
+> **La copia de custodia NO va en el USB de respaldos.** Es el mismo principio
+> que impide guardarla en `C:\respaldos\marathon`, y con el USB es aún más
+> evidente: si la clave viaja en el mismo pendrive que los datos que cifra,
+> quien lo robe se lleva las dos mitades y el cifrado no ha servido de nada.
+> Destino correcto: un gestor de contraseñas, o una copia física guardada
+> **aparte del USB** —caja fuerte, sobre sellado en otro sitio—.
+
+Verificación sin revelar la clave: `gestionar_clave.ps1 -Accion Estado` imprime
+su **huella** (`472b43907ba05386`). Sirve para comprobar que la copia custodiada
+es la buena antes de necesitarla de verdad.
+
+El procedimiento completo de reposición, y el ensayo de qué ocurre exactamente
+si la clave falta, están en `CIFRADO.md` §4.
 
 ---
 
-## 7. Lo que falta: la regla 3-2-1
+## 7. La regla 3-2-1 — cerrada en la F42
 
-Este esquema **no cumple la regla 3-2-1** (3 copias, 2 medios, 1 fuera del sitio).
-Queda declarado explícitamente en lugar de dejarlo pasar:
+Hasta la F41 este esquema **no la cumplía**: las tres copias vivían en el mismo
+disco que la base, así que protegía de un borrado accidental y de una corrupción
+lógica, pero no de la pérdida del equipo. La F42 añadió el segundo destino.
 
-| Requisito | Estado |
+| Requisito | Antes | Ahora |
+|---|---|---|
+| **3 copias** | Parcial: original + completo + diferencial, mismo disco | ✅ + réplica en disco externo |
+| **2 medios distintos** | ❌ todo en `C:` | ✅ disco interno + **disco externo USB** |
+| **1 copia fuera del sitio** | ❌ | ✅ el USB sale del equipo |
+
+### Cómo se configura el destino secundario
+
+En `config.ps1`. Se busca en este orden:
+
+| Variable | Uso |
 |---|---|
-| 3 copias | Parcial: original + completo + diferencial, todos en el mismo disco |
-| 2 medios distintos | **No.** Todo en `C:` |
-| 1 copia fuera del sitio | **No.** |
+| `$SecundarioRuta` | Ruta explícita (recurso de red, unidad ya montada, o un simulacro) |
+| `$SecundarioLetra` | Letra fija, p. ej. `'E:'` |
+| `$SecundarioEtiqueta` | **Etiqueta de volumen — lo recomendado para un USB** |
 
-**Consecuencia concreta:** una falla del disco `C:`, un cifrado por ransomware o
-el robo del equipo se llevan el dato y los respaldos a la vez. El esquema actual
-protege contra borrado accidental y corrupción lógica, **no contra pérdida del
-equipo**.
+**Por qué la etiqueta y no la letra.** Windows no garantiza que el mismo pendrive
+reciba siempre la misma letra: depende de qué otros dispositivos estén
+conectados. Un respaldo configurado contra `E:` empieza a copiar en el disco
+equivocado el día que `E:` es otra cosa. Buscar por etiqueta (`MARATHON_BK`) es
+lo único estable.
 
-Para cerrarlo hace falta un segundo destino: otro disco físico, un NAS o
-almacenamiento en la nube, con cifrado gestionado por clave propia. No se
-implementó aquí porque exige infraestructura que no forma parte del entorno de
-desarrollo, y comprometerla a medias daría una falsa sensación de cobertura.
+También se puede sobrescribir con la variable de entorno
+`MARATHON_BK_SECUNDARIO`, útil para apuntar a un NAS o para hacer un simulacro
+sin desconfigurar el USB de verdad.
 
-Otra limitación: solo hay **11,7 GB libres** en `C:`. Con 4 semanas de retención
-y la base en 276 MB sobra, pero conviene vigilarlo; `verificar_respaldos.ps1`
-avisa cuando el margen se acerca al umbral.
+### Qué pasa si el USB no está conectado
+
+Es la situación normal, no una avería: un medio extraíble está desconectado la
+mayor parte del tiempo. **El respaldo primario no puede depender de eso.**
+
+```
+[OK   ] Verificacion correcta: checksums y manifiesto coinciden.
+[OK   ] FULL completado en 11 s. Tamano: 303.35 MB
+[AVISO] Destino secundario: no hay ningun volumen con etiqueta 'MARATHON_BK' conectado.
+[AVISO] COPIA SECUNDARIA OMITIDA (full). El respaldo primario esta completo y verificado.
+```
+
+**Códigos de salida:**
+
+| Código | Significado |
+|---|---|
+| `0` | Respaldo local **y** réplica externa correctos |
+| `10` | Respaldo local correcto; **réplica externa no hecha** (regla 3-2-1 incompleta) |
+| `1`–`5` | Fallo del respaldo |
+
+El 10 existe para que un supervisor pueda avisar sin tratarlo como un fallo de
+respaldo, que es lo que sería un `exit 1`. **Nunca se falla el respaldo entero
+por un USB desenchufado.**
+
+### Protección contra copias a medias
+
+La réplica se escribe en `<nombre>.parcial` y solo al terminar se renombra. Si el
+USB se retira a media escritura —lo típico con medios extraíbles— lo que queda es
+una carpeta `.parcial` que nadie confundirá con un respaldo bueno.
+`verificar_respaldos.ps1` las detecta y avisa.
+
+### Retención y espacio
+
+Retención propia del secundario (`$SecundarioSemanas = 4`), declarada aparte de
+la del primario porque un USB suele ser más pequeño que el disco interno y
+conviene poder recortarla sin tocar la política principal. Antes de copiar se
+comprueba el espacio libre (`$SecundarioMinLibreGB = 2`) y, si no llega, no se
+copia: mejor no tener réplica que tener una a medias que parezca válida.
+
+En `C:` quedan **10,7 GB libres**. Con 4 semanas de retención y la base en
+228 MB sobra, pero conviene vigilarlo; `verificar_respaldos.ps1` avisa cuando el
+margen se acerca al umbral.
+
+### CIFRA EL USB CON BITLOCKER TO GO
+
+No es una recomendación de manual, es lo que hace falta aquí:
+
+> Un disco externo de respaldos es el medio **más fácil de robar** de toda la
+> instalación. Sale del edificio en un bolsillo y no deja rastro. Todo lo que se
+> ha construido en las fases 34 a 41 —seis roles, 2.155 privilegios de columna,
+> auditoría append-only— protege el acceso *a través de la base de datos*, y un
+> pendrive perdido lo esquiva entero.
+
+**Qué protege ya el cifrado de la F41 y qué no**, para que la decisión se tome
+con el dato correcto:
+
+| En el respaldo | Estado |
+|---|---|
+| Correos, teléfonos y direcciones de clientes y proveedores | **Cifrados** (`pgp_sym_encrypt`) |
+| Contraseñas de usuario | Hasheadas (BCrypt) |
+| **`nombre` y `apellido` de los clientes** | **EN CLARO** |
+| Pedidos, importes, productos, inventario, bitácoras | **EN CLARO** |
+
+Es decir: quien robe el USB sin BitLocker no puede contactar a los clientes, pero
+sí sabe **quiénes son, qué compraron y por cuánto**. El cifrado de columnas y el
+cifrado de volumen resuelven problemas distintos y **no se sustituyen**.
+
+### Restauración verificada desde el secundario
+
+Un respaldo en un medio que nunca se ha leído es una hipótesis. Ensayado:
+
+```powershell
+restaurar.ps1 -Modo Prueba -Desde Secundario -PuertoPrueba 5434
+```
+
+| | |
+|---|---|
+| Insumos | `full_20260815_214239` + su diferencial |
+| Contenido | 6 usuarios · 5.004 clientes · 165.000 pedidos · 450.000 detalles · 200.061 logs |
+| Marca del diferencial · roles · índices F33 | 1 · 6 · 4 ✅ |
+| **RTO medido** | **15 s** (objetivo 120 min) |
+
+El parámetro `-Desde Secundario` es de la F42. El puerto de prueba se pasa
+explícitamente: **el 5433 es un respaldo congelado y no se toca jamás**.
 
 ---
 

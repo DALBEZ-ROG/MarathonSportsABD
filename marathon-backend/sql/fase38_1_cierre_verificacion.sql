@@ -17,6 +17,20 @@
 --   El ANALYZE va en la etapa 4, DESPUES de corregir totales y de verificar
 --   integridad. Cualquier estadistica recogida antes de la ultima escritura es
 --   basura, y son justo 'fecha' y 'estado' las columnas que mas cambiaron.
+--
+-- POR QUE ESTE ARCHIVO NO LLEVA BEGIN/ROLLBACK, A DIFERENCIA DE LOS ARNESES
+--   (revisado en la F42, cuando se auditaron los cuatro scripts de prueba)
+--   Los arneses —fase34, fase40 y fase41— envuelven todo en una transaccion y
+--   la revierten, porque su unico trabajo es medir. Este NO es un arnes: su
+--   etapa 2 es una REPARACION deliberada de pedido.total, orden_compra.total,
+--   cuenta_por_pagar.monto_pagado y orden_produccion.costo_total. Revertirla
+--   dejaria el script sin funcion.
+--
+--   Lo que lo hace seguro no es un ROLLBACK, es la GUARDA: la etapa 2 solo se
+--   ejecuta si la etapa 1 encontro discrepancias. Sobre una base sana imprime
+--   "ETAPA 2 OMITIDA: los cuatro pares ya cuadran. No se modifica nada." y
+--   sale sin tocar una fila. El resto del script solo escribe en tablas TEMP
+--   (_invariantes, _integridad, _stats).
 -- ============================================================================
 
 \set ON_ERROR_STOP on

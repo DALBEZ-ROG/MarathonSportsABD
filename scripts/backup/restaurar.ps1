@@ -26,10 +26,28 @@
 param(
     [ValidateSet('Prueba','Produccion')] [string] $Modo = 'Prueba',
     [switch] $Confirmar,
-    [int]    $PuertoPrueba = 5433
+    [int]    $PuertoPrueba = 5433,
+    # F42: de que destino se restaura. 'Secundario' es el disco externo de la
+    # regla 3-2-1, y es el que hay que ensayar de vez en cuando: es el que se
+    # usara el dia que el disco C: no exista. Un respaldo en un medio que nunca
+    # se ha leido es una hipotesis.
+    [ValidateSet('Primario','Secundario')] [string] $Desde = 'Primario'
 )
 
 . "$PSScriptRoot\config.ps1"
+
+# Se resuelven ANTES de Initialize-Backup para que Get-UltimoFull y el resto del
+# script trabajen contra el destino elegido sin tener que duplicar su logica.
+if ($Desde -eq 'Secundario') {
+    $sec = Get-DestinoSecundario
+    if (-not $sec) {
+        Write-Host "El destino secundario no esta disponible. Conectar el disco externo o revisar la configuracion en config.ps1."
+        exit 11
+    }
+    $Global:FullRoot = Join-Path $sec 'full'
+    $Global:DiffRoot = Join-Path $sec 'diferencial'
+    Write-Host "Restaurando DESDE EL DESTINO SECUNDARIO: $sec"
+}
 
 $inicio = Get-Date
 $sello  = $inicio.ToString('yyyyMMdd_HHmmss')

@@ -126,9 +126,19 @@ try {
         Write-Log "Superado por el diferencial de hoy, eliminado: $($p.Name)" 'INFO' $log
     }
 
+    # ------------------------------------------------ copia fuera del equipo ---
+    # Regla 3-2-1 (F42). Un diferencial sin su FULL no sirve de nada, asi que en
+    # el secundario tienen que acabar los dos; por eso ambos scripts replican.
+    $replicado = Copy-ARespaldoSecundario -Origen $destino -Tipo 'diferencial' -Archivo $log
+
     Write-Estado -Tipo 'diferencial' -Resultado 'OK' -Ruta $destino -DuracionSeg $dur -TamanoMB $tamano `
                  -Detalle "base=$($full.Name)"
     Write-Log "=== RESPALDO DIFERENCIAL FINALIZADO ===" 'OK' $log
+
+    if (-not $replicado) {
+        Write-Log "AVISO: sin copia fuera del equipo en esta corrida (regla 3-2-1 incompleta)." 'AVISO' $log
+        exit 10
+    }
     exit 0
 }
 catch {

@@ -2,10 +2,11 @@
 spring.datasource.password=
 app.jwt.secret=
 
-# F41 — TLS. Si se define aquí spring.datasource.url, este archivo PISA al de
-# application.properties, así que el sufijo sslmode debe repetirse o el tráfico
-# viajará en claro aunque el servidor tenga ssl=on.
-#spring.datasource.url=jdbc:postgresql://localhost:5432/mod_venta_inve?sslmode=require
+# F42 — TLS con verificación del servidor. Si se define aquí
+# spring.datasource.url, este archivo PISA al de application.properties, así que
+# sslmode y sslrootcert deben repetirse o el tráfico viajará en claro aunque el
+# servidor tenga ssl=on.
+#spring.datasource.url=jdbc:postgresql://localhost:5432/mod_venta_inve?sslmode=verify-full&sslrootcert=C:/ProgramData/MarathonSports/tls/server.crt
 
 # F41 — clave de cifrado de datos personales.
 # NO se pone aquí. Llega por la variable de entorno MARATHON_CRYPTO_KEY, que

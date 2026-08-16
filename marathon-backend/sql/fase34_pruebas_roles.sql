@@ -1,8 +1,25 @@
 -- ============================================================================
 -- FASE 34 — PRUEBAS DE ACCESO AUTORIZADO Y DENEGADO POR ROL
 -- ----------------------------------------------------------------------------
--- No modifica datos: cada intento corre en una subtransaccion que SIEMPRE se
--- revierte, incluso cuando la operacion tiene exito.
+-- NO MODIFICA DATOS, con dos salvaguardas independientes:
+--
+--   1. Cada intento corre dentro de pg_temp.probar, cuyo bloque interno tiene
+--      clausula EXCEPTION y por tanto ES una subtransaccion real. El centinela
+--      CENTINELA_OK la revierte SIEMPRE, incluso cuando la sentencia tuvo exito.
+--
+--   2. El script entero va en una transaccion explicita: BEGIN abajo, ROLLBACK
+--      al final.
+--
+-- LA SEGUNDA SE ANADIO EN LA F42 Y HOY ES REDUNDANTE. Se pone igualmente porque
+-- la primera sola es fragil ante una ampliacion del arnes: en la F40 se copio
+-- este mismo ayudante y se le anadieron bloques DO que mutaban FUERA de el para
+-- comprobar que el trigger de auditoria disparaba. Un bloque plpgsql solo abre
+-- subtransaccion si tiene clausula EXCEPTION; aquellos no la tenian, nada los
+-- revertia, y cada corrida del arnes de la F40 desactivaba al administrador,
+-- le destrozaba el hash de la contrasena y borraba una fila de rol_permiso.
+--
+-- Verificado en la F42: seis ejecuciones seguidas sin banderas, con conteo
+-- EXACTO de las 38 tablas antes y despues, sin una sola fila de diferencia.
 --
 -- METODO: SET LOCAL ROLE. Al cambiar de rol desde una sesion de superusuario,
 -- PostgreSQL evalua los privilegios con el rol asumido y NO hereda la condicion
@@ -22,6 +39,9 @@
 
 \set ON_ERROR_STOP on
 \echo '=== PRUEBAS DE PRIVILEGIOS POR ROL ==='
+
+-- Todo el arnes en una sola transaccion (ver salvaguarda 2 de la cabecera).
+BEGIN;
 
 -- IDs reales resueltos como superusuario ANTES de asumir cualquier rol, para
 -- que las sentencias de prueba no dependan de leer tablas que el rol no ve.
@@ -288,3 +308,8 @@ BEGIN
     END IF;
     RAISE NOTICE '===== % de % pruebas de privilegios PASAN =====', v_total, v_total;
 END $$;
+
+-- Revierte la transaccion abierta en la cabecera. Si alguna prueba fallo, el
+-- RAISE de arriba ya la aborto y psql salio por ON_ERROR_STOP; la reversion
+-- ocurre igual al cerrar la conexion.
+ROLLBACK;

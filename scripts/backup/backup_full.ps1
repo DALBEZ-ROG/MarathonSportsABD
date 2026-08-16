@@ -101,8 +101,22 @@ try {
         }
     }
 
+    # ------------------------------------------------ copia fuera del equipo ---
+    # Regla 3-2-1 (F42). Va DESPUES de verificar y de aplicar la retencion: solo
+    # se replica un respaldo que ya se sabe bueno.
+    $replicado = Copy-ARespaldoSecundario -Origen $destino -Tipo 'full' -Archivo $log
+
     Write-Estado -Tipo 'full' -Resultado 'OK' -Ruta $destino -DuracionSeg $dur -TamanoMB $tamano
     Write-Log "=== RESPALDO COMPLETO FINALIZADO ===" 'OK' $log
+
+    # Codigo 10, y no 0 ni 1: el respaldo local esta hecho y verificado, pero la
+    # regla 3-2-1 no se cumplio en esta corrida. Distinguirlo permite que el
+    # Programador de tareas o un supervisor avisen sin tratarlo como un fallo de
+    # respaldo, que es lo que seria un exit 1.
+    if (-not $replicado) {
+        Write-Log "AVISO: sin copia fuera del equipo en esta corrida (regla 3-2-1 incompleta). Conectar el disco externo y volver a lanzar, o esperar al proximo ciclo." 'AVISO' $log
+        exit 10
+    }
     exit 0
 }
 catch {
