@@ -13,6 +13,30 @@ hacer un agente están marcados así:
 
 ---
 
+## Antes de nada: hay dos vías, y para un compañero de grupo la buena es la B
+
+| | **Vía A — Copiar** | **Vía B — Construir** |
+|---|---|---|
+| Herramienta | `exportar_bd.ps1` → `importar_bd.ps1` | `construir_desde_cero.ps1` |
+| Qué viaja | Un paquete de **22 MB** | **Nada**: solo el repositorio |
+| Los datos | Los **mismos**, fila a fila | Se **generan**: mismos recuentos y distribuciones, distintos valores |
+| Contraseñas de los 6 usuarios | Las del equipo de origen (hashes SCRAM en `01_roles.sql`) | Cada uno pone las suyas |
+| Clave de cifrado | **Hay que compartirla** por un canal aparte | Cada uno **crea la suya**; no se comparte nada |
+| Tiempo | ~10 s de restauración | ~2 min de scripts |
+
+**Para tus compañeros de grupo: vía B.** No hay que mandarles datos, ni
+contraseñas, ni la clave de cifrado: se bajan el repositorio y ejecutan dos
+comandos. Y para una entrega de base de datos es lo que se quiere enseñar — la
+base **construida desde los scripts**, no restaurada de un volcado.
+
+**La vía A sirve para otra cosa:** tener una réplica exacta, con los mismos
+pedidos y las mismas fechas, por ejemplo en tu propio portátil.
+
+> **Si eliges la vía B, salta a la [sección 12](#12-vía-b--construir-la-base-desde-cero).**
+> Las secciones 3 y 4 son de la vía A.
+
+---
+
 ## 0. Qué se replica y qué no
 
 | Se replica | Cómo |
@@ -376,24 +400,121 @@ la forma más directa de saber si la clave quedó bien instalada.
 
 ---
 
+## 12. Vía B — Construir la base desde cero
+
+Esta es la vía para los compañeros de grupo. No necesita el paquete, ni la clave
+de cifrado de nadie, ni contraseñas ajenas: **solo el repositorio clonado**
+(secciones 1 y 2) y PostgreSQL instalado.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\migracion\construir_desde_cero.ps1 -Etapa Esquema
+```
+
+Crea la base y aplica las fases 0 a 29: **37 tablas**. Tarda un par de segundos.
+
+> ### 🖐 INTERVENCIÓN HUMANA
+> **Aquí el proceso para a propósito y hay que arrancar el backend una vez.**
+>
+> Los roles de aplicación, los permisos y los usuarios de demostración los crea
+> el `DataInitializer` de Spring, **no un script SQL**, y el seed de la etapa 2
+> depende de que existan. No es un olvido de la automatización: esa información
+> vive en el código Java.
+>
+> 1. Crear el `.env` (copiar de `.env.example`). Para este arranque bastan las
+>    variables `DB_*` y `JWT_SECRET`.
+> 2. `cd marathon-backend` y `mvn -q -DskipTests spring-boot:run`
+> 3. Cuando arranque, pararlo con `Ctrl+C`.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\migracion\construir_desde_cero.ps1 -Etapa Datos
+```
+
+Y esto hace **todo lo demás**, en orden, sin parar:
+
+| | Qué |
+|---|---|
+| seed + F31 + F32 | Datos de demostración y correcciones |
+| **F33** | Índices sobre las consultas críticas |
+| **F34** | 6 roles, 6 usuarios y los privilegios por columna |
+| **F35–F37** | `summarize_wal`, auditoría nativa, privilegios del pool por rol |
+| **F38 + F38.1** | Poblado masivo a 1.000.000 de filas y su verificación |
+| **F39** | Volumen en compras y manufactura |
+| **F40** | `auditoria_cambios` campo a campo |
+| **F41** | Baja de 4 índices, **y el cifrado con una clave nueva de este equipo** |
+| **F43** | +65.000 pedidos: el millón en tablas de negocio |
+
+Tarda un par de minutos, casi todo en el poblado. Al final imprime una tabla de
+verificación con 9 comprobaciones.
+
+**Si la etapa 2 se lanza sin haber arrancado el backend**, no falla a mitad con
+errores de clave foránea: lo detecta antes de escribir nada y lo dice —
+*«La tabla 'rol' está vacía: el backend no ha arrancado todavía»*.
+
+### Lo que esta vía resuelve sola
+
+- **La clave de cifrado.** El script ejecuta `gestionar_clave.ps1 -Accion Crear`
+  y genera una clave **nueva, de ese equipo**. Es correcto: esos datos se acaban
+  de generar ahí. Compartir la clave solo hace falta con la vía A, donde se
+  restauran bytes cifrados por otro.
+- **Las contraseñas.** `fase34_seguridad_roles.sql` crea los seis usuarios con
+  contraseña **aleatoria**, a propósito, para que no vivan en el repositorio.
+
+### Lo que sigue necesitando una persona
+
+> ### 🖐 INTERVENCIÓN HUMANA
+> Al terminar, el script las lista con el comando exacto:
+>
+> 1. **Las contraseñas de los seis usuarios.** Elegir una para cada uno,
+>    fijarlas con `ALTER ROLE usr_... WITH PASSWORD '<clave>'` y escribir esas
+>    mismas seis en el `.env`. Sin esto el backend no abre los pools por rol.
+> 2. El certificado TLS (sección 7) y las tareas de respaldo (sección 8).
+
+### Si algo se quiere sin cifrado
+
+```powershell
+... construir_desde_cero.ps1 -Etapa Datos -SinCifrado
+```
+
+La base queda completa y funcional, pero con los datos personales en claro y sin
+las 8 columnas `bytea`. Útil para comparar el antes y el después del requisito
+de cifrado.
+
+---
+
 ## Resumen para un agente
+
+**Vía B — construir (compañeros de grupo):**
 
 ```
 1. Comprobar PostgreSQL 18 / JDK 17 / Maven          [🖐 instalar si falta]
 2. git clone en una ruta CORTA
-3. exportar_bd.ps1 en el origen                      [🖐 copiar el paquete]
-4. importar_bd.ps1 en el destino                     [🖐 contraseña postgres]
-   -> comprobar los 8 valores, y reiniciar el servicio [🖐 UAC]
-5. .env                                              [🖐 contraseñas]
-6. gestionar_clave.ps1 -Accion Importar              [🖐 traer la clave aparte]
-   -> comprobar la huella 472b43907ba05386
+3. construir_desde_cero.ps1 -Etapa Esquema           [🖐 contraseña postgres]
+4. .env con DB_* y JWT_SECRET, y arrancar el backend
+   una vez para que el DataInitializer cree los roles [🖐]
+5. construir_desde_cero.ps1 -Etapa Datos
+   -> genera el millon de filas y crea SU PROPIA clave
+6. ALTER ROLE x6 y esas contrasenas al .env          [🖐 elegirlas]
 7. configurar_tls.ps1
 8. registrar_tareas.ps1                              [🖐 UAC]
 9. iniciar_backend.ps1   (NUNCA mvn a secas)
 10. los 4 arneses: 61/61, 29/29, 51/51, y 0 discrepancias
 ```
 
-**Los cinco puntos donde un agente tiene que parar y pedir algo a una persona**
-son: instalar los programas, mover el paquete entre equipos, la contraseña de
-`postgres`, las contraseñas del `.env`, y traer la clave de cifrado por un canal
-aparte. Todo lo demás se puede automatizar.
+**Vía A — copiar (réplica exacta):**
+
+```
+1-2. igual que arriba
+3. exportar_bd.ps1 en el origen                      [🖐 copiar el paquete]
+4. importar_bd.ps1 en el destino                     [🖐 contraseña postgres]
+   -> comprobar los 8 valores, y reiniciar el servicio [🖐 UAC]
+5. .env                                              [🖐 contraseñas del origen]
+6. gestionar_clave.ps1 -Accion Importar              [🖐 traer la clave aparte]
+   -> comprobar la huella 472b43907ba05386
+7-10. igual que arriba
+```
+
+**Dónde tiene que parar un agente.** En la vía B son cuatro: instalar los
+programas, la contraseña de `postgres`, arrancar el backend una vez, y elegir
+las contraseñas de los seis usuarios. La vía A añade dos más: mover el paquete
+entre equipos y traer la clave de cifrado por un canal aparte. Todo lo demás se
+automatiza.

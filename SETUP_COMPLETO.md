@@ -6,6 +6,27 @@ Guía para levantar la base de datos `mod_venta_inve` **desde cero en cualquier 
 > **Usuario:** `postgres` (ajusta según tu entorno)
 > **Todos los scripts SQL viven en** `marathon-backend/sql/`
 
+> ### ⚡ Atajo: hacer todo esto con un comando
+>
+> **Este documento cubre las fases 0 a 32**, que dejan el esquema y los datos de
+> demostración. El proyecto sigue hasta la **fase 43**: índices, los 6 roles y
+> sus privilegios, respaldos, auditoría, cifrado y el millón de filas.
+>
+> Para levantarlo **entero y en orden**, sin ir script por script:
+>
+> ```powershell
+> powershell -ExecutionPolicy Bypass -File scripts\migracion\construir_desde_cero.ps1 -Etapa Esquema
+> #   ... arrancar el backend una vez y pararlo ...
+> powershell -ExecutionPolicy Bypass -File scripts\migracion\construir_desde_cero.ps1 -Etapa Datos
+> ```
+>
+> Ese script ejecuta exactamente los pasos de abajo y luego las fases 33 a 43,
+> verificando al final. Está documentado en
+> **[GUIA_REPLICACION.md](./GUIA_REPLICACION.md) §12**.
+>
+> Lo que sigue en este documento es útil para entender **qué hace cada fase** y
+> para ejecutarlas sueltas cuando algo falla.
+
 ---
 
 ## Requisitos previos
