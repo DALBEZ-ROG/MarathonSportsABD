@@ -13,7 +13,7 @@ $ErrorActionPreference = 'Stop'
 $Global:PgBin      = 'C:\Program Files\PostgreSQL\18\bin'
 $Global:PgService  = 'postgresql-x64-18'
 $Global:PgHost     = 'localhost'
-$Global:PgPort     = 5432
+$Global:PgPort     = 5432   # se sobrescribe con DB_PORT si esta en .env
 $Global:PgDatabase = 'mod_venta_inve'
 
 # --- Credencial de los respaldos ---------------------------------------------
@@ -65,7 +65,16 @@ $Global:SecundarioHabilitado = $true
 $Global:SecundarioEtiqueta   = 'MARATHON_BK'
 $Global:SecundarioLetra      = ''
 $Global:SecundarioRuta       = ''
-$Global:SecundarioSubcarpeta = 'marathon'
+# UNA SUBCARPETA POR EQUIPO, y no 'marathon' a secas. El mismo USB MARATHON_BK
+# se usa desde el equipo de escritorio y desde el portatil, y la retencion de
+# mas abajo lista TODAS las carpetas del destino y conserva solo las
+# $SecundarioSemanas mas recientes por nombre. Los respaldos se llaman
+# full_<fecha>_<hora>, sin ninguna marca del equipo que los hizo, asi que con
+# una subcarpeta compartida el portatil borraria los del escritorio y al reves.
+# Separarlos ademas evita restaurar por error el basebackup del otro equipo:
+# es una copia FISICA, y sus columnas cifradas son ilegibles aqui porque la
+# clave de cada equipo es distinta.
+$Global:SecundarioSubcarpeta = 'marathon-portatil'
 
 # Retencion propia del secundario. Se declara aparte del primario porque un USB
 # suele ser mas pequeno que el disco interno y conviene poder recortarla sin
@@ -124,6 +133,14 @@ function Initialize-Backup {
     }
 
     if ($claves.ContainsKey('PG_SUPERUSER')) { $Global:PgUser = $claves['PG_SUPERUSER'] }
+
+    # El puerto sale del .env, la misma fuente que usa el backend. Fijarlo a 5432
+    # aqui hace que en un equipo donde PostgreSQL 18 convive con otra version
+    # (el instalador elige entonces 5433) los respaldos apunten a OTRO servidor,
+    # o fallen con "connection refused" sin explicar por que.
+    if ($claves.ContainsKey('DB_PORT') -and $claves['DB_PORT'] -match '^\d+$') {
+        $Global:PgPort = [int]$claves['DB_PORT']
+    }
 
     if (-not $claves.ContainsKey('PG_SUPERUSER_PASSWORD') -or
         [string]::IsNullOrWhiteSpace($claves['PG_SUPERUSER_PASSWORD'])) {

@@ -34,8 +34,13 @@ $clave = [System.Text.Encoding]::UTF8.GetString(
 
 # --- credencial de la base ---------------------------------------------------
 $envFile = Join-Path $PSScriptRoot '..\..\.env'
+# El puerto sale del .env y no de un 5432 fijo: con PostgreSQL 18 instalado
+# junto a otra version el instalador elige 5433, y el barrido se haria contra
+# un servidor que no es el de la aplicacion.
+$PgPort = 5432
 foreach ($l in Get-Content $envFile) {
     if ($l -match '^\s*PG_SUPERUSER_PASSWORD\s*=\s*(.*)$') { $env:PGPASSWORD = $matches[1].Trim() }
+    if ($l -match '^\s*DB_PORT\s*=\s*(\d+)\s*$')           { $PgPort = [int]$matches[1] }
 }
 
 $env:MARATHON_CRYPTO_KEY = $clave
@@ -63,7 +68,7 @@ function Invoke-Sql {
         }
         $lineas += $Sql
         Set-Content -Path $tmp -Value $lineas -Encoding utf8
-        & (Join-Path $PgBin 'psql.exe') -h localhost -p 5432 -U postgres -d $Base -t -A -q -f $tmp
+        & (Join-Path $PgBin 'psql.exe') -h localhost -p $PgPort -U postgres -d $Base -t -A -q -f $tmp
     }
     finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
 }

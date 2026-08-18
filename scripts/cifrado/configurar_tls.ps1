@@ -26,7 +26,7 @@
 #       powershell -ExecutionPolicy Bypass -File configurar_tls.ps1 -Revertir
 # =============================================================================
 
-param([switch] $Revertir)
+param([switch] $Revertir, [int] $PgPort = 0)
 
 $ErrorActionPreference = 'Stop'
 
@@ -37,14 +37,27 @@ $Base    = 'mod_venta_inve'
 $Crt     = Join-Path $DataDir 'server.crt'
 $Key     = Join-Path $DataDir 'server.key'
 
+# El certificado tiene que quedar tambien donde lo busca el cliente JDBC
+# (sslrootcert de application.properties). verify-full no solo cifra: valida la
+# cadena contra ese archivo, y sin el el backend no llega a conectar.
+$ClienteDir = 'C:\ProgramData\MarathonSports\tls'
+
 $envFile = Join-Path $PSScriptRoot '..\..\.env'
+# El puerto no se fija a 5432: si PostgreSQL 18 se instalo conviviendo con otra
+# version, el instalador elige 5433 y todo el script apuntaria a un servidor que
+# no es. Se toma de DB_PORT del .env, la misma fuente que usa el backend, y
+# -PgPort lo pisa si hace falta.
+$puertoEnv = 0
 foreach ($l in Get-Content $envFile) {
     if ($l -match '^\s*PG_SUPERUSER_PASSWORD\s*=\s*(.*)$') { $env:PGPASSWORD = $matches[1].Trim() }
+    if ($l -match '^\s*DB_PORT\s*=\s*(\d+)\s*$')           { $puertoEnv = [int]$matches[1] }
 }
+if ($PgPort -eq 0) { $PgPort = if ($puertoEnv -ne 0) { $puertoEnv } else { 5432 } }
+Write-Host "Puerto de PostgreSQL: $PgPort"
 
 function Invoke-Sql {
     param([string] $Sql)
-    & (Join-Path $PgBin 'psql.exe') -h localhost -p 5432 -U postgres -d $Base -t -A -c $Sql
+    & (Join-Path $PgBin 'psql.exe') -h localhost -p $PgPort -U postgres -d $Base -t -A -c $Sql
 }
 
 if ($Revertir) {
@@ -85,6 +98,15 @@ if (Test-Path $Crt) {
     Write-Host "Certificado generado."
 }
 
+# --- 1b. copia para el cliente ----------------------------------------------
+# El servidor lee server.crt del directorio de datos, pero el driver JDBC lo
+# busca en $ClienteDir (sslrootcert). Se copia siempre, no solo cuando se acaba
+# de generar: si el certificado se regenero a mano, la copia vieja dejaria al
+# backend con "certificate verify failed" sin ninguna pista de por que.
+New-Item -ItemType Directory -Force -Path $ClienteDir | Out-Null
+Copy-Item $Crt (Join-Path $ClienteDir 'server.crt') -Force
+Write-Host "Certificado copiado a $ClienteDir\server.crt (sslrootcert del backend)."
+
 # --- 2. permisos -------------------------------------------------------------
 # La clave privada solo la leen el servicio y los administradores. Se usan SID
 # y no nombres porque este Windows esta en espanol.
@@ -112,7 +134,7 @@ if ($ssl -ne 'on') {
 # sesiones reales lo usan, y eso lo responde pg_stat_ssl.
 Write-Host ""
 Write-Host "--- pg_stat_ssl: conexiones vivas ---"
-& (Join-Path $PgBin 'psql.exe') -h localhost -p 5432 -U postgres -d $Base -c @"
+& (Join-Path $PgBin 'psql.exe') -h localhost -p $PgPort -U postgres -d $Base -c @"
 SELECT a.application_name, a.usename, s.ssl, s.version, s.cipher
 FROM pg_stat_ssl s JOIN pg_stat_activity a ON a.pid = s.pid
 WHERE a.datname = current_database()
