@@ -2,11 +2,12 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
+import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
 @Component({
   selector: 'app-analisis-costos',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, AppIconComponent],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -31,7 +32,7 @@ import { ApiService } from '../../core/services/api.service';
               <span *ngIf="p.margen == null">-</span>
             </td>
             <td>{{p.ordenesCompletadas}}</td>
-            <td><button class="btn-icon" (click)="analizar(p.idProducto)" title="Fabricar vs Comprar">⚖️</button></td>
+            <td><button class="btn-icon" (click)="analizar(p.idProducto)" title="Fabricar vs Comprar"><app-icon name="scale" [size]="16"/></button></td>
           </tr>
           <tr *ngIf="data.length === 0"><td colspan="7" class="empty">No hay productos fabricados</td></tr>
         </tbody>

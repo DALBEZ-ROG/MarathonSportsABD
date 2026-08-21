@@ -210,6 +210,9 @@ a { text-decoration: none; color: inherit; }
 }
 
 .btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   cursor: pointer;
@@ -217,6 +220,20 @@ a { text-decoration: none; color: inherit; }
   padding: 0.35rem 0.5rem;
   border-radius: 8px;
   transition: all 0.2s;
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 0;
+}
+
+.inline-icon-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.status-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .btn-icon:hover {

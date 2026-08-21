@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CrudService, PageResponse } from '../../core/services/crud.service';
+import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
 interface Ciudad {
   idCiudad: number;
@@ -24,7 +25,7 @@ interface Cliente {
 @Component({
   selector: 'app-clientes',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AppIconComponent],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -56,8 +57,8 @@ interface Cliente {
             <td>{{item.ciudadNombre}}</td>
             <td><span class="badge" [class.active]="item.estado==='activo'">{{item.estado}}</span></td>
             <td class="actions">
-              <button class="btn-icon" (click)="editar(item)" title="Editar">✏️</button>
-              <button class="btn-icon danger" (click)="confirmarEliminar(item)" title="Eliminar">🗑️</button>
+              <button class="btn-icon" (click)="editar(item)" title="Editar"><app-icon name="edit" [size]="16"/></button>
+              <button class="btn-icon danger" (click)="confirmarEliminar(item)" title="Eliminar"><app-icon name="trash" [size]="16"/></button>
             </td>
           </tr>
           <tr *ngIf="data.length === 0"><td colspan="8" class="empty">No hay clientes registrados</td></tr>

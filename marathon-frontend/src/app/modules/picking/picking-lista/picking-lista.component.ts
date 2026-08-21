@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
+import { AppIconComponent } from '../../../shared/components/icon/icon.component';
 
 interface PickingLinea {
   idDetalle: number;
@@ -44,7 +45,7 @@ interface PageResponse<T> {
 @Component({
   selector: 'app-picking-lista',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AppIconComponent],
   template: `
     <div class="picking-container">
       <div class="toolbar">
@@ -75,7 +76,7 @@ interface PageResponse<T> {
 
             <div class="especial" *ngIf="p.esPedidoEspecial">
               <span class="especial-badge">ESPECIAL · {{tipoLabel(p.tipoEspecial)}}</span>
-              <span class="urgente" *ngIf="esUrgente(p)">⚠️ Entrega urgente (&lt;24h)</span>
+              <span class="urgente inline-icon-text" *ngIf="esUrgente(p)"><app-icon name="warning" [size]="16"/> Entrega urgente (&lt;24h)</span>
             </div>
 
             <div class="progress-wrap">

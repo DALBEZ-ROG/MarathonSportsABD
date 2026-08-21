@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { CrudService } from '../../core/services/crud.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ApiService } from '../../core/services/api.service';
+import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
 interface UnidadMedida {
   idUnidad: number;
@@ -28,7 +29,7 @@ interface MateriaPrima {
 @Component({
   selector: 'app-materia-prima',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AppIconComponent],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -60,9 +61,9 @@ interface MateriaPrima {
             <td title="Costo promedio ponderado, actualizado automáticamente con cada recepción de compra.">$ {{item.costoUnitarioPromedio | number:'1.4-4'}}</td>
             <td><span class="badge" [class.active]="item.estado==='activo'">{{item.estado}}</span></td>
             <td class="actions">
-              <button class="btn-icon" *ngIf="puedeEscribir" (click)="editar(item)" title="Editar">&#9999;&#65039;</button>
-              <button class="btn-icon" (click)="verKardex(item)" title="Kardex">&#128203;</button>
-              <button class="btn-icon" *ngIf="puedeEscribir" (click)="abrirMovimiento(item)" title="Movimiento">&#128260;</button>
+              <button class="btn-icon" *ngIf="puedeEscribir" (click)="editar(item)" title="Editar"><app-icon name="edit" [size]="16"/></button>
+              <button class="btn-icon" (click)="verKardex(item)" title="Kardex"><app-icon name="clipboard" [size]="16"/></button>
+              <button class="btn-icon" *ngIf="puedeEscribir" (click)="abrirMovimiento(item)" title="Movimiento"><app-icon name="refresh" [size]="16"/></button>
             </td>
           </tr>
           <tr *ngIf="data.length === 0"><td colspan="8" class="empty">No hay registros</td></tr>

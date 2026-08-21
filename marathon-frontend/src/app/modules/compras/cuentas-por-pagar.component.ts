@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
+import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
 interface CuentaPorPagar {
   idCuentaPagar: number;
@@ -19,7 +20,7 @@ interface CuentaPorPagar {
 @Component({
   selector: 'app-cuentas-por-pagar',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, AppIconComponent],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -56,7 +57,7 @@ interface CuentaPorPagar {
             <td class="saldo">$ {{c.saldoPendiente | number:'1.2-2'}}</td>
             <td [class.vencida]="esVencida(c)">{{c.fechaVencimiento}}</td>
             <td><span class="cxp-badge" [ngClass]="'cxp-' + c.estado">{{etiqueta(c.estado)}}</span></td>
-            <td><button class="btn-icon" [routerLink]="['/cuentas-por-pagar', c.idCuentaPagar]" title="Ver detalle / Pagar">&#x1F4B3;</button></td>
+            <td><button class="btn-icon" [routerLink]="['/cuentas-por-pagar', c.idCuentaPagar]" title="Ver detalle / Pagar"><app-icon name="credit-card" [size]="16"/></button></td>
           </tr>
           <tr *ngIf="data.length === 0"><td colspan="8" class="empty">No hay cuentas por pagar</td></tr>
         </tbody>

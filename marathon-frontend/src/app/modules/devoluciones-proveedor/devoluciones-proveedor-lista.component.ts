@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
+import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
 @Component({
   selector: 'app-devoluciones-proveedor-lista',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, AppIconComponent],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -35,7 +36,7 @@ import { ApiService } from '../../core/services/api.service';
             <td>{{d.fechaDevolucion | date:'dd/MM/yyyy'}}</td>
             <td><span class="dp-badge" [ngClass]="'dp-' + d.estado">{{d.estado}}</span></td>
             <td>{{d.tipoResolucion || '-'}}</td>
-            <td><button class="btn-icon" [routerLink]="['/devoluciones-proveedor', d.idDevolucionProv]">&#128269;</button></td>
+            <td><button class="btn-icon" [routerLink]="['/devoluciones-proveedor', d.idDevolucionProv]"><app-icon name="search" [size]="16"/></button></td>
           </tr>
           <tr *ngIf="data.length === 0"><td colspan="6" class="empty">No hay devoluciones</td></tr>
         </tbody>

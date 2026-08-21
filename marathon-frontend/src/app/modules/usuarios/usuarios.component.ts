@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { CrudService, PageResponse } from '../../core/services/crud.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
 interface Rol { idRol: number; nombre: string; }
 interface UsuarioResp { idUsuario: number; nombre: string; apellido: string; correo: string; estado: string; roles: Rol[]; }
@@ -11,7 +12,7 @@ interface UsuarioResp { idUsuario: number; nombre: string; apellido: string; cor
 @Component({
   selector: 'app-usuarios',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AppIconComponent],
   template: `
     <div class="page-container">
       <div class="toolbar">
@@ -34,9 +35,9 @@ interface UsuarioResp { idUsuario: number; nombre: string; apellido: string; cor
             <td><span class="role-badge" *ngFor="let r of u.roles">{{r.nombre}}</span></td>
             <td><span class="badge" [class.active]="u.estado==='activo'">{{u.estado}}</span></td>
             <td class="actions">
-              <button class="btn-icon" (click)="abrirEditar(u)" title="Editar">✏️</button>
-              <button class="btn-icon" (click)="abrirCambiarPass(u)" title="Contraseña">🔑</button>
-              <button class="btn-icon danger" (click)="confirmarDesactivar(u)" title="Desactivar" *ngIf="u.estado==='activo'">🚫</button>
+              <button class="btn-icon" (click)="abrirEditar(u)" title="Editar"><app-icon name="edit" [size]="16"/></button>
+              <button class="btn-icon" (click)="abrirCambiarPass(u)" title="Contraseña"><app-icon name="key" [size]="16"/></button>
+              <button class="btn-icon danger" (click)="confirmarDesactivar(u)" title="Desactivar" *ngIf="u.estado==='activo'"><app-icon name="ban" [size]="16"/></button>
             </td>
           </tr>
           <tr *ngIf="data.length===0"><td colspan="5" class="empty">No hay registros</td></tr>
@@ -60,7 +61,7 @@ interface UsuarioResp { idUsuario: number; nombre: string; apellido: string; cor
             <div class="form-group"><label>Correo *</label><input type="email" [(ngModel)]="form.correo" name="correo" required/></div>
             <div class="form-group" *ngIf="!editId"><label>Contraseña *</label>
               <div class="pass-wrap"><input [type]="showPass?'text':'password'" [(ngModel)]="form.password" name="password" minlength="8"/>
-              <button type="button" class="btn-eye" (click)="showPass=!showPass">{{showPass?'🙈':'👁️'}}</button></div>
+              <button type="button" class="btn-eye" (click)="showPass=!showPass"><app-icon [name]="showPass ? 'eye-off' : 'eye'" [size]="16"/></button></div>
             </div>
             <div class="form-group"><label>Estado</label>
               <select [(ngModel)]="form.estado" name="estado"><option value="activo">Activo</option><option value="inactivo">Inactivo</option></select>

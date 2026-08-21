@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CrudService, PageResponse } from '../../core/services/crud.service';
+import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
 interface Pedido {
   idPedido: number;
@@ -18,7 +19,7 @@ interface Pedido {
 @Component({
   selector: 'app-pedidos',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, AppIconComponent],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -53,7 +54,7 @@ interface Pedido {
             <td><span class="status-badge" [ngClass]="'status-'+item.estado">{{item.estado}}</span></td>
             <td>{{item.usuarioNombre}}</td>
             <td class="actions">
-              <a [routerLink]="['/pedidos', item.idPedido]" class="btn-icon" title="Ver detalle">👁️</a>
+              <a [routerLink]="['/pedidos', item.idPedido]" class="btn-icon" title="Ver detalle"><app-icon name="eye" [size]="16"/></a>
             </td>
           </tr>
           <tr *ngIf="data.length === 0"><td colspan="7" class="empty">No hay pedidos registrados</td></tr>

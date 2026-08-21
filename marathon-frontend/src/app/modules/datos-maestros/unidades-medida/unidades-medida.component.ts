@@ -2,13 +2,14 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CrudService } from '../../../core/services/crud.service';
+import { AppIconComponent } from '../../../shared/components/icon/icon.component';
 
 interface UnidadMedida { idUnidad: number; nombre: string; abreviatura: string; }
 
 @Component({
   selector: 'app-unidades-medida',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AppIconComponent],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -23,8 +24,8 @@ interface UnidadMedida { idUnidad: number; nombre: string; abreviatura: string; 
           <tr *ngFor="let item of data">
             <td>{{item.idUnidad}}</td><td>{{item.nombre}}</td><td>{{item.abreviatura}}</td>
             <td class="actions">
-              <button class="btn-icon" (click)="editar(item)">✏️</button>
-              <button class="btn-icon danger" (click)="confirmarEliminar(item)">🗑️</button>
+              <button class="btn-icon" (click)="editar(item)"><app-icon name="edit" [size]="16"/></button>
+              <button class="btn-icon danger" (click)="confirmarEliminar(item)"><app-icon name="trash" [size]="16"/></button>
             </td>
           </tr>
           <tr *ngIf="data.length===0"><td colspan="4" class="empty">No hay registros</td></tr>

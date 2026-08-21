@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
 interface Permiso { idPermiso:number; modulo:string; accion:string; }
 interface RolResp { idRol:number; nombre:string; descripcion:string; permisos:Permiso[]; }
@@ -10,7 +11,7 @@ interface RolResp { idRol:number; nombre:string; descripcion:string; permisos:Pe
 @Component({
   selector: 'app-roles',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AppIconComponent],
   template: `
     <div class="page-container">
       <div class="toolbar"><h2>Gestión de Roles</h2><button class="btn-new" (click)="abrirCrear()">+ Nuevo rol</button></div>
@@ -22,8 +23,8 @@ interface RolResp { idRol:number; nombre:string; descripcion:string; permisos:Pe
             <td><strong>{{r.nombre}}</strong></td><td>{{r.descripcion||'-'}}</td>
             <td>{{r.permisos.length}} permisos</td>
             <td class="actions">
-              <button class="btn-icon" (click)="abrirEditar(r)">✏️</button>
-              <button class="btn-icon danger" (click)="confirmarEliminar(r)">🗑️</button>
+              <button class="btn-icon" (click)="abrirEditar(r)"><app-icon name="edit" [size]="16"/></button>
+              <button class="btn-icon danger" (click)="confirmarEliminar(r)"><app-icon name="trash" [size]="16"/></button>
             </td>
           </tr>
         </tbody>

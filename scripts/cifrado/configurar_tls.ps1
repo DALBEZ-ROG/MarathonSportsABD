@@ -48,9 +48,13 @@ $envFile = Join-Path $PSScriptRoot '..\..\.env'
 # no es. Se toma de DB_PORT del .env, la misma fuente que usa el backend, y
 # -PgPort lo pisa si hace falta.
 $puertoEnv = 0
-foreach ($l in Get-Content $envFile) {
-    if ($l -match '^\s*PG_SUPERUSER_PASSWORD\s*=\s*(.*)$') { $env:PGPASSWORD = $matches[1].Trim() }
-    if ($l -match '^\s*DB_PORT\s*=\s*(\d+)\s*$')           { $puertoEnv = [int]$matches[1] }
+if (Test-Path $envFile) {
+    foreach ($l in Get-Content $envFile) {
+        if ($l -match '^\s*PG_SUPERUSER_PASSWORD\s*=\s*(.*)$') { $env:PGPASSWORD = $matches[1].Trim() }
+        if ($l -match '^\s*DB_PORT\s*=\s*(\d+)\s*$')           { $puertoEnv = [int]$matches[1] }
+    }
+} elseif (-not $env:PGPASSWORD) {
+    Write-Host "AVISO: no hay .env; se usa PGPASSWORD del entorno o el valor por defecto del backend."
 }
 if ($PgPort -eq 0) { $PgPort = if ($puertoEnv -ne 0) { $puertoEnv } else { 5432 } }
 Write-Host "Puerto de PostgreSQL: $PgPort"

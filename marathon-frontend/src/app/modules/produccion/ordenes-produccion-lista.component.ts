@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
+import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
 @Component({
   selector: 'app-ordenes-produccion-lista',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, AppIconComponent],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -44,7 +45,7 @@ import { ApiService } from '../../core/services/api.service';
             <td><span class="op-badge" [ngClass]="'op-' + o.estado">{{o.estado}}</span></td>
             <td>{{o.bodegaNombre}}</td>
             <td>{{o.fechaCreacion | date:'dd/MM/yyyy HH:mm'}}</td>
-            <td><button class="btn-icon" [routerLink]="['/produccion', o.idOrdenProduccion]" title="Ver">🔍</button></td>
+            <td><button class="btn-icon" [routerLink]="['/produccion', o.idOrdenProduccion]" title="Ver"><app-icon name="search" [size]="16"/></button></td>
           </tr>
           <tr *ngIf="data.length === 0"><td colspan="8" class="empty">No hay órdenes de producción</td></tr>
         </tbody>

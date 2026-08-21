@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { AuthService } from '../../../core/services/auth.service';
+import { AppIconComponent } from '../../../shared/components/icon/icon.component';
 
 interface Comprobante {
   idComprobante: number;
@@ -47,7 +48,7 @@ interface PedidoDetalle {
 @Component({
   selector: 'app-pedido-detalle',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AppIconComponent],
   template: `
     <div class="container" *ngIf="pedido">
       <div class="header">
@@ -89,7 +90,7 @@ interface PedidoDetalle {
           <span class="tipo-text">{{tipoLabel(pedido.tipoEspecial)}}</span>
         </div>
 
-        <div class="alerta-urgente" *ngIf="esUrgente()">⚠️ Entrega urgente</div>
+        <div class="alerta-urgente inline-icon-text" *ngIf="esUrgente()"><app-icon name="warning" [size]="16"/> Entrega urgente</div>
 
         <div class="info-grid">
           <div class="info-card">

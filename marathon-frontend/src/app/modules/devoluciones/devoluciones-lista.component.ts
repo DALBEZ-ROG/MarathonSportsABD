@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
+import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
 interface Solicitud {
   idSolicitud: number;
@@ -16,7 +17,7 @@ interface Solicitud {
 @Component({
   selector: 'app-devoluciones-lista',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, AppIconComponent],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -46,7 +47,7 @@ interface Solicitud {
             <td>{{motivoLabel(s.motivo)}}</td>
             <td><span class="dev-badge" [ngClass]="'dev-' + s.estado">{{estadoLabel(s.estado)}}</span></td>
             <td>{{s.fechaSolicitud | date:'dd/MM/yyyy HH:mm'}}</td>
-            <td><button class="btn-icon" [routerLink]="['/devoluciones', s.idSolicitud]" title="Ver detalle">&#128269;</button></td>
+            <td><button class="btn-icon" [routerLink]="['/devoluciones', s.idSolicitud]" title="Ver detalle"><app-icon name="search" [size]="16"/></button></td>
           </tr>
           <tr *ngIf="data.length === 0"><td colspan="7" class="empty">No hay solicitudes de devolucion</td></tr>
         </tbody>

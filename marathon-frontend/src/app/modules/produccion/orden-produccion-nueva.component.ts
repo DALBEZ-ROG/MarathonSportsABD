@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
+import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
 @Component({
   selector: 'app-orden-produccion-nueva',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, AppIconComponent],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -52,8 +53,8 @@ import { ApiService } from '../../core/services/api.service';
               <td>{{m.cantidadNecesaria | number:'1.0-3'}} {{m.unidadMedida}}</td>
               <td>{{m.stockDisponible | number:'1.0-3'}} {{m.unidadMedida}}</td>
               <td>
-                <span *ngIf="m.suficiente" class="ok">✅ suficiente</span>
-                <span *ngIf="!m.suficiente" class="bad">❌ faltan {{m.faltante | number:'1.0-3'}} {{m.unidadMedida}}</span>
+                <span *ngIf="m.suficiente" class="ok status-with-icon"><app-icon name="check" [size]="14"/> suficiente</span>
+                <span *ngIf="!m.suficiente" class="bad status-with-icon"><app-icon name="x" [size]="14"/> faltan {{m.faltante | number:'1.0-3'}} {{m.unidadMedida}}</span>
               </td>
             </tr>
           </tbody>

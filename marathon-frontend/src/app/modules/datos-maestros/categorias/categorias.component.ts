@@ -2,13 +2,14 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CrudService } from '../../../core/services/crud.service';
+import { AppIconComponent } from '../../../shared/components/icon/icon.component';
 
 interface Categoria { idCategoria: number; nombre: string; descripcion: string; }
 
 @Component({
   selector: 'app-categorias',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AppIconComponent],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -23,8 +24,8 @@ interface Categoria { idCategoria: number; nombre: string; descripcion: string; 
           <tr *ngFor="let item of data">
             <td>{{item.idCategoria}}</td><td>{{item.nombre}}</td><td>{{item.descripcion || '-'}}</td>
             <td class="actions">
-              <button class="btn-icon" (click)="editar(item)">✏️</button>
-              <button class="btn-icon danger" (click)="confirmarEliminar(item)">🗑️</button>
+              <button class="btn-icon" (click)="editar(item)"><app-icon name="edit" [size]="16"/></button>
+              <button class="btn-icon danger" (click)="confirmarEliminar(item)"><app-icon name="trash" [size]="16"/></button>
             </td>
           </tr>
           <tr *ngIf="data.length===0"><td colspan="4" class="empty">No hay registros</td></tr>

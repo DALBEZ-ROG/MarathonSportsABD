@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/services/auth.service';
+import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
 interface IAResponse {
   pregunta: string;
@@ -26,12 +27,12 @@ interface ChatMessage {
 @Component({
   selector: 'app-ia-chat',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, AppIconComponent],
   template: `
     <div class="ia-wrap">
       <div class="ia-header">
         <div class="title-row">
-          <h1>🤖 Asistente IA — Marathon Sports</h1>
+          <h1 class="inline-icon-text"><app-icon name="bot" [size]="24"/> Asistente IA — Marathon Sports</h1>
           <span class="badge-beta">Beta</span>
         </div>
         <p class="subtitle">Consulta datos en lenguaje natural</p>

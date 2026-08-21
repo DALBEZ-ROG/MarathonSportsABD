@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
 interface Bodega {
   idBodega: number;
@@ -51,12 +52,12 @@ interface PageResponse<T> {
 @Component({
   selector: 'app-inventario',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AppIconComponent],
   template: `
     <div class="crud-container">
       <!-- Stock bajo alert -->
       <div class="alert-banner" *ngIf="stockBajo.length > 0">
-        <strong>⚠️ Alerta de Stock Bajo:</strong> {{stockBajo.length}} producto(s) con stock bajo (≤ 5 unidades)
+        <strong class="inline-icon-text"><app-icon name="warning" [size]="16"/> Alerta de Stock Bajo:</strong> {{stockBajo.length}} producto(s) con stock bajo (≤ 5 unidades)
       </div>
 
       <div class="toolbar">
@@ -87,7 +88,7 @@ interface PageResponse<T> {
               </span>
             </td>
             <td class="actions">
-              <button class="btn-icon" (click)="verHistorial(item)" title="Historial">📋</button>
+              <button class="btn-icon" (click)="verHistorial(item)" title="Historial"><app-icon name="clipboard" [size]="16"/></button>
             </td>
           </tr>
           <tr *ngIf="data.length === 0"><td colspan="5" class="empty">No hay registros de inventario</td></tr>

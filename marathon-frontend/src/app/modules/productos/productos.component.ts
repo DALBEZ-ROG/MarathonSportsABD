@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { CrudService, PageResponse } from '../../core/services/crud.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
 interface Categoria {
   idCategoria: number;
@@ -62,7 +63,7 @@ interface Producto {
 @Component({
   selector: 'app-productos',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AppIconComponent],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -108,8 +109,8 @@ interface Producto {
             </td>
             <td><span class="badge" [class.active]="item.estado==='activo'">{{item.estado}}</span></td>
             <td class="actions">
-              <button class="btn-icon" (click)="editar(item)" title="Editar">✏️</button>
-              <button class="btn-icon danger" (click)="confirmarEliminar(item)" title="Eliminar">🗑️</button>
+              <button class="btn-icon" (click)="editar(item)" title="Editar"><app-icon name="edit" [size]="16"/></button>
+              <button class="btn-icon danger" (click)="confirmarEliminar(item)" title="Eliminar"><app-icon name="trash" [size]="16"/></button>
             </td>
           </tr>
           <tr *ngIf="data.length === 0"><td colspan="9" class="empty">No hay registros</td></tr>
@@ -202,7 +203,7 @@ interface Producto {
                 <input type="number" [(ngModel)]="linea.cantidadNecesaria" [name]="'cant'+i" step="0.001" min="0.001"
                        class="bom-cant" placeholder="Cantidad"/>
                 <span class="bom-unidad">{{unidadDeMateria(linea.idMateriaPrima)}}</span>
-                <button type="button" class="btn-icon danger" (click)="quitarLineaBom(i)" title="Eliminar">🗑️</button>
+                <button type="button" class="btn-icon danger" (click)="quitarLineaBom(i)" title="Eliminar"><app-icon name="trash" [size]="16"/></button>
               </div>
               <button type="button" class="btn-add-mat" (click)="agregarLineaBom()">+ Agregar material</button>
             </div>

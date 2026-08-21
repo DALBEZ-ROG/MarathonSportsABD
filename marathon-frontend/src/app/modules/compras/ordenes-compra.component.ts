@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CrudService } from '../../core/services/crud.service';
+import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
 interface ProveedorSimple { idProveedor: number; nombre: string; }
 
@@ -17,7 +18,7 @@ interface OrdenCompra {
 @Component({
   selector: 'app-ordenes-compra',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, AppIconComponent],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -55,7 +56,7 @@ interface OrdenCompra {
             <td>$ {{oc.total | number:'1.2-2'}}</td>
             <td><span class="oc-badge" [ngClass]="'oc-' + oc.estado">{{etiqueta(oc.estado)}}</span></td>
             <td class="actions">
-              <button class="btn-icon" [routerLink]="['/compras', oc.idOrdenCompra]" title="Ver detalle">👁️</button>
+              <button class="btn-icon" [routerLink]="['/compras', oc.idOrdenCompra]" title="Ver detalle"><app-icon name="eye" [size]="16"/></button>
             </td>
           </tr>
           <tr *ngIf="data.length === 0"><td colspan="6" class="empty">No hay órdenes de compra</td></tr>

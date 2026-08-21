@@ -16,6 +16,12 @@ interface PortalItem {
   iconSafe?: SafeHtml;
 }
 
+interface PortalSection {
+  id: string;
+  title: string;
+  items: PortalItem[];
+}
+
 @Component({
   selector: 'app-portal',
   standalone: true,
@@ -36,39 +42,44 @@ interface PortalItem {
         />
       </header>
 
-      <section class="portal-grid" *ngIf="itemsVisibles.length; else vacio">
-        <article
-          class="portal-card"
-          *ngFor="let item of itemsVisibles"
-          (click)="irA(item.route)"
-          (keydown.enter)="irA(item.route)"
-          tabindex="0"
-          role="link"
-        >
-          <button
-            type="button"
-            class="favorite"
-            [class.is-favorite]="item.favorito"
-            (click)="toggleFavorito(item); $event.stopPropagation()"
-            [attr.aria-label]="item.favorito ? 'Quitar de favoritos' : 'Marcar favorito'"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
-            </svg>
-          </button>
+      <div class="portal-sections" *ngIf="seccionesVisibles.length; else vacio">
+        <section class="portal-section" *ngFor="let section of seccionesVisibles">
+          <h2 class="portal-section-title">{{ section.title }}</h2>
+          <div class="portal-row">
+            <article
+              class="portal-card"
+              *ngFor="let item of section.items"
+              (click)="irA(item.route)"
+              (keydown.enter)="irA(item.route)"
+              tabindex="0"
+              role="link"
+            >
+              <button
+                type="button"
+                class="favorite"
+                [class.is-favorite]="item.favorito"
+                (click)="toggleFavorito(item); $event.stopPropagation()"
+                [attr.aria-label]="item.favorito ? 'Quitar de favoritos' : 'Marcar favorito'"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+                </svg>
+              </button>
 
-          <span class="portal-icon"
-                [class.ic-green]="item.color === 'green'"
-                [class.ic-orange]="item.color === 'orange'"
-                [class.ic-gray]="item.color === 'gray'"
-                [class.ic-gold]="item.color === 'gold'"
-                [class.ic-blue]="item.color === 'blue'"
-                [innerHTML]="item.iconSafe"></span>
+              <span class="portal-icon"
+                    [class.ic-green]="item.color === 'green'"
+                    [class.ic-orange]="item.color === 'orange'"
+                    [class.ic-gray]="item.color === 'gray'"
+                    [class.ic-gold]="item.color === 'gold'"
+                    [class.ic-blue]="item.color === 'blue'"
+                    [innerHTML]="item.iconSafe"></span>
 
-          <h3 class="portal-title">{{ item.titulo }}</h3>
-          <p class="portal-desc">{{ item.descripcion }}</p>
-        </article>
-      </section>
+              <h3 class="portal-title">{{ item.titulo }}</h3>
+              <p class="portal-desc">{{ item.descripcion }}</p>
+            </article>
+          </div>
+        </section>
+      </div>
 
       <ng-template #vacio>
         <p class="portal-empty">No hay servicios que coincidan con la búsqueda.</p>
@@ -121,14 +132,32 @@ interface PortalItem {
     }
     .portal-search::placeholder { color: var(--ms-text-muted); }
 
-    .portal-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    .portal-sections {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .portal-section-title {
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.35);
+      margin: 0 0 .85rem;
+    }
+
+    .portal-row {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
       gap: 1.1rem;
     }
 
     .portal-card {
       position: relative;
+      width: 180px;
+      flex: 0 0 180px;
       background: rgba(255, 255, 255, 0.03);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
@@ -207,7 +236,16 @@ interface PortalItem {
 
     @media(max-width: 600px) {
       .portal { padding: 1.5rem 1rem; }
-      .portal-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+      .portal-row {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: .35rem;
+        scrollbar-width: thin;
+      }
+      .portal-card {
+        width: 150px;
+        flex: 0 0 150px;
+      }
       .portal-search { width: 100%; min-width: 0; }
     }
   `]
@@ -218,6 +256,18 @@ export class PortalComponent implements OnInit {
   items: PortalItem[] = [];
 
   private readonly favKey = 'marathon_portal_favs';
+
+  /** Misma agrupación que el sidebar (navbar). */
+  private readonly sectionDefs: { id: string; title: string; routes: string[] }[] = [
+    { id: 'principal', title: 'Principal', routes: ['/dashboard'] },
+    { id: 'gestion', title: 'Gestión', routes: ['/datos-maestros', '/proveedores', '/productos', '/bodegas', '/inventario', '/clientes'] },
+    { id: 'pedidos', title: 'Pedidos', routes: ['/pedidos', '/pedidos/especiales', '/comprobantes'] },
+    { id: 'operaciones', title: 'Operaciones', routes: ['/picking', '/empaque', '/despachos', '/devoluciones'] },
+    { id: 'compras', title: 'Compras', routes: ['/compras', '/cuentas-por-pagar', '/devoluciones-proveedor'] },
+    { id: 'manufactura', title: 'Manufactura', routes: ['/materia-prima', '/produccion', '/produccion/dashboard', '/produccion/costos'] },
+    { id: 'analisis', title: 'Análisis', routes: ['/reportes', '/ia', '/auditoria'] },
+    { id: 'cuenta', title: 'Cuenta', routes: ['/usuarios', '/roles', '/perfil'] },
+  ];
 
   private allItems: PortalItem[] = [
     { titulo: 'Dashboard', descripcion: 'Vista general del sistema', route: '/dashboard', color: 'gold', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>' },
@@ -255,13 +305,31 @@ export class PortalComponent implements OnInit {
     private sanitizer: DomSanitizer
   ) {}
 
-  get itemsVisibles(): PortalItem[] {
+  get seccionesVisibles(): PortalSection[] {
     const q = this.busqueda.trim().toLowerCase();
     const filtrados = q
       ? this.items.filter(i =>
           i.titulo.toLowerCase().includes(q) || i.descripcion.toLowerCase().includes(q))
       : this.items;
-    return [...filtrados].sort((a, b) => Number(!!b.favorito) - Number(!!a.favorito));
+
+    const byRoute = new Map(filtrados.map(item => [item.route, item]));
+    const sections: PortalSection[] = [];
+
+    const favoritos = filtrados.filter(item => item.favorito);
+    if (favoritos.length) {
+      sections.push({ id: 'favoritos', title: 'Favoritos', items: favoritos });
+    }
+
+    for (const def of this.sectionDefs) {
+      const items = def.routes
+        .map(route => byRoute.get(route))
+        .filter((item): item is PortalItem => !!item);
+      if (items.length) {
+        sections.push({ id: def.id, title: def.title, items });
+      }
+    }
+
+    return sections;
   }
 
   ngOnInit(): void {

@@ -6,6 +6,7 @@ import { Chart, registerables } from 'chart.js';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/services/auth.service';
 import { IAChatComponent } from '../ia/ia-chat.component';
+import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
 Chart.register(...registerables);
 
@@ -33,7 +34,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, IAChatComponent],
+  imports: [CommonModule, RouterLink, IAChatComponent, AppIconComponent],
   template: `
     <div class="dashboard">
       <!-- Header -->
@@ -199,7 +200,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
 
       <!-- F32 — aviso cuando el rolGuard bloquea una ruta -->
       <div class="acceso-denegado" *ngIf="accesoDenegado">
-        <span>🔒 No tienes acceso a esa sección con tu rol actual.</span>
+        <span class="inline-icon-text"><app-icon name="lock" [size]="16"/> No tienes acceso a esa sección con tu rol actual.</span>
         <button (click)="accesoDenegado = false">Entendido</button>
       </div>
 
@@ -288,9 +289,9 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
       <!-- IA Chat -->
       <section class="glass-card ia-card" *ngIf="(isAdmin || isSupervisor) && iaAbierto">
         <div class="card-head">
-          <h3>🤖 Asistente IA</h3>
+          <h3 class="inline-icon-text"><app-icon name="bot" [size]="20"/> Asistente IA</h3>
           <div class="ia-actions">
-            <button class="btn-toggle-ia" (click)="iaAbierto = false">✕ Cerrar</button>
+            <button class="btn-toggle-ia" (click)="iaAbierto = false"><app-icon name="x" [size]="14"/> Cerrar</button>
             <a class="btn-fullscreen" routerLink="/ia">Pantalla completa</a>
           </div>
         </div>
@@ -300,7 +301,7 @@ interface TopProducto { idProducto: number; nombreProducto: string; categoria: s
       </section>
 
       <button class="fab-ia" *ngIf="(isAdmin || isSupervisor) && !iaAbierto" (click)="iaAbierto = true">
-        🤖
+        <app-icon name="bot" [size]="24"/>
       </button>
     </div>
   `,

@@ -1,12 +1,15 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink, RouterLinkActive, Router } from '@angular/router';
+import { RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { filter, Subscription } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
 
 interface NavItem {
   label: string;
   route: string;
   icon: string;
+  iconSafe?: SafeHtml;
   roles?: string[];
 }
 
@@ -85,7 +88,7 @@ interface NavSection {
                class="nav-item"
                [title]="item.label"
                (click)="closeMobile()">
-              <span class="nav-icon" [innerHTML]="item.icon"></span>
+              <span class="nav-icon" [innerHTML]="item.iconSafe"></span>
               <span class="nav-label" *ngIf="!isCollapsed">{{ item.label }}</span>
             </a>
           </div>
@@ -234,6 +237,7 @@ interface NavSection {
       display: flex; align-items: center; justify-content: center;
       opacity: .7;
     }
+    .nav-icon svg { width: 18px; height: 18px; display: block; }
     .nav-item.active .nav-icon { opacity: 1; }
     .nav-item:hover .nav-icon { opacity: 1; }
 
@@ -296,7 +300,7 @@ interface NavSection {
     }
   `]
 })
-export class NavbarComponent {
+export class NavbarComponent implements OnInit, OnDestroy {
   isAdmin = false;
   isOperadorBodega = false;
   isOperadorPedidos = false;
@@ -311,6 +315,7 @@ export class NavbarComponent {
   isMobile = false;
 
   navSections: NavSection[] = [];
+  private navSub?: Subscription;
 
   private allItems: NavItem[] = [
     { label: 'Portal', route: '/portal', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>' },
@@ -345,7 +350,18 @@ export class NavbarComponent {
     { label: 'Mi Perfil', route: '/perfil', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' },
   ];
 
-  constructor(private authService: AuthService, private router: Router) {
+  constructor(
+    private authService: AuthService,
+    private router: Router,
+    private sanitizer: DomSanitizer
+  ) {
+    // Angular sanitiza innerHTML y elimina los SVG; hay que marcarlos como seguros,
+    // igual que en portal.component.ts.
+    this.allItems = this.allItems.map(item => ({
+      ...item,
+      iconSafe: this.sanitizer.bypassSecurityTrustHtml(item.icon)
+    }));
+
     const user = this.authService.getCurrentUser();
     if (user) {
       this.userName = `${user.nombre} ${user.apellido}`;
@@ -367,6 +383,29 @@ export class NavbarComponent {
 
     this.buildNav();
     this.isMobile = window.innerWidth <= 768;
+    this.expandSectionForUrl(this.router.url);
+  }
+
+  ngOnInit(): void {
+    this.navSub = this.router.events
+      .pipe(filter(event => event instanceof NavigationEnd))
+      .subscribe(event => this.expandSectionForUrl((event as NavigationEnd).urlAfterRedirects));
+  }
+
+  ngOnDestroy(): void {
+    this.navSub?.unsubscribe();
+  }
+
+  private expandSectionForUrl(url: string): void {
+    const path = url.split('?')[0];
+    for (const section of this.navSections) {
+      const matches = section.items.some(item =>
+        path === item.route || path.startsWith(item.route + '/')
+      );
+      if (matches) {
+        section.collapsed = false;
+      }
+    }
   }
 
   private buildNav(): void {

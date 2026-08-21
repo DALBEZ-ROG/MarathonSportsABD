@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
+import { AppIconComponent } from '../../../shared/components/icon/icon.component';
 
 interface PickingLinea {
   idDetalle: number;
@@ -37,7 +38,7 @@ interface PickingPedido {
 @Component({
   selector: 'app-picking-ejecucion',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AppIconComponent],
   template: `
     <div class="container" *ngIf="pedido">
       <div class="header">
@@ -54,7 +55,7 @@ interface PickingPedido {
           <span class="especial-badge">PEDIDO ESPECIAL · {{tipoLabel(pedido.tipoEspecial)}}</span>
         </div>
         <p class="nota" *ngIf="pedido.notaEspecial">{{pedido.notaEspecial}}</p>
-        <div class="urgente" *ngIf="esUrgente()">⚠️ Entrega urgente — límite {{pedido.fechaLimiteEntrega | date:'dd/MM/yyyy HH:mm'}}</div>
+        <div class="urgente inline-icon-text" *ngIf="esUrgente()"><app-icon name="warning" [size]="16"/> Entrega urgente — límite {{pedido.fechaLimiteEntrega | date:'dd/MM/yyyy HH:mm'}}</div>
       </div>
 
       <div class="progress-top">

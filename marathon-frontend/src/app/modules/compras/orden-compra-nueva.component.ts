@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { CrudService } from '../../core/services/crud.service';
+import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
 interface Proveedor { idProveedor: number; nombre: string; }
 interface Producto { idProducto: number; nombre: string; }
@@ -20,7 +21,7 @@ interface LineaNueva {
 @Component({
   selector: 'app-orden-compra-nueva',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, AppIconComponent],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -89,7 +90,7 @@ interface LineaNueva {
               <td>{{l.cantidad}}</td>
               <td>$ {{l.precioUnitario | number:'1.2-2'}}</td>
               <td>$ {{(l.cantidad * l.precioUnitario) | number:'1.2-2'}}</td>
-              <td><button class="btn-icon danger" (click)="eliminarLinea(i)" title="Quitar">🗑️</button></td>
+              <td><button class="btn-icon danger" (click)="eliminarLinea(i)" title="Quitar"><app-icon name="trash" [size]="16"/></button></td>
             </tr>
             <tr *ngIf="lineas.length === 0"><td colspan="6" class="empty">Sin líneas todavía</td></tr>
           </tbody>
