@@ -240,6 +240,7 @@ public class PedidoService {
     private PedidoResponseDTO toDTO(Pedido pedido) {
         PedidoResponseDTO dto = new PedidoResponseDTO();
         dto.setIdPedido(pedido.getIdPedido());
+        dto.setNumeroPedido(String.format("PED-%06d", pedido.getIdPedido()));
         dto.setFechaPedido(pedido.getFechaPedido());
         dto.setTotal(pedido.getTotal());
         dto.setEstado(pedido.getEstado());

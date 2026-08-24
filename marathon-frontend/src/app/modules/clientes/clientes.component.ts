@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CrudService, PageResponse } from '../../core/services/crud.service';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 
 interface Ciudad {
   idCiudad: number;
@@ -25,7 +26,7 @@ interface Cliente {
 @Component({
   selector: 'app-clientes',
   standalone: true,
-  imports: [CommonModule, FormsModule, AppIconComponent],
+  imports: [CommonModule, FormsModule, AppIconComponent, SearchableSelectComponent],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -103,10 +104,8 @@ interface Cliente {
               </div>
               <div class="form-group">
                 <label>Ciudad</label>
-                <select [(ngModel)]="form.idCiudad" name="idCiudad">
-                  <option [ngValue]="null">-- Seleccione --</option>
-                  <option *ngFor="let c of ciudades" [ngValue]="c.idCiudad">{{c.nombre}}</option>
-                </select>
+                <app-searchable-select [(ngModel)]="form.idCiudad" name="idCiudad" [items]="ciudades"
+                  valueKey="idCiudad" placeholder="Escriba la ciudad..."/>
               </div>
             </div>
             <div class="form-group">

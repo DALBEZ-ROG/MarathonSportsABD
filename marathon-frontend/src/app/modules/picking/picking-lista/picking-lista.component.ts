@@ -20,6 +20,7 @@ interface PickingLinea {
 
 interface PickingPedido {
   idPedido: number;
+  numeroPedido: string;
   clienteNombre: string;
   clienteApellido: string;
   fechaPedido: string;
@@ -66,7 +67,7 @@ interface PageResponse<T> {
       <div class="cards" *ngIf="!loading">
         <div class="card" *ngFor="let p of pedidosFiltrados">
           <div class="card-header">
-            <span class="pedido-num"># Pedido {{p.idPedido}}</span>
+            <span class="pedido-num">Pedido {{p.numeroPedido}}</span>
             <span class="estado-badge" [ngClass]="'ep-'+p.estadoPicking">{{estadoLabel(p.estadoPicking)}}</span>
           </div>
 

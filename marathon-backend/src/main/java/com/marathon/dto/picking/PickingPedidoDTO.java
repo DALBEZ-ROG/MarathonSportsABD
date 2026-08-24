@@ -6,6 +6,7 @@ import java.util.List;
 public class PickingPedidoDTO {
 
     private Integer idPedido;
+    private String numeroPedido;
     private String clienteNombre;
     private String clienteApellido;
     private LocalDateTime fechaPedido;
@@ -23,6 +24,9 @@ public class PickingPedidoDTO {
 
     public Integer getIdPedido() { return idPedido; }
     public void setIdPedido(Integer idPedido) { this.idPedido = idPedido; }
+
+    public String getNumeroPedido() { return numeroPedido; }
+    public void setNumeroPedido(String numeroPedido) { this.numeroPedido = numeroPedido; }
 
     public String getClienteNombre() { return clienteNombre; }
     public void setClienteNombre(String clienteNombre) { this.clienteNombre = clienteNombre; }

@@ -71,8 +71,9 @@ public class PagoProveedorService {
         pago.setUsuarioRegistro(usuario);
         pago.setMonto(dto.getMonto());
         pago.setMetodoPago(dto.getMetodoPago());
-        pago.setReferencia(dto.getReferencia());
         pago.setObservaciones(dto.getObservaciones());
+        pago = pagoRepository.save(pago);
+        pago.setReferencia(String.format("PAG-%06d", pago.getIdPago()));
         pago = pagoRepository.save(pago);
 
         // 4. Flush para que el trigger recalcule monto_pagado y estado
@@ -99,7 +100,8 @@ public class PagoProveedorService {
         dto.setMonto(p.getMonto());
         dto.setFechaPago(p.getFechaPago());
         dto.setMetodoPago(p.getMetodoPago());
-        dto.setReferencia(p.getReferencia());
+        dto.setReferencia(p.getReferencia() != null && !p.getReferencia().isBlank()
+                ? p.getReferencia() : String.format("PAG-%06d", p.getIdPago()));
         dto.setObservaciones(p.getObservaciones());
         dto.setSaldoResultante(saldoResultante);
         if (p.getUsuarioRegistro() != null) {

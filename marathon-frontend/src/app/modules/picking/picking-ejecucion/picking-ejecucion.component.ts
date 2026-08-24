@@ -21,6 +21,7 @@ interface PickingLinea {
 
 interface PickingPedido {
   idPedido: number;
+  numeroPedido: string;
   clienteNombre: string;
   clienteApellido: string;
   fechaPedido: string;
@@ -43,7 +44,7 @@ interface PickingPedido {
     <div class="container" *ngIf="pedido">
       <div class="header">
         <div>
-          <h2># Pedido {{pedido.idPedido}}</h2>
+          <h2>Pedido {{pedido.numeroPedido}}</h2>
           <span class="cliente">{{pedido.clienteNombre}} {{pedido.clienteApellido}}</span>
           <span class="estado-badge" [ngClass]="'ep-'+estadoPicking">{{estadoLabel(estadoPicking)}}</span>
         </div>
@@ -87,7 +88,7 @@ interface PickingPedido {
             </div>
             <div class="campo check">
               <label>
-                <input type="checkbox" [ngModel]="l.pickingCompletado" (ngModelChange)="onCheck(l, $event)"/>
+                <input type="checkbox" [checked]="l.pickingCompletado" disabled/>
                 Línea completada
               </label>
             </div>
@@ -147,14 +148,6 @@ export class PickingEjecucionComponent implements OnInit {
     }
   }
 
-  onCheck(l: PickingLinea, value: boolean) {
-    if (value && l.cantidadRecogida < l.cantidad) {
-      const ok = confirm('¿Recoger cantidad parcial?');
-      if (!ok) { l.pickingCompletado = false; return; }
-    }
-    l.pickingCompletado = value;
-  }
-
   guardarLinea(l: PickingLinea) {
     if (!this.pedido) return;
     if (l.cantidadRecogida == null || l.cantidadRecogida < 0) {
@@ -165,6 +158,9 @@ export class PickingEjecucionComponent implements OnInit {
       this.mostrarToast('Cantidad recogida no puede superar la cantidad del pedido (máximo: ' + l.cantidad + ')', true);
       return;
     }
+    // El estado se deriva de la cantidad; el usuario no debe mantener dos
+    // controles que pueden contradecirse entre si.
+    l.pickingCompletado = l.cantidad > 0 && l.cantidadRecogida === l.cantidad;
     l.guardando = true;
     const body = { idDetalle: l.idDetalle, cantidadRecogida: l.cantidadRecogida, pickingCompletado: l.pickingCompletado };
     this.http.put<PickingLinea>(`${environment.apiUrl}/picking/pedidos/${this.pedido.idPedido}/lineas`, body).subscribe({

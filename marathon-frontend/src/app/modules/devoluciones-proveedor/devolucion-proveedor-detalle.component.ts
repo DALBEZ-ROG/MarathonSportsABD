@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 
@@ -84,7 +84,8 @@ export class DevolucionProveedorDetalleComponent implements OnInit {
   toast = '';
   toastError = false;
 
-  constructor(private route: ActivatedRoute, private api: ApiService, private auth: AuthService) {}
+  constructor(private route: ActivatedRoute, private router: Router,
+              private api: ApiService, private auth: AuthService) {}
 
   ngOnInit() {
     this.esCompras = this.auth.hasRol('Administrador') || this.auth.hasRol('Encargado de Compras');
@@ -112,7 +113,7 @@ export class DevolucionProveedorDetalleComponent implements OnInit {
     const body: any = { tipoResolucion: this.resolucion.tipoResolucion, observaciones: this.resolucion.observaciones || null };
     if (this.resolucion.tipoResolucion === 'reembolso') body.montoReembolso = this.resolucion.montoReembolso;
     this.api.post<any>('devoluciones-proveedor/' + this.dev.idDevolucionProv + '/resolver', body).subscribe({
-      next: (res: any) => { this.dev = res; this.guardando = false; this.mostrarToast('Devolucion resuelta'); },
+      next: () => { this.guardando = false; this.router.navigate(['/devoluciones-proveedor']); },
       error: (err: any) => { this.guardando = false; this.mostrarToast(err.error?.message || 'Error', true); }
     });
   }
@@ -120,7 +121,7 @@ export class DevolucionProveedorDetalleComponent implements OnInit {
   rechazar() {
     this.guardando = true;
     this.api.put<any>('devoluciones-proveedor/' + this.dev.idDevolucionProv + '/estado', { estado: 'rechazada' }).subscribe({
-      next: (res: any) => { this.dev = res; this.guardando = false; this.mostrarToast('Devolucion rechazada'); },
+      next: () => { this.guardando = false; this.router.navigate(['/devoluciones-proveedor']); },
       error: (err: any) => { this.guardando = false; this.mostrarToast(err.error?.message || 'Error', true); }
     });
   }

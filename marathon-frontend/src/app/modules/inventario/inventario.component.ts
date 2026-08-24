@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 
 interface Bodega {
   idBodega: number;
@@ -52,7 +53,7 @@ interface PageResponse<T> {
 @Component({
   selector: 'app-inventario',
   standalone: true,
-  imports: [CommonModule, FormsModule, AppIconComponent],
+  imports: [CommonModule, FormsModule, AppIconComponent, SearchableSelectComponent],
   template: `
     <div class="crud-container">
       <!-- Stock bajo alert -->
@@ -122,17 +123,13 @@ interface PageResponse<T> {
             </div>
             <div class="form-group">
               <label>Bodega Origen *</label>
-              <select [(ngModel)]="movForm.idBodega" name="idBodega" required>
-                <option [ngValue]="null">-- Seleccione --</option>
-                <option *ngFor="let b of bodegas" [ngValue]="b.idBodega">{{b.nombre}}</option>
-              </select>
+              <app-searchable-select [(ngModel)]="movForm.idBodega" name="idBodega" [items]="bodegas"
+                valueKey="idBodega" placeholder="Escriba la bodega de origen..."/>
             </div>
             <div class="form-group" *ngIf="movForm.tipoMovimiento === 'traslado'">
               <label>Bodega Destino *</label>
-              <select [(ngModel)]="movForm.idBodegaDestino" name="idBodegaDestino">
-                <option [ngValue]="null">-- Seleccione --</option>
-                <option *ngFor="let b of bodegas" [ngValue]="b.idBodega">{{b.nombre}}</option>
-              </select>
+              <app-searchable-select [(ngModel)]="movForm.idBodegaDestino" name="idBodegaDestino" [items]="bodegas"
+                valueKey="idBodega" placeholder="Escriba la bodega de destino..."/>
             </div>
             <div class="form-group">
               <label>Cantidad *</label>

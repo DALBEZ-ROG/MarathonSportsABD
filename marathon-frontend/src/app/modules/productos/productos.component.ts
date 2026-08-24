@@ -130,10 +130,6 @@ interface Producto {
           <form (ngSubmit)="guardar()">
             <div class="form-row">
               <div class="form-group">
-                <label>Código *</label>
-                <input type="text" [(ngModel)]="form.codigo" name="codigo" required/>
-              </div>
-              <div class="form-group">
                 <label>Nombre *</label>
                 <input type="text" [(ngModel)]="form.nombre" name="nombre" required/>
               </div>
@@ -466,7 +462,6 @@ export class ProductosComponent implements OnInit {
   }
 
   guardar() {
-    if (!this.form.codigo?.trim()) { this.formError = 'El código es obligatorio'; return; }
     if (!this.form.nombre?.trim()) { this.formError = 'El nombre es obligatorio'; return; }
     if (!this.form.precioCompra) { this.formError = 'El precio de compra es obligatorio'; return; }
     if (!this.form.precioVenta) { this.formError = 'El precio de venta es obligatorio'; return; }

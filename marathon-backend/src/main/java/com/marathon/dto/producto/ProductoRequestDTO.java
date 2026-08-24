@@ -9,7 +9,6 @@ import jakarta.validation.constraints.Pattern;
 
 public class ProductoRequestDTO {
 
-    @NotBlank(message = "El código es obligatorio")
     private String codigo;
 
     @NotBlank(message = "El nombre es obligatorio")

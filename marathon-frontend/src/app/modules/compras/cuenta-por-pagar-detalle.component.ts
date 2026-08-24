@@ -107,10 +107,6 @@ interface CuentaDetalle {
             </select>
           </div>
           <div class="form-group">
-            <label>Referencia</label>
-            <input [(ngModel)]="pago.referencia" name="referencia" placeholder="Nro. transferencia, cheque, etc.">
-          </div>
-          <div class="form-group">
             <label>Observaciones</label>
             <input [(ngModel)]="pago.observaciones" name="observaciones">
           </div>
@@ -152,7 +148,7 @@ interface CuentaDetalle {
 })
 export class CuentaPorPagarDetalleComponent implements OnInit {
   cuenta: CuentaDetalle | null = null;
-  pago = { monto: 0, metodoPago: '', referencia: '', observaciones: '' };
+  pago = { monto: 0, metodoPago: '', observaciones: '' };
   guardando = false;
   toast = '';
   toastError = false;
@@ -185,7 +181,6 @@ export class CuentaPorPagarDetalleComponent implements OnInit {
       idCuentaPagar: this.cuenta.idCuentaPagar,
       monto: this.pago.monto,
       metodoPago: this.pago.metodoPago,
-      referencia: this.pago.referencia || null,
       observaciones: this.pago.observaciones || null
     };
     this.api.post<any>('pagos-proveedor', body).subscribe({
@@ -197,7 +192,7 @@ export class CuentaPorPagarDetalleComponent implements OnInit {
         } else {
           this.mostrarToast('Pago registrado. Saldo restante: $' + saldo);
         }
-        this.pago = { monto: 0, metodoPago: '', referencia: '', observaciones: '' };
+        this.pago = { monto: 0, metodoPago: '', observaciones: '' };
         this.cargar(this.cuenta!.idCuentaPagar);
       },
       error: err => {

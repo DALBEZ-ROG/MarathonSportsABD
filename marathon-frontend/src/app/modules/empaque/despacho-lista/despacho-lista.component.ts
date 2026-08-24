@@ -88,7 +88,59 @@ interface PageResponse<T> {
     </div>
   `,
   styles: [`
-    /* Inherits global dark theme from styles.scss */
+    .despacho-container > .filters {
+      display: grid;
+      grid-template-columns: minmax(190px, 1fr) minmax(210px, 1fr) minmax(210px, 1fr) auto;
+      align-items: end;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .despacho-container > .filters .filter-item {
+      min-width: 0;
+    }
+
+    .despacho-container > .filters .filter-item input {
+      width: 100%;
+      min-height: 44px;
+      box-sizing: border-box;
+    }
+
+    .despacho-container > .filters .filter-actions {
+      align-items: stretch;
+      min-height: 44px;
+    }
+
+    .despacho-container > .filters .filter-actions button {
+      min-height: 44px;
+      padding-inline: 1.15rem;
+    }
+
+    .table-wrap {
+      margin-top: 0;
+    }
+
+    @media (max-width: 1050px) {
+      .despacho-container > .filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .despacho-container > .filters .filter-actions {
+        grid-column: 1 / -1;
+        justify-content: flex-end;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .despacho-container > .filters {
+        grid-template-columns: 1fr;
+      }
+      .despacho-container > .filters .filter-actions {
+        grid-column: auto;
+      }
+      .despacho-container > .filters .filter-actions button {
+        flex: 1;
+      }
+    }
   `]
 })
 export class DespachoListaComponent implements OnInit {

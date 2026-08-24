@@ -86,13 +86,17 @@ public class PickingService {
         }
 
         detalle.setCantidadRecogida(dto.getCantidadRecogida());
-        detalle.setPickingCompletado(dto.getPickingCompletado());
+        // La linea queda completa solamente al recoger exactamente el total.
+        // No se confia en el booleano enviado por el cliente.
+        detalle.setPickingCompletado(detalle.getCantidad() != null
+                && detalle.getCantidad() > 0
+                && detalle.getCantidad().equals(dto.getCantidadRecogida()));
         detalle = detallePedidoRepository.save(detalle);
 
         logService.registrar(idUsuarioActual, "picking", "actualizar_linea",
                 "Pedido #" + idPedido + ", linea #" + dto.getIdDetalle() + ": recogidas "
                 + dto.getCantidadRecogida() + " de " + detalle.getCantidad()
-                + (Boolean.TRUE.equals(dto.getPickingCompletado()) ? " (linea completada)" : ""), null);
+                + (Boolean.TRUE.equals(detalle.getPickingCompletado()) ? " (linea completada)" : ""), null);
 
         return toLineaDTO(detalle);
     }
@@ -116,6 +120,7 @@ public class PickingService {
     private PickingPedidoDTO toPedidoDTO(Pedido pedido, List<DetallePedido> detalles) {
         PickingPedidoDTO dto = new PickingPedidoDTO();
         dto.setIdPedido(pedido.getIdPedido());
+        dto.setNumeroPedido(String.format("PED-%06d", pedido.getIdPedido()));
         Cliente cliente = pedido.getCliente();
         if (cliente != null) {
             dto.setClienteNombre(cliente.getNombre());

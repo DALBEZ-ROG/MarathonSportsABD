@@ -250,6 +250,7 @@ public class ProductoService {
     private ProductoResponseDTO toDTO(Producto producto) {
         ProductoResponseDTO dto = new ProductoResponseDTO();
         dto.setIdProducto(producto.getIdProducto());
+        dto.setCodigo(String.format("PROD-%06d", producto.getIdProducto()));
         dto.setNombre(producto.getNombre());
         dto.setDescripcion(producto.getDescripcion());
         dto.setPrecioVenta(producto.getPrecio());

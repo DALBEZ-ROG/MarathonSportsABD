@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 import { environment } from '../../../../environments/environment';
 import { CrudService } from '../../../core/services/crud.service';
 import { AppIconComponent } from '../../../shared/components/icon/icon.component';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
 
 interface Cliente {
   idCliente: number;
@@ -45,7 +46,7 @@ interface ExcelImportPendiente {
 @Component({
   selector: 'app-pedido-nuevo',
   standalone: true,
-  imports: [CommonModule, FormsModule, AppIconComponent],
+  imports: [CommonModule, FormsModule, AppIconComponent, SearchableSelectComponent],
   template: `
     <div class="container">
       <h2>Nuevo Pedido</h2>
@@ -55,10 +56,8 @@ interface ExcelImportPendiente {
         <div class="form-row">
           <div class="form-group">
             <label>Cliente *</label>
-            <select [(ngModel)]="idCliente" name="idCliente" class="full-width">
-              <option [ngValue]="null">-- Seleccione un cliente --</option>
-              <option *ngFor="let c of clientes" [ngValue]="c.idCliente">{{c.nombre}} {{c.apellido}}</option>
-            </select>
+            <app-searchable-select [(ngModel)]="idCliente" name="idCliente" [items]="clientes"
+              labelKey="nombre,apellido" valueKey="idCliente" placeholder="Escriba el nombre del cliente..."/>
           </div>
           <div class="form-group">
             <label>Observaciones</label>
@@ -102,10 +101,8 @@ interface ExcelImportPendiente {
         <div class="product-search">
           <div class="form-group flex-2">
             <label>Producto</label>
-            <select [(ngModel)]="selectedProducto" name="producto">
-              <option [ngValue]="null">-- Seleccione --</option>
-              <option *ngFor="let p of productos" [ngValue]="p">{{p.nombre}} (\${{p.precioVenta}})</option>
-            </select>
+            <app-searchable-select [(ngModel)]="selectedProducto" name="producto" [items]="productos"
+              labelKey="nombre" placeholder="Escriba el nombre del producto..."/>
           </div>
           <div class="form-group flex-1">
             <label>Cantidad</label>
@@ -122,15 +119,12 @@ interface ExcelImportPendiente {
         </div>
 
         <div class="excel-actions">
-          <button type="button" class="btn-excel" (click)="descargarPlantilla()">
-            <app-icon name="clipboard" [size]="16"/> Descargar plantilla Excel
-          </button>
           <label class="btn-excel btn-excel-upload">
             <app-icon name="refresh" [size]="16"/> Importar Excel
             <input type="file" accept=".xlsx,.xls" (change)="importarExcel($event)" hidden/>
           </label>
         </div>
-        <small class="excel-hint">Use nombres de cliente y producto en la plantilla. Revise en pantalla antes de confirmar.</small>
+        <small class="excel-hint">El archivo debe usar nombres de cliente y producto existentes. Revise los datos antes de confirmar.</small>
       </div>
 
       <div class="form-section">
@@ -145,7 +139,13 @@ interface ExcelImportPendiente {
             </tr>
             <tr *ngFor="let d of detalles; let i = index">
               <td>{{d.productoNombre}}</td>
-              <td>{{d.cantidad}}</td>
+              <td>
+                <div class="quantity-control">
+                  <button type="button" (click)="reducirCantidad(i)" [disabled]="d.cantidad <= 1" title="Reducir cantidad">−</button>
+                  <span>{{d.cantidad}}</span>
+                  <button type="button" (click)="aumentarCantidad(i)" title="Aumentar cantidad">+</button>
+                </div>
+              </td>
               <td>\${{d.precioUnitario | number:'1.2-2'}}</td>
               <td class="total">\${{d.subtotal | number:'1.2-2'}}</td>
               <td><button class="btn-remove" (click)="quitarLinea(i)" title="Quitar línea"><app-icon name="x" [size]="14"/></button></td>
@@ -239,6 +239,31 @@ interface ExcelImportPendiente {
       font-style: italic;
       padding: 1.25rem .75rem;
     }
+
+    .quantity-control {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .65rem;
+    }
+    .quantity-control button {
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: 1px solid rgba(201, 168, 76, .35);
+      border-radius: 7px;
+      background: rgba(201, 168, 76, .08);
+      color: var(--ms-gold);
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .quantity-control button:hover:not(:disabled) { background: rgba(201, 168, 76, .18); }
+    .quantity-control button:disabled { opacity: .3; cursor: not-allowed; }
+    .quantity-control span { min-width: 2ch; text-align: center; }
 
     .import-overlay {
       position: fixed;
@@ -387,13 +412,19 @@ export class PedidoNuevoComponent implements OnInit {
 
     this.formError = '';
     this.importOk = '';
-    this.detalles.push({
-      idProducto: this.selectedProducto.idProducto,
-      productoNombre: this.selectedProducto.nombre,
-      cantidad: this.cantidadAgregar,
-      precioUnitario: precio,
-      subtotal: this.cantidadAgregar * precio
-    });
+    const existente = this.detalles.find(d => d.idProducto === this.selectedProducto!.idProducto);
+    if (existente) {
+      existente.cantidad += this.cantidadAgregar;
+      existente.subtotal = existente.cantidad * existente.precioUnitario;
+    } else {
+      this.detalles.push({
+        idProducto: this.selectedProducto.idProducto,
+        productoNombre: this.selectedProducto.nombre,
+        cantidad: this.cantidadAgregar,
+        precioUnitario: precio,
+        subtotal: this.cantidadAgregar * precio
+      });
+    }
 
     this.selectedProducto = null;
     this.cantidadAgregar = 1;
@@ -402,6 +433,19 @@ export class PedidoNuevoComponent implements OnInit {
 
   quitarLinea(index: number) {
     this.detalles.splice(index, 1);
+  }
+
+  aumentarCantidad(index: number): void {
+    const detalle = this.detalles[index];
+    detalle.cantidad++;
+    detalle.subtotal = detalle.cantidad * detalle.precioUnitario;
+  }
+
+  reducirCantidad(index: number): void {
+    const detalle = this.detalles[index];
+    if (detalle.cantidad <= 1) return;
+    detalle.cantidad--;
+    detalle.subtotal = detalle.cantidad * detalle.precioUnitario;
   }
 
   onToggleEspecial() {
@@ -441,40 +485,6 @@ export class PedidoNuevoComponent implements OnInit {
 
   cancelar() {
     this.router.navigate(['/pedidos']);
-  }
-
-  descargarPlantilla(): void {
-    const ejemploCliente = this.clientes[0]
-      ? `${this.clientes[0].nombre} ${this.clientes[0].apellido}`
-      : 'Nombre Apellido del cliente';
-    const ejemploProducto = this.productos[0]?.nombre ?? 'Nombre del producto';
-
-    const datos = [
-      ['Campo', 'Valor'],
-      ['cliente', ejemploCliente],
-      ['observaciones', ''],
-      ['es_pedido_especial', 'NO'],
-      ['tipo_especial', ''],
-      ['nota_especial', ''],
-      ['fecha_limite_entrega', ''],
-      [],
-      ['producto', 'cantidad', 'precio_unitario'],
-      [ejemploProducto, '1', ''],
-    ];
-    const instrucciones = [
-      ['Instrucciones'],
-      ['1. cliente: nombre completo tal como aparece en el sistema.'],
-      ['2. es_pedido_especial: escriba SI o NO.'],
-      ['3. tipo_especial: personalizado, regalo o corporativo (solo si es especial).'],
-      ['4. fecha_limite_entrega: formato AAAA-MM-DDTHH:mm (ej. 2026-08-25T14:00).'],
-      ['5. producto: nombre exacto del catálogo; cantidad obligatoria.'],
-      ['6. precio_unitario es opcional; si queda vacío se usa el precio del catálogo.'],
-    ];
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(datos), 'Pedido');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(instrucciones), 'Instrucciones');
-    XLSX.writeFile(wb, 'plantilla-pedido.xlsx');
   }
 
   importarExcel(event: Event): void {
@@ -603,13 +613,19 @@ export class PedidoNuevoComponent implements OnInit {
           continue;
         }
 
-        nuevosDetalles.push({
-          idProducto: producto.idProducto,
-          productoNombre: producto.nombre,
-          cantidad,
-          precioUnitario: precio,
-          subtotal: cantidad * precio
-        });
+        const existente = nuevosDetalles.find(d => d.idProducto === producto.idProducto);
+        if (existente) {
+          existente.cantidad += cantidad;
+          existente.subtotal = existente.cantidad * existente.precioUnitario;
+        } else {
+          nuevosDetalles.push({
+            idProducto: producto.idProducto,
+            productoNombre: producto.nombre,
+            cantidad,
+            precioUnitario: precio,
+            subtotal: cantidad * precio
+          });
+        }
       }
     } else {
       advertencias.push('No se encontró la sección de productos en el Excel');

@@ -47,7 +47,12 @@ body {
   color: var(--ms-text);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
+
+html, body { width: 100%; }
+img, svg, video, canvas { max-width: 100%; }
+button, input, select, textarea { max-width: 100%; font: inherit; }
 
 a { text-decoration: none; color: inherit; }
 
@@ -1708,10 +1713,11 @@ a { text-decoration: none; color: inherit; }
 }
 
 .linea-controles {
-  display: flex;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: minmax(110px, .65fr) minmax(150px, .8fr) minmax(190px, 1fr) auto;
+  column-gap: 1.5rem;
+  row-gap: 1rem;
   align-items: flex-end;
-  flex-wrap: wrap;
 }
 
 .linea-controles .campo {
@@ -1734,7 +1740,8 @@ a { text-decoration: none; color: inherit; }
 }
 
 .input-num {
-  width: 80px;
+  width: 100%;
+  max-width: 130px;
   padding: 0.5rem 0.7rem;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--ms-border);
@@ -1754,6 +1761,7 @@ a { text-decoration: none; color: inherit; }
 .check {
   display: flex;
   align-items: center;
+  min-height: 38px;
 }
 
 .check label {
@@ -2611,7 +2619,7 @@ a { text-decoration: none; color: inherit; }
   .form-row { grid-template-columns: 1fr; }
   .filtro-grid { grid-template-columns: 1fr 1fr; }
   .product-search { flex-direction: column; align-items: stretch; }
-  .linea-controles { flex-direction: column; align-items: flex-start; }
+  .linea-controles { align-items: stretch; }
   .estado-actions { flex-direction: column; }
   .ia-wrap { padding: 1rem; }
   .bubble { max-width: 92%; }
@@ -2624,4 +2632,197 @@ a { text-decoration: none; color: inherit; }
   .crud-container, .container,
   .page-container, .page, .reportes { padding: 1rem; }
   .modal-card, .modal { padding: 1.5rem; width: 95%; }
+}
+
+.check input[type="checkbox"]:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.linea-controles .btn-guardar {
+  min-width: 140px;
+  min-height: 38px;
+  justify-self: end;
+}
+
+@media (max-width: 980px) {
+  .linea-controles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .linea-controles .btn-guardar {
+    width: 100%;
+    justify-self: stretch;
+  }
+}
+
+@media (max-width: 560px) {
+  .linea { padding: 1rem; }
+
+  .linea-controles {
+    grid-template-columns: minmax(0, 1fr);
+    gap: .8rem;
+  }
+
+  .input-num { max-width: 100%; }
+  .linea-controles .btn-guardar { width: 100%; }
+}
+
+/* ═══════════════════════════════════════════
+   SYSTEM-WIDE RESPONSIVE FOUNDATION
+   Keeps every current and future module usable on tablets and phones.
+   ═══════════════════════════════════════════ */
+
+/* Content must always be allowed to shrink next to the desktop sidebar. */
+app-root, .app-layout, .main-content,
+.crud-container, .container, .page-container, .page, .reportes {
+  min-width: 0;
+  width: 100%;
+}
+
+/* Wide datasets stay readable without widening the whole application. */
+.data-table, .detail-table, .audit-table, .tabla,
+.tabla-resultados, .top-table, .mini-table, .despacho-table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.data-table th, .data-table td,
+.detail-table th, .detail-table td,
+.audit-table th, .audit-table td,
+.tabla th, .tabla td,
+.tabla-resultados th, .tabla-resultados td,
+.despacho-table th, .despacho-table td {
+  overflow-wrap: anywhere;
+}
+
+.toolbar > *, .filters > *, .form-row > *, .form-grid > *,
+.detail-grid > *, .info-grid > *, .filtro-grid > *, .cards > * {
+  min-width: 0;
+}
+
+.modal-overlay, .modal-backdrop {
+  padding: clamp(.75rem, 3vw, 2rem);
+}
+
+.modal-card, .modal {
+  max-width: min(100%, 95vw);
+  max-height: calc(100dvh - 1.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 1024px) {
+  .crud-container, .container, .page-container, .page, .reportes {
+    max-width: 100%;
+    padding-inline: clamp(1rem, 3vw, 1.5rem);
+  }
+
+  .toolbar, .filters, .actions, .header-actions, .estado-actions {
+    row-gap: .75rem;
+  }
+}
+
+@media (max-width: 768px) {
+  :root { --ms-radius: 10px; }
+
+  body { font-size: 15px; }
+
+  .crud-container, .container, .page-container, .page, .reportes,
+  .dashboard-container, .portal-container, .detail-container {
+    padding: 1rem !important;
+  }
+
+  .toolbar {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .toolbar h1, .toolbar h2, .page-header h1, .page-header h2 {
+    width: 100%;
+    font-size: clamp(1.25rem, 6vw, 1.5rem);
+  }
+
+  .filters, .actions, .form-actions, .header-actions,
+  .estado-actions, .tabs, .tab-buttons {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .filters > .input-search, .filters > .select-filter,
+  .filters > input, .filters > select,
+  .toolbar > .input-search, .toolbar > .select-filter {
+    width: 100% !important;
+    flex: 1 1 220px;
+  }
+
+  .form-grid, .detail-grid, .info-grid, .cards,
+  .kpi-grid, .charts-row, .manuf-kpis, .permisos-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .form-row {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea {
+    width: 100%;
+  }
+
+  .data-table, .detail-table, .audit-table, .tabla,
+  .tabla-resultados, .top-table, .mini-table, .despacho-table {
+    width: 100%;
+    white-space: nowrap;
+  }
+
+  .data-table th, .data-table td,
+  .detail-table th, .detail-table td,
+  .audit-table th, .audit-table td,
+  .tabla th, .tabla td {
+    padding: .7rem .75rem;
+  }
+
+  .modal-card, .modal, .modal-card.wide {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 1.25rem !important;
+    border-radius: 12px;
+  }
+
+  .btn-new, .btn-primary, .btn-secondary, .btn-action,
+  button[class*="btn-"] {
+    min-height: 42px;
+  }
+}
+
+@media (max-width: 480px) {
+  .crud-container, .container, .page-container, .page, .reportes,
+  .dashboard-container, .portal-container, .detail-container {
+    padding: .75rem !important;
+  }
+
+  .filters > *, .actions > *, .form-actions > *,
+  .estado-actions > *, .toolbar > .btn-new {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .filtro-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .modal-overlay, .modal-backdrop { padding: .5rem; }
+  .modal-card, .modal { padding: 1rem !important; }
+
+  .tabs, .tab-buttons {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .tabs > *, .tab-buttons > * { flex: 0 0 auto; }
 }

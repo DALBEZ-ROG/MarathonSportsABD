@@ -550,6 +550,10 @@ BEGIN
     RAISE NOTICE 'devolucion_proveedor: +% filas', v_falt;
 END $$;
 
+-- Completa las lineas de las devoluciones masivas. El archivo tambien puede
+-- ejecutarse solo para reparar bases que ya pasaron por una version anterior.
+\ir fase39_1_reparar_detalles_devoluciones.sql
+
 -- ============================================================================
 -- 12. REACTIVACION Y VERIFICACION DE LOS 24 TRIGGERS
 -- ============================================================================
