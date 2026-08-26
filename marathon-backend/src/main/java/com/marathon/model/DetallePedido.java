@@ -48,6 +48,18 @@ public class DetallePedido {
     @Column(name = "cantidad_recogida", nullable = false)
     private Integer cantidadRecogida = 0;
 
+    /**
+     * Bodega de la que se recogio fisicamente la linea (F45, lote L4).
+     *
+     * <p>Es el dato que le faltaba al despacho para saber de donde descontar.
+     * Anulable a proposito: las lineas anteriores a la F45 no lo tienen, y para
+     * esas EmpaqueService vuelve al reparto por orden estable de bodega que
+     * introdujo la L1.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_bodega_picking")
+    private Bodega bodegaPicking;
+
     public DetallePedido() {}
 
     public Integer getIdDetalle() { return idDetalle; }
@@ -72,4 +84,7 @@ public class DetallePedido {
 
     public Integer getCantidadRecogida() { return cantidadRecogida; }
     public void setCantidadRecogida(Integer cantidadRecogida) { this.cantidadRecogida = cantidadRecogida; }
+    public Bodega getBodegaPicking() { return bodegaPicking; }
+    public void setBodegaPicking(Bodega bodegaPicking) { this.bodegaPicking = bodegaPicking; }
+
 }

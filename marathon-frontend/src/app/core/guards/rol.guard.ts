@@ -9,7 +9,7 @@ import { AuthService } from '../services/auth.service';
  *   - `rol: 'Administrador'`            → un solo rol
  *   - `roles: ['Administrador', '...']` → cualquiera de la lista
  *
- * F32 — Si el rol no tiene acceso, redirige al dashboard con el query param
+ * F32 — Si el rol no tiene acceso, redirige a /inicio con el query param
  * `?acceso=denegado`, que el DashboardComponent usa para mostrar el mensaje
  * "No tienes acceso a esta sección". Antes redirigía en silencio y el usuario
  * no entendía por qué no pasaba nada.
@@ -22,7 +22,7 @@ export const rolGuard: CanActivateFn = (route, state) => {
   const rolesEsperados = route.data?.['roles'] as string[] | undefined;
 
   const denegar = (): boolean => {
-    router.navigate(['/dashboard'], { queryParams: { acceso: 'denegado' } });
+    router.navigate(['/inicio'], { queryParams: { acceso: 'denegado' } });
     return false;
   };
 

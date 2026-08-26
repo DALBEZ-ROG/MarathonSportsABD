@@ -2,8 +2,11 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CrudService, PageResponse } from '../../core/services/crud.service';
+import { AuthService } from '../../core/services/auth.service';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
 import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
+import { ModalSeguroDirective } from '../../shared/directives/modal-seguro.directive';
+import { EstadoListaComponent } from '../../shared/components/estado-lista/estado-lista.component';
 
 interface Ciudad {
   idCiudad: number;
@@ -26,7 +29,7 @@ interface Cliente {
 @Component({
   selector: 'app-clientes',
   standalone: true,
-  imports: [CommonModule, FormsModule, AppIconComponent, SearchableSelectComponent],
+  imports: [CommonModule, FormsModule, AppIconComponent, SearchableSelectComponent, ModalSeguroDirective, EstadoListaComponent],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -39,12 +42,19 @@ interface Cliente {
             <option value="inactivo">Inactivo</option>
           </select>
         </div>
-        <button class="btn-new" (click)="abrirModal()">+ Nuevo Cliente</button>
+        <button *ngIf="puedeEscribir" class="btn-new" (click)="abrirModal()">+ Nuevo Cliente</button>
       </div>
 
-      <div class="spinner" *ngIf="loading">Cargando...</div>
+      <app-estado-lista
+        [cargando]="loading"
+        [error]="cargaError"
+        [vacio]="!loading && !cargaError && data.length === 0"
+        [hayFiltro]="hayFiltroPuesto"
+        nombrePlural="clientes"
+        pistaVacio="Los clientes se dan de alta con «+ Nuevo»."
+        (reintentar)="cargar()"></app-estado-lista>
 
-      <table class="data-table" *ngIf="!loading">
+      <table class="data-table" *ngIf="!loading && !cargaError && data.length > 0">
         <thead>
           <tr><th>ID</th><th>Nombre</th><th>Cédula</th><th>Email</th><th>Teléfono</th><th>Ciudad</th><th>Estado</th><th>Acciones</th></tr>
         </thead>
@@ -58,11 +68,10 @@ interface Cliente {
             <td>{{item.ciudadNombre}}</td>
             <td><span class="badge" [class.active]="item.estado==='activo'">{{item.estado}}</span></td>
             <td class="actions">
-              <button class="btn-icon" (click)="editar(item)" title="Editar"><app-icon name="edit" [size]="16"/></button>
-              <button class="btn-icon danger" (click)="confirmarEliminar(item)" title="Eliminar"><app-icon name="trash" [size]="16"/></button>
+              <button *ngIf="puedeEscribir" class="btn-icon" (click)="editar(item)" title="Editar"><app-icon name="edit" [size]="16"/></button>
+              <button *ngIf="puedeEscribir" class="btn-icon danger" (click)="confirmarEliminar(item)" title="Eliminar"><app-icon name="trash" [size]="16"/></button>
             </td>
           </tr>
-          <tr *ngIf="data.length === 0"><td colspan="8" class="empty">No hay clientes registrados</td></tr>
         </tbody>
       </table>
 
@@ -73,7 +82,7 @@ interface Cliente {
       </div>
 
       <!-- Modal -->
-      <div class="modal-overlay" *ngIf="showModal" (click)="cerrarModal()">
+      <div class="modal-overlay" *ngIf="showModal" appModalSeguro (cerrar)="cerrarModal()">
         <div class="modal-card" (click)="$event.stopPropagation()">
           <h3>{{editando ? 'Editar' : 'Nuevo'}} Cliente</h3>
           <form (ngSubmit)="guardar()">
@@ -129,7 +138,7 @@ interface Cliente {
       </div>
 
       <!-- Confirm Delete -->
-      <div class="modal-overlay" *ngIf="showConfirm" (click)="showConfirm=false">
+      <div class="modal-overlay" *ngIf="showConfirm" appModalSeguro (cerrar)="showConfirm=false">
         <div class="modal-card" (click)="$event.stopPropagation()">
           <h3>Confirmar eliminación</h3>
           <p>¿Estás seguro de que deseas eliminar a <strong>{{itemEliminar?.nombre}} {{itemEliminar?.apellido}}</strong>?</p>
@@ -151,6 +160,16 @@ export class ClientesComponent implements OnInit {
   data: Cliente[] = [];
   ciudades: Ciudad[] = [];
   loading = false;
+  /**
+   * Motivo del fallo de carga, o null si la carga fue bien (D6).
+   * Sin esto la pantalla no podia distinguir "no hay registros" de "no se
+   * pudo preguntar", y enseñaba lo primero en los dos casos.
+   */
+  cargaError: string | null = null;
+
+  /** ¿Hay busqueda o filtros puestos? Cambia el mensaje de lista vacia. */
+  get hayFiltroPuesto(): boolean { return !!this.filtroNombre || !!this.filtroEstado; }
+
   saving = false;
   page = 0;
   size = 10;
@@ -168,7 +187,21 @@ export class ClientesComponent implements OnInit {
   toastError = false;
   private searchTimeout: any;
 
-  constructor(private crud: CrudService) {}
+  /**
+   * L15 (D-33): quien puede escribir clientes.
+   *
+   * <p>La ruta /clientes admite Supervisor E-Commerce, pero el backend reserva
+   * POST/PUT/DELETE a Administrador y Operador de Pedidos. Un Supervisor entraba,
+   * veia los botones de crear y editar, y se llevaba un 403 al pulsarlos. La
+   * lista de aqui es la misma que la de SecurityConfig; si una cambia, la otra
+   * tambien.
+   */
+  get puedeEscribir(): boolean {
+    const rol = this.auth.getCurrentUser()?.rol;
+    return rol === 'Administrador' || rol === 'Operador de Pedidos';
+  }
+
+  constructor(private crud: CrudService, private auth: AuthService) {}
 
   ngOnInit() {
     this.cargar();
@@ -182,8 +215,8 @@ export class ClientesComponent implements OnInit {
     if (this.filtroEstado) params['estado'] = this.filtroEstado;
 
     this.crud.listar<Cliente>('clientes', params).subscribe({
-      next: res => { this.data = res.content; this.totalPages = res.totalPages; this.loading = false; },
-      error: () => { this.loading = false; this.mostrarToast('Error al cargar clientes', true); }
+      next: res => { this.cargaError = null; this.data = res.content; this.totalPages = res.totalPages; this.loading = false; },
+      error: (err: any) => { this.loading = false; this.cargaError = this.motivoDelFallo(err); this.mostrarToast('Error al cargar clientes', true); }
     });
   }
 
@@ -254,4 +287,12 @@ export class ClientesComponent implements OnInit {
     this.toast = msg; this.toastError = error;
     setTimeout(() => { this.toast = ''; }, 3000);
   }
+  /** Traduce el fallo a algo que se pueda leer y, si se puede, resolver. */
+  private motivoDelFallo(err: any): string {
+    if (err?.status === 0) return 'No hay conexión con el servidor.';
+    if (err?.status === 403) return 'Tu rol no tiene permiso para ver esta información.';
+    if (err?.status === 401) return 'Tu sesión ha caducado. Vuelve a entrar.';
+    return err?.error?.message ?? 'El servidor no respondió correctamente.';
+  }
+
 }

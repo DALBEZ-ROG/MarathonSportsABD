@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
+import { ModalSeguroDirective } from '../../shared/directives/modal-seguro.directive';
+import { EstadoListaComponent } from '../../shared/components/estado-lista/estado-lista.component';
 
 interface Permiso { idPermiso:number; modulo:string; accion:string; }
 interface RolResp { idRol:number; nombre:string; descripcion:string; permisos:Permiso[]; }
@@ -11,12 +13,19 @@ interface RolResp { idRol:number; nombre:string; descripcion:string; permisos:Pe
 @Component({
   selector: 'app-roles',
   standalone: true,
-  imports: [CommonModule, FormsModule, AppIconComponent],
+  imports: [CommonModule, FormsModule, AppIconComponent, ModalSeguroDirective, EstadoListaComponent],
   template: `
     <div class="page-container">
       <div class="toolbar"><h2>Gestión de Roles</h2><button class="btn-new" (click)="abrirCrear()">+ Nuevo rol</button></div>
-      <div class="spinner" *ngIf="loading">Cargando...</div>
-      <table class="data-table" *ngIf="!loading">
+      <app-estado-lista
+        [cargando]="loading"
+        [error]="cargaError"
+        [vacio]="!loading && !cargaError && roles.length === 0"
+        [hayFiltro]="hayFiltroPuesto"
+        nombrePlural="roles"
+        pistaVacio="Crea el primero con «+ Nuevo»."
+        (reintentar)="cargar()"></app-estado-lista>
+      <table class="data-table" *ngIf="!loading && !cargaError && roles.length > 0">
         <thead><tr><th>Nombre</th><th>Descripción</th><th>Permisos</th><th>Acciones</th></tr></thead>
         <tbody>
           <tr *ngFor="let r of roles">
@@ -30,7 +39,7 @@ interface RolResp { idRol:number; nombre:string; descripcion:string; permisos:Pe
         </tbody>
       </table>
 
-      <div class="modal-overlay" *ngIf="showForm" (click)="showForm=false">
+      <div class="modal-overlay" *ngIf="showForm" appModalSeguro (cerrar)="showForm=false">
         <div class="modal-card wide" (click)="$event.stopPropagation()">
           <h3>{{editId?'Editar':'Nuevo'}} Rol</h3>
           <form (ngSubmit)="guardar()">
@@ -60,7 +69,7 @@ interface RolResp { idRol:number; nombre:string; descripcion:string; permisos:Pe
         </div>
       </div>
 
-      <div class="modal-overlay" *ngIf="showConfirm" (click)="showConfirm=false">
+      <div class="modal-overlay" *ngIf="showConfirm" appModalSeguro (cerrar)="showConfirm=false">
         <div class="modal-card" (click)="$event.stopPropagation()">
           <h3>Confirmar eliminación</h3>
           <p>¿Eliminar el rol <strong>{{itemEliminar?.nombre}}</strong>?</p>
@@ -79,6 +88,16 @@ interface RolResp { idRol:number; nombre:string; descripcion:string; permisos:Pe
 })
 export class RolesComponent implements OnInit {
   roles: RolResp[] = []; loading = false; saving = false;
+  /**
+   * Motivo del fallo de carga, o null si la carga fue bien (D6).
+   * Sin esto la pantalla no podia distinguir "no hay registros" de "no se
+   * pudo preguntar", y enseñaba lo primero en los dos casos.
+   */
+  cargaError: string | null = null;
+
+  /** ¿Hay busqueda o filtros puestos? Cambia el mensaje de lista vacia. */
+  get hayFiltroPuesto(): boolean { return false; }
+
   todosPermisos: Permiso[] = []; modulos: string[] = [];
   showForm = false; editId: number|null = null;
   form = {nombre:'',descripcion:'',idPermisos:[] as number[]};
@@ -93,8 +112,8 @@ export class RolesComponent implements OnInit {
   cargar() {
     this.loading = true;
     this.http.get<RolResp[]>(`${environment.apiUrl}/roles`).subscribe({
-      next: r => { this.roles = r; this.loading = false; },
-      error: () => { this.loading = false; }
+      next: r => { this.cargaError = null; this.roles = r; this.loading = false; },
+      error: (err: any) => { this.loading = false; this.cargaError = this.motivoDelFallo(err); }
     });
   }
 
@@ -140,4 +159,12 @@ export class RolesComponent implements OnInit {
   }
 
   mostrarToast(m: string, err = false) { this.toast = m; this.toastErr = err; setTimeout(() => { this.toast = ''; }, 3000); }
+  /** Traduce el fallo a algo que se pueda leer y, si se puede, resolver. */
+  private motivoDelFallo(err: any): string {
+    if (err?.status === 0) return 'No hay conexión con el servidor.';
+    if (err?.status === 403) return 'Tu rol no tiene permiso para ver esta información.';
+    if (err?.status === 401) return 'Tu sesión ha caducado. Vuelve a entrar.';
+    return err?.error?.message ?? 'El servidor no respondió correctamente.';
+  }
+
 }

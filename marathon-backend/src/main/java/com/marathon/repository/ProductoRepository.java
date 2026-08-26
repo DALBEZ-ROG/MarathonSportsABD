@@ -10,6 +10,12 @@ import com.marathon.model.Producto;
 
 public interface ProductoRepository extends JpaRepository<Producto, Integer> {
 
+    /** Para impedir el borrado fisico de una categoria en uso (L9, D-20). */
+    boolean existsByCategoriaIdCategoria(Integer idCategoria);
+
+    /** Idem para unidad de medida. */
+    boolean existsByUnidadMedidaIdUnidadMedida(Integer idUnidadMedida);
+
     Page<Producto> findByNombreContainingIgnoreCase(String nombre, Pageable pageable);
 
     Page<Producto> findByEstado(String estado, Pageable pageable);

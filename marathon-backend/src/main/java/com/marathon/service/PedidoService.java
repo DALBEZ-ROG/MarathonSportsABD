@@ -118,7 +118,8 @@ public class PedidoService {
                 result.getTotalPages(), result.getNumber(), result.getSize());
     }
 
-    public PedidoResponseDTO obtener(Integer id) {        Pedido pedido = pedidoRepository.findById(id)
+    public PedidoResponseDTO obtener(Integer id) {
+        Pedido pedido = pedidoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido", id));
         PedidoResponseDTO dto = toDTO(pedido);
         List<DetallePedido> detalles = detallePedidoRepository.findByPedidoIdPedido(id);
@@ -137,11 +138,36 @@ public class PedidoService {
         Usuario usuario = usuarioRepository.findById(idUsuarioActual)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario", idUsuarioActual));
 
+        // --------------------------------------------------------------------
+        // L8 (D-19): el descuento tiene tope, y pasarse es un error, no un 0.
+        // --------------------------------------------------------------------
+        // El DTO no valida 'descuento' y el trigger aplica GREATEST(..., 0), asi
+        // que un descuento mayor que el subtotal no daba error: dejaba el pedido
+        // en total 0 y nadie se enteraba. Uno negativo inflaba el total y moria
+        // como un 500 desde chk_pedido_descuento.
+        //
+        // El subtotal se calcula aqui, a precio de catalogo, porque es el mismo
+        // precio que la L3 va a persistir en las lineas.
+        BigDecimal descuento = dto.getDescuento() != null ? dto.getDescuento() : BigDecimal.ZERO;
+        if (descuento.compareTo(BigDecimal.ZERO) < 0) {
+            throw new ValidationException("El descuento no puede ser negativo");
+        }
+        BigDecimal subtotal = BigDecimal.ZERO;
+        for (DetallePedidoItemDTO item : dto.getDetalles()) {
+            Producto p = productoRepository.findById(item.getIdProducto())
+                    .orElseThrow(() -> new ResourceNotFoundException("Producto", item.getIdProducto()));
+            subtotal = subtotal.add(p.getPrecio().multiply(BigDecimal.valueOf(item.getCantidad())));
+        }
+        if (descuento.compareTo(subtotal) > 0) {
+            throw new ValidationException("El descuento (" + descuento
+                    + ") no puede superar el subtotal del pedido (" + subtotal + ")");
+        }
+
         Pedido pedido = new Pedido();
         pedido.setCliente(cliente);
         pedido.setUsuario(usuario);
         pedido.setEstado("pendiente");
-        pedido.setDescuento(dto.getDescuento() != null ? dto.getDescuento() : BigDecimal.ZERO);
+        pedido.setDescuento(descuento);
 
         boolean esEspecial = Boolean.TRUE.equals(dto.getEsPedidoEspecial());
         if (esEspecial && (dto.getTipoEspecial() == null || dto.getTipoEspecial().trim().isEmpty())) {
@@ -158,11 +184,34 @@ public class PedidoService {
             Producto producto = productoRepository.findById(item.getIdProducto())
                     .orElseThrow(() -> new ResourceNotFoundException("Producto", item.getIdProducto()));
 
+            // Se comprueba el estado del producto igual que arriba se comprueba
+            // el del cliente. Sin esto se podia vender un producto dado de baja
+            // (D-24).
+            if (!"activo".equals(producto.getEstado())) {
+                throw new ValidationException(
+                        "El producto '" + producto.getNombre() + "' no está activo y no se puede vender");
+            }
+
             DetallePedido detalle = new DetallePedido();
             detalle.setPedido(pedido);
             detalle.setProducto(producto);
             detalle.setCantidad(item.getCantidad());
-            detalle.setPrecioUnitario(item.getPrecioUnitario());
+            // ------------------------------------------------------------------
+            // L3 (D-34): el precio lo pone el CATALOGO, no quien llama.
+            // ------------------------------------------------------------------
+            // Hasta aqui era detalle.setPrecioUnitario(item.getPrecioUnitario()):
+            // el producto se cargaba de la base solo para asociarlo por id, y su
+            // precio se ignoraba. Un POST con "precioUnitario": 0.01 sobre un
+            // articulo de 200 creaba un pedido valido de 0.01, y las tres
+            // defensas del motor (fn_recalcular_total_pedido_stmt,
+            // fn_proteger_total_pedido, fn_validar_total_comprobante) confirmaban
+            // fielmente ese importe inventado, porque no tienen forma de saber
+            // cual era el precio de catalogo.
+            //
+            // item.getPrecioUnitario() se sigue aceptando en el DTO pero se
+            // ignora: quitarlo del contrato ahora romperia al frontend, que
+            // todavia lo envia. Se retira cuando el front deje de mandarlo.
+            detalle.setPrecioUnitario(producto.getPrecio());
             detallePedidoRepository.save(detalle);
         }
 
@@ -204,7 +253,11 @@ public class PedidoService {
         pedido.setEstado(nuevoEstado);
         pedido = pedidoRepository.save(pedido);
 
-        logService.registrar(null, "pedidos", "cambio_estado",
+        // L11 (D-18): antes se pasaba null literal, y la transición de estado
+        // —incluida la anulación— quedaba en la bitácora sin responsable.
+        // idUsuarioActual() lo resuelve del contexto de seguridad; no hizo falta
+        // cambiar ninguna firma.
+        logService.registrar(logService.idUsuarioActual(), "pedidos", "cambio_estado",
                 "Pedido #" + id + ": " + estadoActual + " → " + nuevoEstado, null);
 
         return toDTO(pedido);
@@ -235,6 +288,18 @@ public class PedidoService {
             throw new ValidationException(
                     "No se puede cambiar el estado de '" + estadoActual + "' a '" + nuevoEstado + "'");
         }
+    }
+
+    /**
+     * Construye el DTO con detalles YA cargados, sin volver a la base (L16, D-28).
+     *
+     * <p>obtener(id) sigue existiendo para el caso de un solo pedido; esto es
+     * para cuando quien llama ya trae la pagina entera y sus lineas.
+     */
+    public PedidoResponseDTO aDTOConDetalles(Pedido pedido, List<DetallePedido> detalles) {
+        PedidoResponseDTO dto = toDTO(pedido);
+        dto.setDetalles(detalles.stream().map(this::toDetalleDTO).collect(Collectors.toList()));
+        return dto;
     }
 
     private PedidoResponseDTO toDTO(Pedido pedido) {

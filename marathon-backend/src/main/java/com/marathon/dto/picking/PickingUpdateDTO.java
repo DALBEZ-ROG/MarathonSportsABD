@@ -15,6 +15,9 @@ public class PickingUpdateDTO {
     @NotNull
     private Boolean pickingCompletado;
 
+    /** Bodega de la que se recoge. Obligatoria si cantidadRecogida > 0 (L4). */
+    private Integer idBodega;
+
     public PickingUpdateDTO() {}
 
     public Integer getIdDetalle() { return idDetalle; }
@@ -22,6 +25,9 @@ public class PickingUpdateDTO {
 
     public Integer getCantidadRecogida() { return cantidadRecogida; }
     public void setCantidadRecogida(Integer cantidadRecogida) { this.cantidadRecogida = cantidadRecogida; }
+
+    public Integer getIdBodega() { return idBodega; }
+    public void setIdBodega(Integer idBodega) { this.idBodega = idBodega; }
 
     public Boolean getPickingCompletado() { return pickingCompletado; }
     public void setPickingCompletado(Boolean pickingCompletado) { this.pickingCompletado = pickingCompletado; }

@@ -86,8 +86,16 @@ public class InventarioService {
         return toInventarioDTO(inventario);
     }
 
+    /**
+     * Referencias que hay que reponer, segun el minimo de cada una.
+     *
+     * <p>Antes era {@code findStockBajo(5)}: un umbral fijo de cinco unidades
+     * para todo el catalogo. Eso hacia que la misma pregunta tuviera dos
+     * respuestas distintas —116 aqui, 220 en el tablero— porque el tablero si
+     * usaba {@code stock_minimo}. Ahora las dos pantallas cuentan lo mismo.
+     */
     public List<InventarioResponseDTO> stockBajo() {
-        return inventarioRepository.findStockBajo(5).stream()
+        return inventarioRepository.findBajoMinimo().stream()
                 .map(this::toInventarioDTO)
                 .collect(Collectors.toList());
     }
@@ -101,7 +109,7 @@ public class InventarioService {
         Usuario usuario = usuarioRepository.findById(idUsuarioActual)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario", idUsuarioActual));
 
-        Inventario inv = inventarioRepository.findByProductoIdProductoAndBodegaIdBodega(
+        Inventario inv = inventarioRepository.buscarParaActualizar(
                 dto.getIdProducto(), dto.getIdBodega())
                 .orElseGet(() -> {
                     Inventario nuevo = new Inventario();
@@ -111,6 +119,13 @@ public class InventarioService {
                     nuevo.setStockMinimo(0);
                     return inventarioRepository.save(nuevo);
                 });
+
+        // La cantidad que acabara en el movimiento. Coincide con dto.getCantidad()
+        // salvo en 'ajuste', donde el DTO trae un valor ABSOLUTO y el kardex
+        // necesita la diferencia (L5, D-15).
+        int cantidadDelMovimiento = dto.getCantidad();
+        // Destino del traslado; se rellena en su rama (L5, D-35).
+        Inventario inventarioDestino = null;
 
         switch (dto.getTipoMovimiento()) {
             case "entrada":
@@ -122,9 +137,25 @@ public class InventarioService {
                 }
                 inv.setStockActual(inv.getStockActual() - dto.getCantidad());
                 break;
-            case "ajuste":
+            case "ajuste": {
+                // ------------------------------------------------------------
+                // L5 (D-15): el ajuste fija un valor absoluto, pero el kardex
+                // registra movimientos, no saldos.
+                // ------------------------------------------------------------
+                // Antes se grababa mov.cantidad = dto.getCantidad(), es decir el
+                // saldo nuevo interpretado como si fuera un delta: sumar los
+                // movimientos dejaba de reconstruir el stock en cuanto habia un
+                // ajuste de por medio, y hay 10.757 ajustes en la base.
+                int anterior = inv.getStockActual() != null ? inv.getStockActual() : 0;
+                int diferencia = dto.getCantidad() - anterior;
+                if (diferencia == 0) {
+                    throw new ValidationException(
+                            "El ajuste no cambia el stock (ya es " + anterior + ").");
+                }
                 inv.setStockActual(dto.getCantidad());
+                cantidadDelMovimiento = Math.abs(diferencia);
                 break;
+            }
             case "traslado":
                 if (dto.getIdBodegaDestino() == null) {
                     throw new ValidationException("La bodega destino es requerida para traslados");
@@ -137,7 +168,7 @@ public class InventarioService {
                 Bodega bodegaDestino = bodegaRepository.findById(dto.getIdBodegaDestino())
                         .orElseThrow(() -> new ResourceNotFoundException("Bodega destino", dto.getIdBodegaDestino()));
 
-                Inventario destino = inventarioRepository.findByProductoIdProductoAndBodegaIdBodega(
+                Inventario destino = inventarioRepository.buscarParaActualizar(
                         dto.getIdProducto(), dto.getIdBodegaDestino())
                         .orElseGet(() -> {
                             Inventario nuevoDestino = new Inventario();
@@ -152,6 +183,7 @@ public class InventarioService {
                         .executeUpdate();
                 destino.setStockActual(destino.getStockActual() + dto.getCantidad());
                 inventarioRepository.save(destino);
+                inventarioDestino = destino;
                 break;
             default:
                 throw new ValidationException("Tipo de movimiento no válido: " + dto.getTipoMovimiento());
@@ -164,8 +196,24 @@ public class InventarioService {
         MovimientoInventario mov = new MovimientoInventario();
         mov.setInventario(inv);
         mov.setTipoMovimiento(dto.getTipoMovimiento());
-        mov.setCantidad(dto.getCantidad());
+        // En 'ajuste' esto es la diferencia, no el saldo nuevo (D-15).
+        mov.setCantidad(cantidadDelMovimiento);
         mov.setUsuario(usuario);
+        // --------------------------------------------------------------------
+        // L5 (D-35): el traslado nunca asignaba el destino.
+        // --------------------------------------------------------------------
+        // setInventarioDestino no se invocaba en ninguna parte del proyecto, y
+        // la tabla tiene chk_traslado_requiere_destino, asi que el INSERT
+        // reventaba y el traslado entre bodegas NUNCA habia funcionado desde la
+        // aplicacion. Las 6.134 filas de traslado que hay en la base las
+        // insertaron los scripts de poblado, no este codigo.
+        mov.setInventarioDestino(inventarioDestino);
+        if ("ajuste".equals(dto.getTipoMovimiento())) {
+            int nuevo = inv.getStockActual() != null ? inv.getStockActual() : 0;
+            mov.setObservacion("Ajuste a " + nuevo + " unidades ("
+                    + (nuevo >= cantidadDelMovimiento ? "+" : "-") + cantidadDelMovimiento
+                    + "). Saldos exactos en historial_inventario.");
+        }
         movimientoRepository.save(mov);
 
         // F40: la entrada COMPLEMENTA historial_inventario, no lo duplica.

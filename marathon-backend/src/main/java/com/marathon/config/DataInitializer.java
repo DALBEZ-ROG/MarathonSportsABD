@@ -19,6 +19,8 @@ import com.marathon.repository.UsuarioRepository;
 import com.marathon.repository.UsuarioRolRepository;
 
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+        name = "app.datos-demo.enabled", havingValue = "true", matchIfMissing = true)
 public class DataInitializer implements CommandLineRunner {
 
     private final RolRepository rolRepository;

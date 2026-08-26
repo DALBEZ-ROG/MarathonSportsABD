@@ -360,7 +360,7 @@ public class OrdenProduccionService {
         Bodega bodega = orden.getBodegaDestino();
 
         Inventario inv = inventarioRepository
-                .findByProductoIdProductoAndBodegaIdBodega(producto.getIdProducto(), bodega.getIdBodega())
+                .buscarParaActualizar(producto.getIdProducto(), bodega.getIdBodega())
                 .orElseGet(() -> {
                     Inventario nuevo = new Inventario();
                     nuevo.setProducto(producto);

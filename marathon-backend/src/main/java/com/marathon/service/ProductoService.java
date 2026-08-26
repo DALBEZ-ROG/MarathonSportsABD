@@ -204,6 +204,12 @@ public class ProductoService {
         return new ValidationException(msg != null ? msg : "Error al actualizar el origen del producto");
     }
 
+    // L11 (D-16): SET LOCAL muere en el commit. Sin @Transactional,
+    // fijarContextoUsuario() corria en su propia transaccion autocommit y ya no
+    // estaba vigente cuando llegaba el UPDATE que dispara trg_auditoria_producto:
+    // la traza quedaba sin autor. Lo dice el javadoc del propio metodo en
+    // LogService, y el codigo lo incumplia.
+    @Transactional
     public void eliminar(Integer id) {
         logService.fijarContextoUsuario();
         Producto producto = productoRepository.findById(id)

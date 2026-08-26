@@ -72,12 +72,6 @@ export class AuthService {
     }
   }
 
-  hasPermiso(modulo: string, accion: string): boolean {
-    const user = this.getCurrentUser();
-    if (!user || !user.permisos) return false;
-    return user.permisos.includes(`${modulo}:${accion}`);
-  }
-
   hasRol(nombreRol: string): boolean {
     const user = this.getCurrentUser();
     if (!user) return false;

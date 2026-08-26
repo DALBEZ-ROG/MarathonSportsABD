@@ -2,11 +2,12 @@ package com.marathon.service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -15,14 +16,14 @@ import org.springframework.web.reactive.function.client.WebClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.marathon.dto.ia.IAResponseDTO;
+import com.marathon.service.ia.EjecutorConsultaIA;
+import com.marathon.service.ia.ValidadorSqlIA;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.Tuple;
-import jakarta.persistence.TupleElement;
 
 @Service
 public class IAService {
+
+    private static final Logger log = LoggerFactory.getLogger(IAService.class);
 
     @Value("${anthropic.api.key}")
     private String apiKey;
@@ -33,16 +34,33 @@ public class IAService {
     @Value("${anthropic.api.model}")
     private String model;
 
-    private final IAContextService iaContextService;
+    /**
+     * Interruptor del asistente. Por defecto <b>apagado</b>: hasta la L2 este
+     * modulo ejecutaba contra la base el SQL que devolvia el modelo, con una
+     * lista de palabras prohibidas como unica defensa (D-04). Encenderlo es una
+     * decision explicita de quien despliega.
+     */
+    @Value("${app.ia.enabled:false}")
+    private boolean habilitado;
 
-    @PersistenceContext
-    private EntityManager entityManager;
+    private final IAContextService iaContextService;
+    private final ValidadorSqlIA validadorSql;
+    private final EjecutorConsultaIA ejecutor;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private WebClient webClient;
 
-    public IAService(IAContextService iaContextService) {
+    public IAService(IAContextService iaContextService,
+                     ValidadorSqlIA validadorSql,
+                     EjecutorConsultaIA ejecutor) {
         this.iaContextService = iaContextService;
+        this.validadorSql = validadorSql;
+        this.ejecutor = ejecutor;
+    }
+
+    /** Para que el controlador pueda responder 503 sin construir la respuesta entera. */
+    public boolean estaHabilitado() {
+        return habilitado;
     }
 
     private WebClient getWebClient() {
@@ -118,40 +136,31 @@ public class IAService {
         response.setSql(sql);
         response.setExplicacion(explicacion);
 
-        // 6. Seguridad: solo se permiten consultas SELECT
+        // 6. Seguridad: el SQL se analiza sintacticamente, no se compara por
+        //    subcadenas. Ver ValidadorSqlIA para por que la comprobacion
+        //    anterior fallaba en las dos direcciones a la vez (D-04 y D-30).
         if (sql != null) {
-            String upper = sql.toUpperCase();
-            String[] prohibidas = {"INSERT", "UPDATE", "DELETE", "DROP", "TRUNCATE", "ALTER", "CREATE"};
-            for (String palabra : prohibidas) {
-                if (upper.contains(palabra)) {
-                    response.setError("Query no permitida por seguridad");
-                    response.setTimestamp(LocalDateTime.now());
-                    return response;
-                }
+            ValidadorSqlIA.Veredicto veredicto = validadorSql.validar(sql);
+            if (!veredicto.permitido()) {
+                response.setError(veredicto.motivo());
+                response.setTimestamp(LocalDateTime.now());
+                return response;
             }
 
-            // 7. Ejecutar la consulta usando Tuple para obtener nombres de columna
+            // 7. Ejecutar en una transaccion de solo lectura (segunda barrera).
             try {
-                @SuppressWarnings("unchecked")
-                List<Tuple> rows = entityManager.createNativeQuery(sql, Tuple.class)
-                    .setMaxResults(500)
-                    .getResultList();
-
-                List<Map<String, Object>> resultados = new ArrayList<>();
-                for (Tuple fila : rows) {
-                    Map<String, Object> mapa = new LinkedHashMap<>();
-                    for (TupleElement<?> elemento : fila.getElements()) {
-                        String alias = elemento.getAlias();
-                        mapa.put(alias, fila.get(alias));
-                    }
-                    resultados.add(mapa);
-                }
+                List<Map<String, Object>> resultados = ejecutor.ejecutar(sql);
 
                 // 8. Asignar resultados
                 response.setResultados(resultados);
                 response.setTotalResultados(resultados.size());
             } catch (Exception e) {
-                response.setError("Error al ejecutar la consulta: " + e.getMessage());
+                // El detalle NO se devuelve al cliente: el mensaje crudo de
+                // PostgreSQL convertia este endpoint en un oraculo para explorar
+                // el esquema a base de consultas mal formadas (D-12).
+                log.warn("Fallo al ejecutar la consulta del asistente IA. SQL: {}", sql, e);
+                response.setError("No se pudo ejecutar la consulta. "
+                        + "Prueba a reformular la pregunta.");
             }
         }
 

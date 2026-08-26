@@ -15,6 +15,8 @@ interface PickingLinea {
   cantidad: number;
   cantidadRecogida: number;
   pickingCompletado: boolean;
+  idBodegaPicking?: number | null;
+  bodegaPickingNombre?: string | null;
   pendiente: number;
   guardando?: boolean;
 }
@@ -85,6 +87,16 @@ interface PickingPedido {
             <div class="campo">
               <label>Cantidad recogida</label>
               <input type="number" [(ngModel)]="l.cantidadRecogida" [min]="0" [max]="l.cantidad" class="input-num"/>
+
+              <!-- L4: de que bodega se recoge. El backend lo exige cuando se recoge algo. -->
+
+              <select [(ngModel)]="l.idBodegaPicking" class="input-num" title="Bodega de la que se recoge">
+
+                <option [ngValue]="null">Bodega...</option>
+
+                <option *ngFor="let b of bodegas" [ngValue]="b.idBodega">{{ b.nombre }}</option>
+
+              </select>
             </div>
             <div class="campo check">
               <label>
@@ -115,12 +127,23 @@ export class PickingEjecucionComponent implements OnInit {
   estadoPicking = 'pendiente';
   toast = '';
   toastError = false;
+  /** L4: bodegas activas, para elegir de cuál se recoge cada línea. */
+  bodegas: Array<{ idBodega: number; nombre: string }> = [];
 
   constructor(private route: ActivatedRoute, private router: Router, private http: HttpClient) {}
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('idPedido');
     if (id) { this.cargar(+id); }
+    this.cargarBodegas();
+  }
+
+  cargarBodegas() {
+    this.http.get<Array<{ idBodega: number; nombre: string }>>(`${environment.apiUrl}/bodegas/activas`)
+      .subscribe({
+        next: res => { this.bodegas = res ?? []; },
+        error: () => { this.bodegas = []; }
+      });
   }
 
   cargar(id: number) {
@@ -154,6 +177,10 @@ export class PickingEjecucionComponent implements OnInit {
       this.mostrarToast('La cantidad recogida no puede ser negativa', true);
       return;
     }
+    if (l.cantidadRecogida > 0 && !l.idBodegaPicking) {
+      this.mostrarToast('Indica de qué bodega se recogió la línea', true);
+      return;
+    }
     if (l.cantidadRecogida > l.cantidad) {
       this.mostrarToast('Cantidad recogida no puede superar la cantidad del pedido (máximo: ' + l.cantidad + ')', true);
       return;
@@ -162,7 +189,8 @@ export class PickingEjecucionComponent implements OnInit {
     // controles que pueden contradecirse entre si.
     l.pickingCompletado = l.cantidad > 0 && l.cantidadRecogida === l.cantidad;
     l.guardando = true;
-    const body = { idDetalle: l.idDetalle, cantidadRecogida: l.cantidadRecogida, pickingCompletado: l.pickingCompletado };
+    const body = { idDetalle: l.idDetalle, cantidadRecogida: l.cantidadRecogida,
+                   pickingCompletado: l.pickingCompletado, idBodega: l.idBodegaPicking ?? null };
     this.http.put<PickingLinea>(`${environment.apiUrl}/picking/pedidos/${this.pedido.idPedido}/lineas`, body).subscribe({
       next: res => {
         l.cantidadRecogida = res.cantidadRecogida;

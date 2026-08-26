@@ -47,6 +47,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = usuarioDetailsService.loadUserByUsername(userEmail);
 
+                // ------------------------------------------------------------
+                // L7 (D-05): un usuario dado de baja deja de entrar.
+                // ------------------------------------------------------------
+                // isTokenValid solo comprueba que el nombre coincida y que el
+                // token no haya expirado. Usuario.isEnabled() existia desde el
+                // principio y no lo llamaba nadie, asi que desactivar a alguien
+                // no le quitaba el acceso: seguia operando hasta 24 h con su
+                // token, y como el refresh tampoco lo comprobaba, podia
+                // renovarlo indefinidamente. UsuarioService.eliminar() —la unica
+                // via documentada para retirar el acceso— no retiraba el acceso.
+                if (!userDetails.isEnabled()) {
+                    logger.debug("Token de un usuario inactivo: " + userEmail);
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
                 if (jwtUtils.isTokenValid(jwt, userDetails)) {
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(

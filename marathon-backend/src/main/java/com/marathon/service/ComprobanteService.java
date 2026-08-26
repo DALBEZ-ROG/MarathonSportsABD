@@ -28,6 +28,19 @@ import com.marathon.repository.UsuarioRepository;
 @Service
 public class ComprobanteService {
 
+    /**
+     * Estados de pedido desde los que se puede emitir un comprobante (L6, D-11).
+     *
+     * <p>Se factura lo que ya salio del almacen. Si el negocio decidiera facturar
+     * por adelantado, aqui se anadiria {@code "procesado"} — es una regla de
+     * negocio, y este es el unico sitio donde se declara.
+     */
+    private static final java.util.List<String> ESTADOS_FACTURABLES =
+            java.util.List.of("enviado", "entregado");
+
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
+
     private final ComprobanteInternoRepository comprobanteRepository;
     private final PedidoRepository pedidoRepository;
     private final DetallePedidoRepository detallePedidoRepository;
@@ -55,8 +68,29 @@ public class ComprobanteService {
         Pedido pedido = pedidoRepository.findById(idPedido)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido", idPedido));
 
-        if (comprobanteRepository.findByPedidoIdPedido(idPedido).isPresent()) {
-            throw new ValidationException("El pedido ya tiene un comprobante emitido");
+        // --------------------------------------------------------------------
+        // L6 (D-11): no se factura un pedido en cualquier estado.
+        // --------------------------------------------------------------------
+        // Antes se emitia sobre pedidos 'pendiente' —sin picking, sin despacho,
+        // sin stock movido— e incluso sobre pedidos 'anulado'. La facturacion
+        // estaba desligada del ciclo de la venta.
+        if (!ESTADOS_FACTURABLES.contains(pedido.getEstado())) {
+            throw new ValidationException("No se puede emitir un comprobante de un pedido en estado '"
+                    + pedido.getEstado() + "'. Solo se factura lo que ya salió: "
+                    + String.join(" o ", ESTADOS_FACTURABLES) + ".");
+        }
+
+        // --------------------------------------------------------------------
+        // L6 (D-06): tras anular se puede volver a emitir.
+        // --------------------------------------------------------------------
+        // Esta comprobacion no filtraba por estado, y 'anular' solo marca el
+        // comprobante como anulado sin desvincularlo. Resultado: anular una
+        // factura por un error de emision dejaba ese pedido sin poder facturarse
+        // NUNCA mas. Ahora solo bloquea un comprobante vigente.
+        if (comprobanteRepository.findByPedidoIdPedido(idPedido)
+                .filter(c -> "emitido".equals(c.getEstado()))
+                .isPresent()) {
+            throw new ValidationException("El pedido ya tiene un comprobante emitido y vigente");
         }
 
         Usuario usuario = usuarioRepository.findById(idUsuarioActual)
@@ -118,10 +152,24 @@ public class ComprobanteService {
         return pdfService.generarComprobanteInternoPDF(dto);
     }
 
+    /**
+     * Correlativo del comprobante (L6, D-07).
+     *
+     * <p>Antes era {@code comprobanteRepository.count() + 1}: dos emisiones
+     * simultaneas leian el mismo recuento, generaban el mismo numero, y la
+     * segunda chocaba contra {@code uq_comprobante_numero} devolviendo un 500.
+     * Un contador de documentos no puede salir de un COUNT(*).
+     *
+     * <p>Ahora lo da {@code seq_comprobante_interno} (fase 46), que PostgreSQL
+     * garantiza unico aunque veinte peticiones lleguen a la vez. La secuencia se
+     * inicializo por encima del mayor correlativo ya emitido.
+     */
     private String generarNumero() {
         int anio = Year.now().getValue();
-        long count = comprobanteRepository.count() + 1;
-        return String.format("COMP-%d-%06d", anio, count);
+        Number siguiente = (Number) entityManager
+                .createNativeQuery("SELECT nextval('seq_comprobante_interno')")
+                .getSingleResult();
+        return String.format("COMP-%d-%06d", anio, siguiente.longValue());
     }
 
     private ComprobanteResponseDTO toDTO(ComprobanteInterno c) {

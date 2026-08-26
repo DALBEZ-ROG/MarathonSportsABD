@@ -287,6 +287,17 @@ public class SecurityConfig {
                 .requestMatchers("/api/ordenes-produccion/**")
                     .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE PRODUCCIÓN")
 
+                // --- D1: el tablero de inicio, para cualquier usuario con sesión ---
+                //   Debe ir ANTES de la regla general de /api/dashboard/**.
+                //   No abre nada: el servicio devuelve unicamente los indicadores
+                //   del rol que viene en el token, y cada consulta se ejecuta con
+                //   la conexion de ese rol, que solo puede leer sus tablas (F34/F37).
+                //   Dejarlo en "Admin o Supervisor" obligaria a los otros cuatro
+                //   roles a entrar a un tablero vacio, que es de donde venimos.
+                .requestMatchers(org.springframework.http.HttpMethod.GET,
+                    "/api/dashboard/resumen"
+                ).authenticated()
+
                 // --- Dashboard, reportes e IA: Administrador o Supervisor E-Commerce ---
                 .requestMatchers("/api/dashboard/**")
                     .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_SUPERVISOR E-COMMERCE")

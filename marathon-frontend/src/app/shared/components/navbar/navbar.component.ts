@@ -84,7 +84,7 @@ interface NavSection {
             <a *ngFor="let item of section.items"
                [routerLink]="item.route"
                routerLinkActive="active"
-               [routerLinkActiveOptions]="{exact: item.route === '/dashboard' || item.route === '/portal'}"
+               [routerLinkActiveOptions]="{exact: item.route === '/inicio'}"
                class="nav-item"
                [title]="item.label"
                (click)="closeMobile()">
@@ -318,14 +318,15 @@ export class NavbarComponent implements OnInit, OnDestroy {
   private navSub?: Subscription;
 
   private allItems: NavItem[] = [
-    { label: 'Portal', route: '/portal', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>' },
-    { label: 'Dashboard', route: '/dashboard', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>' },
-    { label: 'Datos Maestros', route: '/datos-maestros', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>', roles: ['Administrador'] },
-    { label: 'Proveedores', route: '/proveedores', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>', roles: ['Administrador'] },
-    { label: 'Productos', route: '/productos', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>', roles: ['Administrador'] },
-    { label: 'Bodegas', route: '/bodegas', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>', roles: ['Administrador'] },
-    { label: 'Inventario', route: '/inventario', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>', roles: ['Administrador', 'Operador de Bodega'] },
-    { label: 'Clientes', route: '/clientes', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>', roles: ['Administrador', 'Operador de Pedidos'] },
+    { label: 'Inicio', route: '/inicio', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>' },
+    { label: 'Categorías', route: '/datos-maestros/categorias', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d=\"M3 7h18M3 12h18M3 17h12\"/></svg>', roles: ['Administrador'] },
+    { label: 'Unidades de medida', route: '/datos-maestros/unidades-medida', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d=\"M2 12h20M6 9v6M10 10v4M14 9v6M18 10v4\"/></svg>', roles: ['Administrador'] },
+    { label: 'Ciudades', route: '/datos-maestros/ciudades', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d=\"M21 21H3V9l6-4 6 4v3h6z\"/><path d=\"M9 21v-6h4v6\"/></svg>', roles: ['Administrador'] },
+    { label: 'Proveedores', route: '/datos-maestros/proveedores', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>', roles: ['Administrador'] },
+    { label: 'Productos', route: '/datos-maestros/productos', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>', roles: ['Administrador'] },
+    { label: 'Bodegas', route: '/datos-maestros/bodegas', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>', roles: ['Administrador'] },
+    { label: 'Inventario', route: '/inventario', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>', roles: ['Administrador', 'Operador de Bodega', 'Supervisor E-Commerce', 'Encargado de Compras'] },
+    { label: 'Clientes', route: '/clientes', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>', roles: ['Administrador', 'Operador de Pedidos', 'Supervisor E-Commerce'] },
     { label: 'Pedidos', route: '/pedidos', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>', roles: ['Administrador', 'Supervisor E-Commerce', 'Operador de Pedidos', 'Operador de Bodega'] },
     { label: 'Pedidos Especiales', route: '/pedidos/especiales', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', roles: ['Administrador', 'Supervisor E-Commerce', 'Operador de Pedidos', 'Operador de Bodega'] },
     { label: 'Comprobantes', route: '/comprobantes', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="12" y2="15"/></svg>', roles: ['Administrador', 'Supervisor E-Commerce', 'Operador de Pedidos', 'Operador de Bodega'] },
@@ -422,28 +423,49 @@ export class NavbarComponent implements OnInit, OnDestroy {
       return item.roles.some(r => userRoles.includes(r));
     });
 
-    // Group into sections
-    const main = filtered.filter(i => ['/portal', '/dashboard'].includes(i.route));
-    const gestion = filtered.filter(i => ['/datos-maestros', '/proveedores', '/productos', '/bodegas', '/inventario', '/clientes'].includes(i.route));
-    const pedidos = filtered.filter(i => ['/pedidos', '/pedidos/especiales', '/comprobantes'].includes(i.route));
-    const operaciones = filtered.filter(i => ['/picking', '/empaque', '/despachos', '/devoluciones'].includes(i.route));
-    const compras = filtered.filter(i => ['/compras', '/cuentas-por-pagar', '/devoluciones-proveedor'].includes(i.route));
-    // F30 — Manufactura agrupa: materia prima (F26), producción (F28),
-    // dashboard de producción (F30) y análisis de costos (F29).
-    const manufactura = filtered.filter(i => ['/materia-prima', '/produccion', '/produccion/dashboard', '/produccion/costos'].includes(i.route));
-    const analytics = filtered.filter(i => ['/reportes', '/ia', '/auditoria'].includes(i.route));
-    const cuenta = filtered.filter(i => ['/usuarios', '/roles', '/perfil'].includes(i.route));
-
-    this.navSections = [
-      { title: 'Principal', items: main, collapsed: false },
-      ...(gestion.length ? [{ title: 'Gestión', items: gestion, collapsed: true }] : []),
-      ...(pedidos.length ? [{ title: 'Pedidos', items: pedidos, collapsed: true }] : []),
-      ...(operaciones.length ? [{ title: 'Operaciones', items: operaciones, collapsed: true }] : []),
-      ...(compras.length ? [{ title: 'Compras', items: compras, collapsed: true }] : []),
-      ...(manufactura.length ? [{ title: 'Manufactura', items: manufactura, collapsed: true }] : []),
-      ...(analytics.length ? [{ title: 'Análisis', items: analytics, collapsed: true }] : []),
-      ...(cuenta.length ? [{ title: 'Cuenta', items: cuenta, collapsed: true }] : []),
+    // ------------------------------------------------------------------
+    // D3 — el menú sigue el flujo del negocio, no el orden en que se fueron
+    // programando las pantallas.
+    // ------------------------------------------------------------------
+    // El orden anterior era: Portal, Dashboard, Datos Maestros, Proveedores,
+    // Productos, Bodegas, Inventario, Clientes, Pedidos... Mezclaba
+    // configuración con operación diaria, y ponía el abastecimiento DESPUÉS de
+    // la venta, que es al revés de como ocurre. Ahora se recorre igual que la
+    // mercancía: se define, se compra, se fabrica, se vende, se despacha, se
+    // devuelve, y al final se analiza y se administra.
+    //
+    // Cada sección declara sus rutas en el orden en que se van a usar; el
+    // `filtered` de arriba ya ha quitado las que el rol no puede abrir, así que
+    // una sección que quede vacía no se pinta.
+    const flujo: { title: string; rutas: string[] }[] = [
+      { title: 'Inicio',           rutas: ['/inicio'] },
+      // D5 — las seis maestras, en el orden en que se dan de alta: primero el
+      //   producto, luego lo que lo clasifica y lo mide, luego dónde vive y a
+      //   quién se le compra.
+      { title: 'Datos maestros',   rutas: ['/datos-maestros/productos', '/datos-maestros/categorias',
+                                           '/datos-maestros/unidades-medida', '/datos-maestros/ciudades',
+                                           '/datos-maestros/bodegas', '/datos-maestros/proveedores'] },
+      { title: 'Abastecimiento',   rutas: ['/compras', '/cuentas-por-pagar', '/devoluciones-proveedor', '/materia-prima'] },
+      { title: 'Producción',       rutas: ['/produccion', '/produccion/dashboard', '/produccion/costos'] },
+      { title: 'Venta',            rutas: ['/clientes', '/pedidos', '/pedidos/especiales', '/comprobantes'] },
+      { title: 'Almacén y salida', rutas: ['/inventario', '/picking', '/empaque', '/despachos'] },
+      { title: 'Posventa',         rutas: ['/devoluciones'] },
+      { title: 'Análisis',         rutas: ['/reportes', '/auditoria', '/ia'] },
+      { title: 'Administración',   rutas: ['/usuarios', '/roles'] },
+      { title: 'Mi cuenta',        rutas: ['/perfil'] },
     ];
+
+    const porRuta = new Map(filtered.map(i => [i.route, i]));
+
+    this.navSections = flujo
+      .map(({ title, rutas }) => ({
+        title,
+        items: rutas.map(r => porRuta.get(r)).filter((i): i is NavItem => !!i),
+        // Solo Inicio arranca abierto. Lo demás se despliega al entrar en él,
+        // de eso se encarga expandSectionForUrl.
+        collapsed: title !== 'Inicio'
+      }))
+      .filter(s => s.items.length > 0);
   }
 
   toggleSection(section: NavSection): void {

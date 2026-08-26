@@ -1,5 +1,6 @@
 package com.marathon.service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -252,6 +253,20 @@ public class SolicitudDevolucionService {
             throw new ValidationException("Ya existe un reembolso registrado para esta solicitud");
         }
 
+        // --------------------------------------------------------------------
+        // L8 (D-08): el importe se contrasta con lo que de verdad se devolvio.
+        // --------------------------------------------------------------------
+        // Antes el monto llegaba en el cuerpo de la peticion y se guardaba tal
+        // cual. La unica comprobacion era chk_rc_monto (> 0), asi que un
+        // reembolso de 10.000 sobre una devolucion de 50 se aceptaba sin
+        // objecion. El tope es el valor de las lineas que la inspeccion NO
+        // rechazo, al precio al que se vendieron.
+        BigDecimal tope = calcularReembolsoMaximo(idSolicitud);
+        if (dto.getMonto().compareTo(tope) > 0) {
+            throw new ValidationException("El reembolso (" + dto.getMonto()
+                    + ") supera el valor de la mercancía devuelta y aceptada (" + tope + ").");
+        }
+
         Usuario usuario = usuarioRepository.findById(idUsuarioActual)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario", idUsuarioActual));
 
@@ -269,10 +284,32 @@ public class SolicitudDevolucionService {
         return toDTO(s);
     }
 
+    /**
+     * Importe maximo reembolsable de una solicitud (L8, D-08).
+     *
+     * <p>Es la suma de {@code cantidad_devuelta x precio_unitario} de las lineas
+     * cuya inspeccion no las rechazo. Una linea marcada {@code rechazado} no
+     * genera derecho a devolucion, asi que su valor no cuenta.
+     *
+     * <p>El precio es el de la linea del pedido —al que se vendio— y no el
+     * precio de catalogo actual: reembolsar a precio de hoy una compra de hace
+     * seis meses seria otro defecto distinto.
+     */
+    private BigDecimal calcularReembolsoMaximo(Integer idSolicitud) {
+        return detalleRepository.findBySolicitudIdSolicitud(idSolicitud).stream()
+                .filter(d -> !"rechazado".equals(d.getResultadoInspeccion()))
+                .filter(d -> d.getDetallePedido() != null
+                          && d.getDetallePedido().getPrecioUnitario() != null
+                          && d.getCantidadDevuelta() != null)
+                .map(d -> d.getDetallePedido().getPrecioUnitario()
+                           .multiply(BigDecimal.valueOf(d.getCantidadDevuelta())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     private void aplicarEntradaStock(com.marathon.model.Producto producto, Bodega bodega,
                                      int cantidad, Usuario usuario, Integer idSolicitud, Integer idUsuarioActual) {
         Inventario inv = inventarioRepository
-                .findByProductoIdProductoAndBodegaIdBodega(producto.getIdProducto(), bodega.getIdBodega())
+                .buscarParaActualizar(producto.getIdProducto(), bodega.getIdBodega())
                 .orElseGet(() -> {
                     Inventario nuevo = new Inventario();
                     nuevo.setProducto(producto);

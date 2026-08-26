@@ -496,7 +496,7 @@ export class LoginComponent {
 
   constructor(private authService: AuthService, private router: Router) {
     if (this.authService.isAuthenticated()) {
-      this.router.navigate(['/portal']);
+      this.router.navigate(['/inicio']);
     }
   }
 
@@ -512,7 +512,7 @@ export class LoginComponent {
     this.authService.login(this.correo, this.password).subscribe({
       next: () => {
         this.loading = false;
-        this.router.navigate(['/portal']);
+        this.router.navigate(['/inicio']);
       },
       error: (err) => {
         this.loading = false;

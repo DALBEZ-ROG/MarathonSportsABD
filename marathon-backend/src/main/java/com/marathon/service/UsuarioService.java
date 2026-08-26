@@ -15,6 +15,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -130,7 +133,23 @@ public class UsuarioService {
         return toDTO(usuario);
     }
 
+    @Transactional
     public void cambiarPassword(Integer id, UsuarioCambiarPasswordDTO dto) {
+        // --------------------------------------------------------------------
+        // L7 (D-09): solo la cuenta propia, salvo que quien llame sea Admin.
+        // --------------------------------------------------------------------
+        // La regla de SecurityConfig para PUT /api/usuarios/*/password es
+        // .authenticated(), y esta declarada ANTES de la que reserva
+        // /api/usuarios/** al Administrador. El comentario del controlador decia
+        // "sobre su propia cuenta", pero nadie comparaba el id con el del
+        // usuario autenticado. No era una toma de control directa —hace falta
+        // acertar la contrasena actual de la victima— pero dejaba un oraculo
+        // para adivinarla contra CUALQUIER cuenta, con intentos ilimitados y
+        // respuestas distinguibles.
+        if (!esElUsuarioAutenticado(id) && !esAdministrador()) {
+            throw new AccessDeniedException("Solo puedes cambiar tu propia contraseña");
+        }
+
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario", id));
 
@@ -146,12 +165,19 @@ public class UsuarioService {
         usuarioRepository.save(usuario);
     }
 
+    @Transactional   // L11 (D-16): misma razon que en ProductoService.
     public void eliminar(Integer id) {
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario", id));
 
-        if ("admin@marathon.com".equals(usuario.getCorreo())) {
-            throw new ValidationException("No se puede desactivar al administrador principal");
+        // L14 (D-31): antes se identificaba al administrador protegido por su
+        // correo escrito a mano ("admin@marathon.com"). Cambiarle el correo
+        // desactivaba la proteccion sin avisar. Lo que de verdad hay que
+        // garantizar no es que sobreviva UNA cuenta concreta, sino que quede al
+        // menos un administrador activo con el que poder entrar.
+        if (esElUltimoAdministradorActivo(usuario)) {
+            throw new ValidationException("No se puede desactivar: es el único administrador activo. "
+                    + "Crea o activa otro administrador antes de dar de baja a este.");
         }
 
         usuario.setEstado("inactivo");
@@ -159,6 +185,34 @@ public class UsuarioService {
 
         logService.registrar(null, "usuarios", "desactivar",
                 "Usuario desactivado: " + usuario.getCorreo(), null);
+    }
+
+    /**
+     * ¿Dar de baja a este usuario dejaria el sistema sin ningun administrador
+     * activo? (L14, D-31)
+     */
+    private boolean esElUltimoAdministradorActivo(Usuario usuario) {
+        boolean esAdmin = usuarioRolRepository.findByUsuarioIdUsuario(usuario.getIdUsuario()).stream()
+                .anyMatch(ur -> ur.getRol() != null && "Administrador".equals(ur.getRol().getNombre()));
+        if (!esAdmin || !"activo".equals(usuario.getEstado())) {
+            return false;
+        }
+        return usuarioRolRepository.contarAdministradoresActivos() <= 1;
+    }
+
+    /** ¿El id que se quiere tocar es el del usuario que hizo la peticion? */
+    private boolean esElUsuarioAutenticado(Integer id) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null
+                && auth.getPrincipal() instanceof Usuario u
+                && u.getIdUsuario() != null
+                && u.getIdUsuario().equals(id);
+    }
+
+    private boolean esAdministrador() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority()));
     }
 
     private UsuarioResponseDTO toDTO(Usuario usuario) {

@@ -152,6 +152,71 @@ public class OrdenCompraService {
     }
 
     /**
+     * Modifica una orden de compra que todavia es un borrador (L13, D-14 en el
+     * plan / defecto D-22).
+     *
+     * <p>Hasta ahora {@code OrdenCompraController} solo exponia GET, POST y
+     * {@code PUT /{id}/estado}: una orden creada en {@code borrador} con una
+     * cantidad o un precio mal puestos solo se podia cancelar y rehacer. El
+     * estado {@code borrador} existia en el CHECK y en la maquina de estados,
+     * pero no servia para lo que sirve un borrador.
+     *
+     * <p>Las lineas se reemplazan enteras en vez de casarlas una a una: es mas
+     * simple, y el trigger {@code fn_recalcular_total_orden_compra_stmt}
+     * recalcula el total en cada sentencia, asi que el importe queda correcto
+     * sin que este metodo lo toque. {@code fn_proteger_total_orden_compra}
+     * seguiria impidiendolo si lo intentara.
+     */
+    @Transactional
+    public OrdenCompraResponseDTO actualizarBorrador(Integer id, OrdenCompraRequestDTO dto,
+                                                     Integer idUsuarioActual) {
+        OrdenCompra orden = ordenCompraRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Orden de compra", id));
+
+        if (!"borrador".equals(orden.getEstado())) {
+            throw new ValidationException("Solo se puede modificar una orden en estado 'borrador'. "
+                    + "Esta orden está en '" + orden.getEstado() + "'.");
+        }
+
+        Proveedor proveedor = proveedorRepository.findById(dto.getIdProveedor())
+                .orElseThrow(() -> new ResourceNotFoundException("Proveedor", dto.getIdProveedor()));
+        if (!"activo".equals(proveedor.getEstado())) {
+            throw new ValidationException("El proveedor no está activo");
+        }
+
+        orden.setProveedor(proveedor);
+        orden.setObservaciones(dto.getObservaciones());
+        orden.setUpdatedAt(LocalDateTime.now());
+        ordenCompraRepository.save(orden);
+
+        // Fuera las lineas viejas, dentro las nuevas. Un borrador no tiene
+        // recepciones (lo garantiza la maquina de estados), asi que no hay
+        // cantidad_recibida que preservar.
+        detalleRepository.deleteAll(detalleRepository.findByOrdenCompraIdOrdenCompra(id));
+        entityManager.flush();
+
+        for (OrdenCompraDetalleItemDTO item : dto.getDetalles()) {
+            OrdenCompraDetalle detalle = new OrdenCompraDetalle();
+            detalle.setOrdenCompra(orden);
+            detalle.setTipoItem(item.getTipoItem());
+            detalle.setCantidad(item.getCantidad());
+            detalle.setPrecioUnitario(item.getPrecioUnitario());
+            detalle.setCantidadRecibida(0);
+            validarYAsignarItem(detalle, item);
+            detalleRepository.save(detalle);
+        }
+
+        entityManager.flush();
+        entityManager.clear();
+        orden = ordenCompraRepository.findById(id).orElseThrow();
+
+        logService.registrar(idUsuarioActual, "compras", "actualizar",
+                "Orden de compra #" + id + " modificada (borrador). Total: $" + orden.getTotal(), null);
+
+        return toDTO(orden, true);
+    }
+
+    /**
      * Valida la asociación polimórfica exclusiva y asigna producto o materia prima.
      * Cada línea debe referenciar producto O materia prima, nunca ambos ni ninguno.
      */

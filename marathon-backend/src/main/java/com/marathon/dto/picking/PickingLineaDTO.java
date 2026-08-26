@@ -11,6 +11,8 @@ public class PickingLineaDTO {
     private Integer cantidadRecogida;
     private Boolean pickingCompletado;
     private Integer pendiente;
+    private Integer idBodegaPicking;
+    private String bodegaPickingNombre;
 
     public PickingLineaDTO() {}
 
@@ -40,4 +42,10 @@ public class PickingLineaDTO {
 
     public Integer getPendiente() { return pendiente; }
     public void setPendiente(Integer pendiente) { this.pendiente = pendiente; }
+    public Integer getIdBodegaPicking() { return idBodegaPicking; }
+    public void setIdBodegaPicking(Integer idBodegaPicking) { this.idBodegaPicking = idBodegaPicking; }
+
+    public String getBodegaPickingNombre() { return bodegaPickingNombre; }
+    public void setBodegaPickingNombre(String bodegaPickingNombre) { this.bodegaPickingNombre = bodegaPickingNombre; }
+
 }

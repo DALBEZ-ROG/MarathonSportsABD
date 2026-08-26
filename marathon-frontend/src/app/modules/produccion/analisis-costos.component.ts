@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
+import { ModalSeguroDirective } from '../../shared/directives/modal-seguro.directive';
 
 @Component({
   selector: 'app-analisis-costos',
   standalone: true,
-  imports: [CommonModule, RouterLink, AppIconComponent],
+  imports: [CommonModule, RouterLink, AppIconComponent, ModalSeguroDirective],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -45,7 +46,7 @@ import { AppIconComponent } from '../../shared/components/icon/icon.component';
       </div>
 
       <!-- Panel comparación -->
-      <div class="modal-overlay" *ngIf="analisis" (click)="analisis=null">
+      <div class="modal-overlay" *ngIf="analisis" appModalSeguro (cerrar)="analisis=null">
         <div class="modal-card" (click)="$event.stopPropagation()">
           <h3>Fabricar vs Comprar — {{analisis.nombreProducto}}</h3>
           <div class="cmp-row"><span>Categoría</span><span>{{analisis.categoria}}</span></div>

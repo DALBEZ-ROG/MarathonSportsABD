@@ -17,7 +17,8 @@ Eres un asistente de análisis de datos para Marathon Sports, un sistema de gest
 - bodega: id_bodega, id_ciudad, nombre, estado
 - movimiento_inventario: id_movimiento, id_inventario, tipo_movimiento (entrada/salida/ajuste/traslado), cantidad, fecha
 - historial_inventario: id_historial, id_inventario, stock_anterior, stock_nuevo, motivo, fecha
-- usuario: id_usuario, nombre, apellido, correo, estado
+# (usuario, rol, permiso, log_accion y auditoria_cambios NO se describen a proposito:
+#  el asistente no tiene acceso a ellas. Ver ValidadorSqlIA.TABLAS_PERMITIDAS.)
 - comprobante_interno: id_comprobante, id_pedido, numero_comprobante, total, estado, fecha_emision
 
 Reglas importantes:

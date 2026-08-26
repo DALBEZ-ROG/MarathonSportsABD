@@ -5,6 +5,8 @@ import { CrudService, PageResponse } from '../../core/services/crud.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
+import { ModalSeguroDirective } from '../../shared/directives/modal-seguro.directive';
+import { EstadoListaComponent } from '../../shared/components/estado-lista/estado-lista.component';
 
 interface Rol { idRol: number; nombre: string; }
 interface UsuarioResp { idUsuario: number; nombre: string; apellido: string; correo: string; estado: string; roles: Rol[]; }
@@ -12,7 +14,7 @@ interface UsuarioResp { idUsuario: number; nombre: string; apellido: string; cor
 @Component({
   selector: 'app-usuarios',
   standalone: true,
-  imports: [CommonModule, FormsModule, AppIconComponent],
+  imports: [CommonModule, FormsModule, AppIconComponent, ModalSeguroDirective, EstadoListaComponent],
   template: `
     <div class="page-container">
       <div class="toolbar">
@@ -25,8 +27,15 @@ interface UsuarioResp { idUsuario: number; nombre: string; apellido: string; cor
         </div>
         <button class="btn-new" (click)="abrirCrear()">+ Nuevo usuario</button>
       </div>
-      <div class="spinner" *ngIf="loading">Cargando...</div>
-      <table class="data-table" *ngIf="!loading">
+      <app-estado-lista
+        [cargando]="loading"
+        [error]="cargaError"
+        [vacio]="!loading && !cargaError && data.length === 0"
+        [hayFiltro]="hayFiltroPuesto"
+        nombrePlural="usuarios"
+        pistaVacio="Crea el primero con «+ Nuevo»."
+        (reintentar)="cargar()"></app-estado-lista>
+      <table class="data-table" *ngIf="!loading && !cargaError && data.length > 0">
         <thead><tr><th>Nombre</th><th>Correo</th><th>Roles</th><th>Estado</th><th>Acciones</th></tr></thead>
         <tbody>
           <tr *ngFor="let u of data">
@@ -50,7 +59,7 @@ interface UsuarioResp { idUsuario: number; nombre: string; apellido: string; cor
       </div>
 
       <!-- Modal Crear/Editar -->
-      <div class="modal-overlay" *ngIf="showForm" (click)="showForm=false">
+      <div class="modal-overlay" *ngIf="showForm" appModalSeguro (cerrar)="showForm=false">
         <div class="modal-card wide" (click)="$event.stopPropagation()">
           <h3>{{editId ? 'Editar' : 'Nuevo'}} Usuario</h3>
           <form (ngSubmit)="guardar()">
@@ -83,7 +92,7 @@ interface UsuarioResp { idUsuario: number; nombre: string; apellido: string; cor
       </div>
 
       <!-- Modal Cambiar Password -->
-      <div class="modal-overlay" *ngIf="showPassModal" (click)="showPassModal=false">
+      <div class="modal-overlay" *ngIf="showPassModal" appModalSeguro (cerrar)="showPassModal=false">
         <div class="modal-card" (click)="$event.stopPropagation()">
           <h3>Cambiar contraseña</h3>
           <form (ngSubmit)="guardarPassword()">
@@ -100,7 +109,7 @@ interface UsuarioResp { idUsuario: number; nombre: string; apellido: string; cor
       </div>
 
       <!-- Confirm Desactivar -->
-      <div class="modal-overlay" *ngIf="showConfirm" (click)="showConfirm=false">
+      <div class="modal-overlay" *ngIf="showConfirm" appModalSeguro (cerrar)="showConfirm=false">
         <div class="modal-card" (click)="$event.stopPropagation()">
           <h3>Confirmar desactivación</h3>
           <p>¿Desactivar a <strong>{{itemDesactivar?.nombre}} {{itemDesactivar?.apellido}}</strong>? El usuario no podrá iniciar sesión.</p>
@@ -119,6 +128,16 @@ interface UsuarioResp { idUsuario: number; nombre: string; apellido: string; cor
 })
 export class UsuariosComponent implements OnInit {
   data: UsuarioResp[] = []; loading = false; saving = false;
+  /**
+   * Motivo del fallo de carga, o null si la carga fue bien (D6).
+   * Sin esto la pantalla no podia distinguir "no hay registros" de "no se
+   * pudo preguntar", y enseñaba lo primero en los dos casos.
+   */
+  cargaError: string | null = null;
+
+  /** ¿Hay busqueda o filtros puestos? Cambia el mensaje de lista vacia. */
+  get hayFiltroPuesto(): boolean { return !!this.filtroNombre || !!this.filtroEstado; }
+
   page = 0; size = 10; totalPages = 0;
   filtroNombre = ''; filtroEstado = '';
   showForm = false; editId: number|null = null; showPass = false;
@@ -142,8 +161,8 @@ export class UsuariosComponent implements OnInit {
     if(this.filtroNombre) p['nombre']=this.filtroNombre;
     if(this.filtroEstado) p['estado']=this.filtroEstado;
     this.crud.listar<UsuarioResp>('usuarios',p).subscribe({
-      next:r=>{this.data=r.content;this.totalPages=r.totalPages;this.loading=false},
-      error:()=>{this.loading=false}
+      next:r=>{ this.cargaError = null;this.data=r.content;this.totalPages=r.totalPages;this.loading=false},
+      error: (err: any) => { this.loading = false; this.cargaError = this.motivoDelFallo(err);}
     });
   }
 
@@ -192,4 +211,12 @@ export class UsuariosComponent implements OnInit {
   }
 
   mostrarToast(m:string,err=false){this.toast=m;this.toastErr=err;setTimeout(()=>{this.toast=''},3000)}
+  /** Traduce el fallo a algo que se pueda leer y, si se puede, resolver. */
+  private motivoDelFallo(err: any): string {
+    if (err?.status === 0) return 'No hay conexión con el servidor.';
+    if (err?.status === 403) return 'Tu rol no tiene permiso para ver esta información.';
+    if (err?.status === 401) return 'Tu sesión ha caducado. Vuelve a entrar.';
+    return err?.error?.message ?? 'El servidor no respondió correctamente.';
+  }
+
 }

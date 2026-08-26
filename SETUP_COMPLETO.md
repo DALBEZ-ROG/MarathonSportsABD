@@ -483,3 +483,86 @@ que es justo lo que esta guía promete.
 > mano en un `REVOKE ... ON DATABASE`. Ejecutarlo contra `mi_base_de_pruebas`
 > toca los roles y los privilegios de la base real. Por eso el script levanta un
 > clúster propio en otro puerto.
+
+---
+
+## Arnés de pruebas (lote L0 de `docs/PLAN.md`)
+
+Hasta la F44 el proyecto no tenía ni una prueba automatizada: no existía
+`marathon-backend/src/test`. Este arnés es el mínimo para que los lotes del plan
+se puedan **demostrar** en vez de afirmarse.
+
+### Montar la base de pruebas
+
+Se construye **replicando el esquema real con `pg_dump`**, no ejecutando los 39
+scripts de fase:
+
+```powershell
+$PG = "C:\Program Files\PostgreSQL\18\bin"
+& "$PG\pg_dump.exe" -h localhost -p 5433 -U postgres --schema-only --no-owner mod_venta_inve > esquema.sql
+& "$PG\psql.exe"    -h localhost -p 5433 -U postgres -d postgres -c "CREATE DATABASE mod_venta_inve_test"
+& "$PG\psql.exe"    -h localhost -p 5433 -U postgres -d mod_venta_inve_test -f esquema.sql
+```
+
+**Por qué con `pg_dump` y no con los scripts de fase.** Es la advertencia que
+cierra la sección anterior de esta guía: `fase34_seguridad_roles.sql` hace
+`DROP ROLE` de los seis `usr_*_marathon`, y los roles son objetos del **clúster**,
+no de la base. Ejecutar la cadena de fases contra una base desechable del mismo
+servidor destruiría los roles de la base real. `pg_dump --schema-only` no emite
+`CREATE ROLE` ni `DROP ROLE` — solo tablas, funciones, triggers, constraints y
+los `GRANT` correspondientes—, así que es seguro y además reproduce el esquema
+**exacto** que hay en producción.
+
+Comprobación de que la réplica salió bien (ambas bases deben dar lo mismo):
+
+```sql
+select (select count(*) from information_schema.tables
+         where table_schema='public' and table_type='BASE TABLE') as tablas,
+       (select count(*) from pg_trigger t join pg_class c on c.oid=t.tgrelid
+         join pg_namespace n on n.oid=c.relnamespace
+         where not t.tgisinternal and n.nspname='public')          as triggers,
+       (select count(*) from pg_constraint
+         where connamespace='public'::regnamespace and contype='c') as checks;
+-- esperado: tablas=38  triggers=30  checks=71
+```
+
+Rehacer la base de pruebas cuando cambie el esquema real: `dropdb` y repetir.
+
+### Ejecutar las pruebas
+
+La contraseña **no está en el repositorio**. Se pasa por variable de entorno:
+
+```powershell
+$env:TEST_DB_PASSWORD = "<clave de usr_admin_marathon>"
+cd marathon-backend
+mvn test
+```
+
+Si `TEST_DB_PASSWORD` no está definida, el contexto no arranca y el mensaje dice
+cuál falta. Es deliberado: preferible a un valor por defecto que apunte a algún
+sitio.
+
+Variables opcionales, todas con valor por defecto razonable:
+`TEST_DB_HOST` (localhost), `TEST_DB_PORT` (5433), `TEST_DB_NAME`
+(mod_venta_inve_test), `TEST_DB_USER` (usr_admin_marathon), `TEST_DB_SSLMODE`
+(require).
+
+### Qué comprueba
+
+| Prueba | Qué verifica |
+|---|---|
+| `ContextoAplicacionTest.nuncaApuntaALaBaseReal` | Que el datasource conecta a `mod_venta_inve_test` y no a `mod_venta_inve`. `application.properties` trae `spring.profiles.active=local`, que apunta a la base real; esta prueba convierte en hecho verificado la suposición de que `@ActiveProfiles("test")` tiene precedencia. |
+| `ContextoAplicacionTest.contextoArranca` | Que las 36 entidades JPA cuadran con el esquema real. Con `ddl-auto=validate`, un desajuste impide construir el contexto. Como la aplicación **no migra** el esquema, es la única red contra que el código y la base se separen. |
+| `CategoriaRepositoryTest.insertaYLee` | Que el arnés puede escribir y que `@Transactional` revierte al terminar. Los lotes siguientes montan datos (stock, pedidos, devoluciones) y necesitan dejar la base como estaba. |
+
+### Nota sobre `application-test.properties`
+
+Lleva `app.datasource.roles.enabled=false` a propósito: con el enrutado por rol
+activo harían falta las seis credenciales `usr_*_marathon` y cualquier prueba
+dependería de que las seis estén bien puestas. El enrutado por rol se prueba
+aparte, no aquí.
+
+Usa `sslmode=require` en vez del `verify-full` de producción: cifra el tráfico
+pero no ata las pruebas al certificado de `C:\ProgramData\MarathonSports\tls`.
+La verificación del certificado es una propiedad del despliegue y se comprueba
+allí; atarla al arnés solo haría que las pruebas fallaran en otro equipo.

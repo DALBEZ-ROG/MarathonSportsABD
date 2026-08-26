@@ -159,7 +159,7 @@ public class RoleRoutingDataSource extends AbstractRoutingDataSource {
      * {@code "ROLE_ENCARGADO DE PRODUCCIÓN"} -> {@code "ENCARGADO DE PRODUCCION"}.
      * Devuelve {@code null} si la authority no es un rol.
      */
-    private static String normalizarAuthority(String authority) {
+    public static String normalizarAuthority(String authority) {
         if (authority == null || !authority.startsWith("ROLE_")) {
             return null;
         }

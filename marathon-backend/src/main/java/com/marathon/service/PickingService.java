@@ -16,11 +16,14 @@ import com.marathon.dto.picking.PickingPedidoDTO;
 import com.marathon.dto.picking.PickingUpdateDTO;
 import com.marathon.exception.ResourceNotFoundException;
 import com.marathon.exception.ValidationException;
+import com.marathon.model.Bodega;
 import com.marathon.model.Cliente;
 import com.marathon.model.DetallePedido;
 import com.marathon.model.Pedido;
 import com.marathon.model.Producto;
+import com.marathon.repository.BodegaRepository;
 import com.marathon.repository.DetallePedidoRepository;
+import com.marathon.repository.InventarioRepository;
 import com.marathon.repository.PedidoRepository;
 
 @Service
@@ -28,14 +31,20 @@ public class PickingService {
 
     private final PedidoRepository pedidoRepository;
     private final DetallePedidoRepository detallePedidoRepository;
+    private final BodegaRepository bodegaRepository;
+    private final InventarioRepository inventarioRepository;
 
     private final LogService logService;
 
     public PickingService(PedidoRepository pedidoRepository,
                           DetallePedidoRepository detallePedidoRepository,
+                          BodegaRepository bodegaRepository,
+                          InventarioRepository inventarioRepository,
                       LogService logService) {
         this.pedidoRepository = pedidoRepository;
         this.detallePedidoRepository = detallePedidoRepository;
+        this.bodegaRepository = bodegaRepository;
+        this.inventarioRepository = inventarioRepository;
         this.logService = logService;
     }
 
@@ -83,6 +92,37 @@ public class PickingService {
         if (dto.getCantidadRecogida() > detalle.getCantidad()) {
             throw new ValidationException("Cantidad recogida no puede superar la cantidad del pedido (máximo: "
                     + detalle.getCantidad() + ")");
+        }
+
+        // --------------------------------------------------------------------
+        // L4 (D-14): de que bodega se recoge.
+        // --------------------------------------------------------------------
+        // Hasta la F45 el picking solo anotaba cuanto se habia recogido, nunca
+        // de donde, y el despacho tenia que adivinar la bodega. Ahora se exige
+        // el dato y se comprueba contra el inventario en el momento de recoger,
+        // que es cuando el operario tiene la mercancia delante: descubrir que no
+        // hay stock en el empaque, media hora despues, no le sirve a nadie.
+        if (dto.getCantidadRecogida() > 0) {
+            if (dto.getIdBodega() == null) {
+                throw new ValidationException("Debe indicar de qué bodega se recogió la línea");
+            }
+            Bodega bodega = bodegaRepository.findById(dto.getIdBodega())
+                    .orElseThrow(() -> new ResourceNotFoundException("Bodega", dto.getIdBodega()));
+
+            Integer idProducto = detalle.getProducto() != null
+                    ? detalle.getProducto().getIdProducto() : null;
+            int disponible = inventarioRepository
+                    .findByProductoIdProductoAndBodegaIdBodega(idProducto, dto.getIdBodega())
+                    .map(i -> i.getStockActual() != null ? i.getStockActual() : 0)
+                    .orElse(0);
+
+            if (disponible < dto.getCantidadRecogida()) {
+                throw new ValidationException("No hay stock suficiente en la bodega '" + bodega.getNombre()
+                        + "': se recogen " + dto.getCantidadRecogida() + " y hay " + disponible + ".");
+            }
+            detalle.setBodegaPicking(bodega);
+        } else {
+            detalle.setBodegaPicking(null);
         }
 
         detalle.setCantidadRecogida(dto.getCantidadRecogida());
@@ -163,6 +203,10 @@ public class PickingService {
         dto.setCantidadRecogida(cantidadRecogida);
         dto.setPickingCompletado(detalle.getPickingCompletado());
         dto.setPendiente((cantidad != null ? cantidad : 0) - cantidadRecogida);
+        if (detalle.getBodegaPicking() != null) {
+            dto.setIdBodegaPicking(detalle.getBodegaPicking().getIdBodega());
+            dto.setBodegaPickingNombre(detalle.getBodegaPicking().getNombre());
+        }
         return dto;
     }
 }

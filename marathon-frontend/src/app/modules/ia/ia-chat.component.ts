@@ -170,13 +170,20 @@ export class IAChatComponent implements OnInit, AfterViewChecked {
         this.debeScrollear = true;
       },
       error: err => {
+        // 503: el modulo esta apagado (app.ia.enabled=false). El backend manda
+        // el motivo en el cuerpo; conviene mostrarlo tal cual en vez del
+        // generico, porque no es un fallo sino una decision de despliegue.
+        const mensaje = err?.status === 503
+          ? (err?.error?.error ?? 'El asistente IA está deshabilitado en esta instalación.')
+          : 'Error al comunicarse con el servidor. Intenta de nuevo.';
+
         const respuesta: IAResponse = {
           pregunta: texto,
           sql: null,
           explicacion: null,
           resultados: null,
           totalResultados: null,
-          error: 'Error al comunicarse con el servidor. Intenta de nuevo.',
+          error: mensaje,
           timestamp: new Date().toISOString()
         };
         this.mensajes.push({ tipo: 'ia', respuesta });

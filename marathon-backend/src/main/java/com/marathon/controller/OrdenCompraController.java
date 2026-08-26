@@ -53,6 +53,22 @@ public class OrdenCompraController {
                 .body(ordenCompraService.crear(dto, usuario.getIdUsuario()));
     }
 
+    /**
+     * Modificar una orden que todavia es borrador (L13, D-22).
+     *
+     * <p>Se declara ANTES de PUT /{id}/estado por claridad; el orden de los
+     * @PutMapping no importa porque las rutas no se solapan.
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<OrdenCompraResponseDTO> actualizar(
+            @PathVariable Integer id,
+            @Valid @RequestBody OrdenCompraRequestDTO dto,
+            Authentication authentication) {
+        Usuario usuario = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(
+                ordenCompraService.actualizarBorrador(id, dto, usuario.getIdUsuario()));
+    }
+
     @PutMapping("/{id}/estado")
     public ResponseEntity<OrdenCompraResponseDTO> cambiarEstado(@PathVariable Integer id,
                                                                 @Valid @RequestBody CambioEstadoOrdenCompraDTO dto,

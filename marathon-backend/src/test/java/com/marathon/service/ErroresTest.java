@@ -1,0 +1,116 @@
+package com.marathon.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+
+import com.marathon.exception.ErrorResponse;
+import com.marathon.exception.GlobalExceptionHandler;
+import com.marathon.exception.ValidationException;
+import com.marathon.soporte.FixturaVenta;
+
+/**
+ * L9 — los errores dicen lo justo y con el codigo correcto (D-12, D-20).
+ */
+@SpringBootTest
+@ActiveProfiles("test")
+@DisplayName("L9 - manejo de errores")
+class ErroresTest {
+
+    @Autowired private CategoriaService categoriaService;
+    @Autowired private UnidadMedidaService unidadMedidaService;
+    @Autowired private FixturaVenta fixtura;
+    @Autowired private GlobalExceptionHandler manejador;
+
+    @BeforeEach
+    void prepararDatos() {
+        fixtura.empezar();
+    }
+
+    @AfterEach
+    void borrarDatos() {
+        fixtura.limpiar();
+    }
+
+    // ---------------------------------------------------------------- D-20 ---
+
+    @Test
+    @DisplayName("borrar una categoria en uso da un error legible, no un 500 de PostgreSQL")
+    void borrarCategoriaEnUsoDaErrorLegible() {
+        Integer idCategoria = fixtura.getIdCategoriaEnUso();
+
+        assertThatThrownBy(() -> categoriaService.eliminar(idCategoria))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("hay productos que la usan");
+    }
+
+    @Test
+    @DisplayName("borrar una unidad de medida en uso tambien")
+    void borrarUnidadEnUsoDaErrorLegible() {
+        Integer idUnidad = fixtura.getIdUnidadEnUso();
+
+        assertThatThrownBy(() -> unidadMedidaService.eliminar(idUnidad))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("productos o materias primas");
+    }
+
+    // ---------------------------------------------------------------- D-12 ---
+
+    @Test
+    @DisplayName("un 500 no revela el mensaje interno")
+    void unErrorInternoNoRevelaElDetalle() {
+        // Se simula lo que llegaria desde el driver de PostgreSQL.
+        Exception fallo = new IllegalStateException(
+                "ERROR: no se pudo ejecutar la sentencia [insert into usuario (correo, password) "
+              + "values (?, ?)]; viola la restriccion unica uq_usuario_correo");
+
+        ErrorResponse respuesta = manejador.handleGeneral(fallo).getBody();
+
+        assertThat(respuesta).isNotNull();
+        assertThat(respuesta.getStatus()).isEqualTo(500);
+        assertThat(respuesta.getMessage())
+                .as("el cuerpo NO puede contener SQL, tablas, columnas ni nombres de constraint")
+                .doesNotContainIgnoringCase("insert")
+                .doesNotContainIgnoringCase("usuario")
+                .doesNotContainIgnoringCase("password")
+                .doesNotContainIgnoringCase("uq_")
+                .doesNotContainIgnoringCase("restriccion");
+        assertThat(respuesta.getMessage())
+                .as("pero si una referencia para cruzarlo con el registro del servidor")
+                .contains("Referencia:");
+    }
+
+    @Test
+    @DisplayName("una violacion de integridad es 409, no 500")
+    void violacionDeIntegridadEs409() {
+        var ex = new org.springframework.dao.DataIntegrityViolationException(
+                "duplicate key value violates unique constraint \"uq_producto_nombre\"");
+
+        var respuesta = manejador.handleIntegridad(ex);
+
+        assertThat(respuesta.getStatusCode().value()).isEqualTo(409);
+        assertThat(respuesta.getBody()).isNotNull();
+        assertThat(respuesta.getBody().getMessage())
+                .doesNotContainIgnoringCase("uq_producto_nombre")
+                .doesNotContainIgnoringCase("duplicate key");
+    }
+
+    @Test
+    @DisplayName("un cuerpo JSON ilegible es 400, no 500")
+    void cuerpoIlegibleEs400() {
+        var ex = new org.springframework.http.converter.HttpMessageNotReadableException(
+                "JSON parse error: Unexpected character",
+                new org.springframework.mock.http.client.MockClientHttpResponse(new byte[0], 400));
+
+        var respuesta = manejador.handleCuerpoIlegible(ex);
+
+        assertThat(respuesta.getStatusCode().value()).isEqualTo(400);
+    }
+}

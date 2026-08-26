@@ -83,6 +83,16 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- JSqlParser — analiza el SQL que devuelve el modelo antes de ejecutarlo.
+             Sustituye a la lista de palabras prohibidas del asistente IA (D-04),
+             que dejaba pasar bloques DO $$ ... $$ y rechazaba cualquier consulta
+             que mencionara created_at o updated_at (D-30). -->
+        <dependency>
+            <groupId>com.github.jsqlparser</groupId>
+            <artifactId>jsqlparser</artifactId>
+            <version>4.9</version>
+        </dependency>
+
         <!-- Swagger / OpenAPI -->
         <dependency>
             <groupId>org.springdoc</groupId>

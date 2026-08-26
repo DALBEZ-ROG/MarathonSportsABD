@@ -16,6 +16,7 @@ import com.marathon.exception.ResourceNotFoundException;
 import com.marathon.exception.ValidationException;
 import com.marathon.model.Categoria;
 import com.marathon.repository.CategoriaRepository;
+import com.marathon.repository.ProductoRepository;
 
 @Service
 public class CategoriaService {
@@ -23,9 +24,13 @@ public class CategoriaService {
     private final CategoriaRepository categoriaRepository;
     private final LogService logService;
 
+    private final ProductoRepository productoRepository;
+
     public CategoriaService(CategoriaRepository categoriaRepository,
+                            ProductoRepository productoRepository,
                         LogService logService) {
         this.categoriaRepository = categoriaRepository;
+        this.productoRepository = productoRepository;
         this.logService = logService;
     }
 
@@ -92,6 +97,16 @@ public class CategoriaService {
     public void eliminar(Integer id) {
         Categoria cat = categoriaRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Categoría", id));
+
+        // L9 (D-20): comprobar el uso ANTES de borrar.
+        // categoria no tiene columna estado, asi que el borrado es fisico, y la
+        // FK fk_producto_categoria es ON DELETE RESTRICT: sin esta comprobacion
+        // el intento moria como un 500 con el texto crudo de PostgreSQL.
+        if (productoRepository.existsByCategoriaIdCategoria(id)) {
+            throw new ValidationException("No se puede eliminar la categoría '" + cat.getNombre()
+                    + "': hay productos que la usan. Reasignalos primero.");
+        }
+
         // Eliminación física (no tiene campo estado)
         categoriaRepository.delete(cat);
 

@@ -54,28 +54,42 @@ import { AuthService } from './core/services/auth.service';
       66% { transform: translate(-15px, 15px) scale(0.97); }
     }
 
+    /* D3 — el hueco de la barra lateral se hace con padding, no con margen.
+       Con margen había 260 px de desbordamiento horizontal: styles.scss fuerza
+       .main-content { width: 100% } para que el contenido pueda encogerse, y
+       un elemento que ya mide el 100% más un margen de 260 px se sale por la
+       derecha. No se veía porque el contenido estaba topado a 1200 px y nunca
+       llegaba al borde; al hacer los contenedores fluidos, salió a la luz.
+       Con box-sizing border-box el padding se descuenta del 100%, así que el
+       contenido cabe exactamente en lo que queda. */
+    /* Sin z-index a propósito (D4). Con z-index: 1 este elemento creaba un
+       contexto de apilamiento propio, y dentro de él el z-index 1000 de
+       .modal-overlay no servía de nada: el que contaba era el 1 de aquí, contra
+       el 300 de la barra lateral. Resultado: el borde izquierdo de todos los
+       modales quedaba tapado por el menú y no se leían ni las etiquetas.
+       Position relative basta para pintar por encima del fondo, que va en
+       elementos fijos declarados antes en el DOM. */
     .main-content {
       position: relative;
-      z-index: 1;
       min-height: 100vh;
-      transition: margin-left .3s cubic-bezier(.4,0,.2,1);
+      transition: padding-left .3s cubic-bezier(.4,0,.2,1);
     }
 
     .main-content.with-sidebar {
-      margin-left: 260px;
+      padding-left: 260px;
     }
 
     :host-context(body.sidebar-narrow) .main-content.with-sidebar {
-      margin-left: 72px;
+      padding-left: 72px;
     }
 
     @media(max-width: 768px) {
       .main-content.with-sidebar {
-        margin-left: 0;
+        padding-left: 0;
         padding-top: 56px;
       }
       :host-context(body.sidebar-narrow) .main-content.with-sidebar {
-        margin-left: 0;
+        padding-left: 0;
       }
     }
   `]

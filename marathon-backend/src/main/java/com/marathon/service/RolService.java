@@ -125,10 +125,11 @@ public class RolService {
         Rol rol = rolRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Rol", id));
 
-        long usuarios = usuarioRolRepository.findByUsuarioIdUsuario(0).size(); // dummy
-        // Check real: si hay registros en usuario_rol con este rol
-        if (!usuarioRolRepository.findAll().stream()
-                .filter(ur -> ur.getRol().getIdRol().equals(id)).collect(Collectors.toList()).isEmpty()) {
+        // L14 (D-21): antes esto traia la tabla usuario_rol ENTERA al heap para
+        // filtrar en Java lo que la base resuelve con un EXISTS, y arrastraba
+        // una variable muerta marcada "// dummy" que no se usaba para nada:
+        //     long usuarios = usuarioRolRepository.findByUsuarioIdUsuario(0).size(); // dummy
+        if (usuarioRolRepository.existsByRolIdRol(id)) {
             throw new ValidationException("No se puede eliminar: el rol tiene usuarios asignados");
         }
 

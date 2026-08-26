@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
+import { ModalSeguroDirective } from '../../../shared/directives/modal-seguro.directive';
 
 interface PickingPedido {
   idPedido: number;
@@ -26,7 +27,7 @@ interface PageResponse<T> {
 @Component({
   selector: 'app-empaque-lista',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ModalSeguroDirective],
   template: `
     <div class="empaque-container">
       <div class="toolbar">
@@ -53,7 +54,7 @@ interface PageResponse<T> {
       </div>
 
       <!-- Modal -->
-      <div class="modal-overlay" *ngIf="modalAbierto && seleccionado" (click)="cerrarModal()">
+      <div class="modal-overlay" *ngIf="modalAbierto && seleccionado" appModalSeguro (cerrar)="cerrarModal()">
         <div class="modal" (click)="$event.stopPropagation()">
           <h3>Confirmar empaque — Pedido #{{seleccionado.idPedido}}</h3>
 

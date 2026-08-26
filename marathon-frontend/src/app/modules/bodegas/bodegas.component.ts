@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CrudService, PageResponse } from '../../core/services/crud.service';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
+import { ModalSeguroDirective } from '../../shared/directives/modal-seguro.directive';
+import { EstadoListaComponent } from '../../shared/components/estado-lista/estado-lista.component';
 
 interface Ciudad {
   idCiudad: number;
@@ -24,7 +26,7 @@ interface Bodega {
 @Component({
   selector: 'app-bodegas',
   standalone: true,
-  imports: [CommonModule, FormsModule, AppIconComponent],
+  imports: [CommonModule, FormsModule, AppIconComponent, ModalSeguroDirective, EstadoListaComponent],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -40,9 +42,16 @@ interface Bodega {
         <button class="btn-new" (click)="abrirModal()">+ Nueva</button>
       </div>
 
-      <div class="spinner" *ngIf="loading">Cargando...</div>
+      <app-estado-lista
+        [cargando]="loading"
+        [error]="cargaError"
+        [vacio]="!loading && !cargaError && data.length === 0"
+        [hayFiltro]="hayFiltroPuesto"
+        nombrePlural="bodegas"
+        pistaVacio="Crea la primera con «+ Nueva»."
+        (reintentar)="cargar()"></app-estado-lista>
 
-      <table class="data-table" *ngIf="!loading">
+      <table class="data-table" *ngIf="!loading && !cargaError && data.length > 0">
         <thead>
           <tr><th>ID</th><th>Nombre</th><th>Dirección</th><th>Ciudad</th><th>Responsable</th><th>Estado</th><th>Acciones</th></tr>
         </thead>
@@ -59,7 +68,6 @@ interface Bodega {
               <button class="btn-icon danger" (click)="confirmarEliminar(item)" title="Eliminar"><app-icon name="trash" [size]="16"/></button>
             </td>
           </tr>
-          <tr *ngIf="data.length === 0"><td colspan="7" class="empty">No hay registros</td></tr>
         </tbody>
       </table>
 
@@ -70,7 +78,7 @@ interface Bodega {
       </div>
 
       <!-- Modal -->
-      <div class="modal-overlay" *ngIf="showModal" (click)="cerrarModal()">
+      <div class="modal-overlay" *ngIf="showModal" appModalSeguro (cerrar)="cerrarModal()">
         <div class="modal-card" (click)="$event.stopPropagation()">
           <h3>{{editando ? 'Editar' : 'Nueva'}} Bodega</h3>
           <form (ngSubmit)="guardar()">
@@ -110,7 +118,7 @@ interface Bodega {
       </div>
 
       <!-- Confirm Delete -->
-      <div class="modal-overlay" *ngIf="showConfirm" (click)="showConfirm=false">
+      <div class="modal-overlay" *ngIf="showConfirm" appModalSeguro (cerrar)="showConfirm=false">
         <div class="modal-card" (click)="$event.stopPropagation()">
           <h3>Confirmar eliminación</h3>
           <p>¿Estás seguro de que deseas eliminar <strong>{{itemEliminar?.nombre}}</strong>?</p>
@@ -132,6 +140,16 @@ export class BodegasComponent implements OnInit {
   data: Bodega[] = [];
   ciudades: Ciudad[] = [];
   loading = false;
+  /**
+   * Motivo del fallo de carga, o null si la carga fue bien (D6).
+   * Sin esto la pantalla no podia distinguir "no hay registros" de "no se
+   * pudo preguntar", y enseñaba lo primero en los dos casos.
+   */
+  cargaError: string | null = null;
+
+  /** ¿Hay busqueda o filtros puestos? Cambia el mensaje de lista vacia. */
+  get hayFiltroPuesto(): boolean { return !!this.filtroNombre || !!this.filtroEstado; }
+
   saving = false;
   page = 0;
   size = 10;
@@ -163,8 +181,8 @@ export class BodegasComponent implements OnInit {
     if (this.filtroEstado) params['estado'] = this.filtroEstado;
 
     this.crud.listar<Bodega>('bodegas', params).subscribe({
-      next: res => { this.data = res.content; this.totalPages = res.totalPages; this.loading = false; },
-      error: () => { this.loading = false; this.mostrarToast('Error al cargar datos', true); }
+      next: res => { this.cargaError = null; this.data = res.content; this.totalPages = res.totalPages; this.loading = false; },
+      error: (err: any) => { this.loading = false; this.cargaError = this.motivoDelFallo(err); this.mostrarToast('Error al cargar datos', true); }
     });
   }
 
@@ -232,4 +250,12 @@ export class BodegasComponent implements OnInit {
     this.toast = msg; this.toastError = error;
     setTimeout(() => { this.toast = ''; }, 3000);
   }
+  /** Traduce el fallo a algo que se pueda leer y, si se puede, resolver. */
+  private motivoDelFallo(err: any): string {
+    if (err?.status === 0) return 'No hay conexión con el servidor.';
+    if (err?.status === 403) return 'Tu rol no tiene permiso para ver esta información.';
+    if (err?.status === 401) return 'Tu sesión ha caducado. Vuelve a entrar.';
+    return err?.error?.message ?? 'El servidor no respondió correctamente.';
+  }
+
 }

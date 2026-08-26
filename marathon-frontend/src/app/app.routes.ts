@@ -4,18 +4,30 @@ import { rolGuard } from './core/guards/rol.guard';
 
 export const routes: Routes = [
   { path: 'login', loadComponent: () => import('./modules/auth/login/login.component').then(m => m.LoginComponent) },
+  // D3 — el inicio es el tablero del rol, y es a donde lleva el login.
+  //   Antes el login caía en /portal, un menú de accesos que repetía lo que ya
+  //   hace la barra lateral, y el tablero quedaba como una pantalla más.
+  //   /portal y /dashboard siguen funcionando para no romper enlaces guardados.
+  { path: 'inicio', loadComponent: () => import('./modules/dashboard/dashboard.component').then(m => m.DashboardComponent), canActivate: [authGuard] },
+  { path: 'dashboard', redirectTo: 'inicio' },
   { path: 'portal', loadComponent: () => import('./modules/portal/portal.component').then(m => m.PortalComponent), canActivate: [authGuard] },
-  { path: 'dashboard', loadComponent: () => import('./modules/dashboard/dashboard.component').then(m => m.DashboardComponent), canActivate: [authGuard] },
   { path: 'perfil', loadComponent: () => import('./modules/auth/perfil/perfil.component').then(m => m.PerfilComponent), canActivate: [authGuard] },
   {
     path: 'datos-maestros',
     loadComponent: () => import('./modules/datos-maestros/datos-maestros.component').then(m => m.DatosMaestrosComponent),
     canActivate: [authGuard, rolGuard], data: { rol: 'Administrador' },
     children: [
-      { path: '', redirectTo: 'ciudades', pathMatch: 'full' },
-      { path: 'ciudades', loadComponent: () => import('./modules/datos-maestros/ciudades/ciudades.component').then(m => m.CiudadesComponent) },
+      // D5 — seis pestañas. Productos, Bodegas y Proveedores estaban sueltos en
+      //   el menú principal, entre pantallas de operación diaria, cuando son
+      //   maestros igual que las otras tres. Sus rutas antiguas siguen vivas más
+      //   abajo para no romper enlaces guardados.
+      { path: '', redirectTo: 'productos', pathMatch: 'full' },
+      { path: 'productos', loadComponent: () => import('./modules/productos/productos.component').then(m => m.ProductosComponent) },
       { path: 'categorias', loadComponent: () => import('./modules/datos-maestros/categorias/categorias.component').then(m => m.CategoriasComponent) },
-      { path: 'unidades-medida', loadComponent: () => import('./modules/datos-maestros/unidades-medida/unidades-medida.component').then(m => m.UnidadesMedidaComponent) }
+      { path: 'unidades-medida', loadComponent: () => import('./modules/datos-maestros/unidades-medida/unidades-medida.component').then(m => m.UnidadesMedidaComponent) },
+      { path: 'ciudades', loadComponent: () => import('./modules/datos-maestros/ciudades/ciudades.component').then(m => m.CiudadesComponent) },
+      { path: 'bodegas', loadComponent: () => import('./modules/bodegas/bodegas.component').then(m => m.BodegasComponent) },
+      { path: 'proveedores', loadComponent: () => import('./modules/proveedores/proveedores.component').then(m => m.ProveedoresComponent) }
     ]
   },
   { path: 'usuarios', loadComponent: () => import('./modules/usuarios/usuarios.component').then(m => m.UsuariosComponent), canActivate: [authGuard, rolGuard], data: { rol: 'Administrador' } },

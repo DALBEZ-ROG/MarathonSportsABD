@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
+import { ModalSeguroDirective } from '../../shared/directives/modal-seguro.directive';
 
 @Component({
   selector: 'app-orden-produccion-detalle',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, ModalSeguroDirective],
   template: `
     <div class="crud-container" *ngIf="op">
       <div class="toolbar">
@@ -70,7 +71,7 @@ import { ApiService } from '../../core/services/api.service';
       </div>
 
       <!-- Modal confirmar iniciar -->
-      <div class="modal-overlay" *ngIf="mostrarConfirmIniciar" (click)="mostrarConfirmIniciar = false">
+      <div class="modal-overlay" *ngIf="mostrarConfirmIniciar" appModalSeguro (cerrar)="mostrarConfirmIniciar = false">
         <div class="modal-card" (click)="$event.stopPropagation()">
           <h3>Iniciar producción</h3>
           <p>Al iniciar se <strong>descontará del stock</strong> la materia prima teórica según el BOM. Esta acción no se puede deshacer (para revertir habría que completar la orden).</p>
@@ -82,7 +83,7 @@ import { ApiService } from '../../core/services/api.service';
       </div>
 
       <!-- Modal completar -->
-      <div class="modal-overlay" *ngIf="mostrarCompletar" (click)="mostrarCompletar = false">
+      <div class="modal-overlay" *ngIf="mostrarCompletar" appModalSeguro (cerrar)="mostrarCompletar = false">
         <div class="modal-card" (click)="$event.stopPropagation()">
           <h3>Completar producción</h3>
           <div class="form-group">

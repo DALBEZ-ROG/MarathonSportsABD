@@ -219,7 +219,7 @@ public class RecepcionMercanciaService {
                                         Usuario receptor, OrdenCompra orden, String numeroGuia,
                                         Integer idUsuarioActual) {
         Inventario inv = inventarioRepository
-                .findByProductoIdProductoAndBodegaIdBodega(producto.getIdProducto(), bodega.getIdBodega())
+                .buscarParaActualizar(producto.getIdProducto(), bodega.getIdBodega())
                 .orElseGet(() -> {
                     Inventario nuevo = new Inventario();
                     nuevo.setProducto(producto);
