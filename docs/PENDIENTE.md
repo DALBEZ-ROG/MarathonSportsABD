@@ -29,7 +29,7 @@ las fases **47** (reserva de stock), **48** (matriz de permisos), **49** (D-39) 
 repaso de flujos que encontro tres huecos mas.
 
 Se han encontrado **43 defectos** y se han cerrado **los 43**. Las pruebas
-pasaron de **0 → 105 → 131 → 143**, todas en verde. La compilación de producción
+pasaron de **0 → 105 → 131 → 148**, todas en verde. La compilación de producción
 del frontend funciona.
 
 A las fases 47-59 se suman ahora:
@@ -40,6 +40,7 @@ A las fases 47-59 se suman ahora:
 | **F61** | D-26 (los datos demo dejan de crearse solos) **y un defecto latente que nadie había visto**: una instalación nueva nacía con la matriz de permisos vieja, de 49, en vez de la de la F48, de 94 |
 | **F62** | La pantalla de inicio pasa a ser **el flujo del sistema**: ocho pasos en orden, con sus opciones y con quién es responsable de cada uno |
 | **F63** | Tres cosas que salieron de **recorrer el flujo entero con cada rol**, no solo con el administrador |
+| **F64** | El Administrador queda **exento** de la separación de funciones al aprobar órdenes de compra |
 
 ---
 
@@ -377,6 +378,36 @@ todos del poblado masivo.
 `GlobalExceptionHandler.handleRutaInexistente`, la regla de
 `/api/inventario/reservas/**` en `SecurityConfig`, y `ErroresTest`.
 
+### F64 · El Administrador puede aprobar su propia orden de compra
+
+**Decisión del dueño del proyecto, 2026-08-28.** La regla «quien solicita no
+aprueba» se mantiene para todo el mundo **menos para el Administrador**.
+
+**Por qué.** `compras:aprobar` lo tiene solo el rol Administrador y solo existe
+**un** usuario con ese rol, así que una orden creada por el administrador **no la
+podía aprobar nadie**: el flujo se quedaba muerto en `pendiente_aprobacion` sin
+salida, salvo dando de alta un segundo administrador. Se descubrió porque el
+dueño se topó con ello usando el sistema.
+
+**Lo que se pierde, y conviene que esté escrito.** Una compra del administrador
+ya no pasa por un segundo par de ojos, y este era el **único punto del sistema
+donde el dinero salía con doble firma**. Para desarrollo y demostración es lo
+razonable; en una instalación real la respuesta correcta es tener **dos
+administradores** y quitar la excepción — es borrar una condición en
+`OrdenCompraService.cambiarEstado`.
+
+**La excepción pregunta por el ROL, no por el permiso**, y eso es deliberado: los
+permisos se editan desde la pantalla de roles, así que si preguntara por
+`compras:aprobar` la exención se podría regalar marcando una casilla. El rol no.
+
+**La restricción sigue viva para los demás.** Si algún día se concede
+`compras:aprobar` a Encargado de Compras, ese rol **no** podrá aprobar lo suyo.
+Lo fija `AprobacionOrdenCompraTest` (5 pruebas), que existe justamente para que
+nadie afloje esa mitad sin darse cuenta.
+
+**Comprobado sobre la aplicación en marcha**, no solo en pruebas: el admin creó
+una orden, la mandó a aprobación y la aprobó él mismo.
+
 ---
 
 ## 4. Lo que queda abierto
@@ -459,6 +490,9 @@ Recortes deliberados. Deshacerlos sin querer rompe trabajo que sí está bien:
   también `SecurityConfig`.** Esa lista existe para no pedir lo que va a ser
   denegado; si se desincroniza de la regla del servidor, vuelve el 403 en cada
   carga. Lo mismo vale para los roles de `flujo.model.ts` y `app.routes.ts`.
+- **No conviertas la exención del Administrador (F64) en un permiso.** Pregunta
+  por el rol a propósito: un permiso se concede marcando una casilla en la
+  pantalla de roles, y la separación de funciones dejaría de significar nada.
 - **No metas Flyway ni Liquibase ahora.** Está anotado como deuda.
 - **No añadas librerías nuevas** si con lo que ya usa el proyecto alcanza. Las
   pruebas de permisos se hicieron sin `spring-security-test`, poniendo la
@@ -490,7 +524,7 @@ Se aplican a cualquier cosa que se añada, y no son negociables:
 ## 7. Cómo comprobar que no se rompió nada
 
 ```bash
-# Backend — 143 pruebas, deben quedar todas en verde
+# Backend — 148 pruebas, deben quedar todas en verde
 cd marathon-backend
 mvn test                     # necesita TEST_DB_PASSWORD en el entorno
 
@@ -499,9 +533,9 @@ cd marathon-frontend
 npx ng build --configuration production
 ```
 
-Si `mvn test` baja de 143 pruebas o alguna falla, **algo se rompió**.
+Si `mvn test` baja de 148 pruebas o alguna falla, **algo se rompió**.
 
-**Y con la aplicación levantada, la comprobación que faltaba.** Las 143 pruebas
+**Y con la aplicación levantada, la comprobación que faltaba.** Las 148 pruebas
 usan un solo pool (`app.datasource.roles.enabled=false`), así que **no ven** los
 privilegios por rol. D-39 pasó por ahí. Con el backend en marcha:
 

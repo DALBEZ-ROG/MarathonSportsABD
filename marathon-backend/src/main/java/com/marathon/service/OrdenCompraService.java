@@ -280,8 +280,35 @@ public class OrdenCompraService {
                 Permisos.exigirSiHaySesion(
                         "aprobada".equals(nuevo) ? "compras:aprobar" : "compras:rechazar",
                         "aprobada".equals(nuevo) ? "aprobar órdenes de compra" : "rechazar órdenes de compra");
-                // Separación de funciones: quien solicita no puede aprobar su propia orden
-                if (orden.getUsuarioSolicitante() != null
+                // ----------------------------------------------------------
+                // Separacion de funciones, CON una excepcion (F64).
+                // ----------------------------------------------------------
+                // La regla sigue siendo que quien solicita no aprueba. Lo que
+                // cambia el 2026-08-28, por decision del dueño del proyecto, es
+                // que el ADMINISTRADOR queda exento: puede aprobar una orden
+                // que el mismo creo.
+                //
+                // El motivo es operativo y es real: 'compras:aprobar' lo tiene
+                // solo el Administrador y solo hay UN usuario con ese rol, asi
+                // que una orden creada por el administrador no la podia aprobar
+                // NADIE. El flujo se quedaba muerto en 'pendiente_aprobacion'
+                // sin salida, salvo dando de alta un segundo administrador.
+                //
+                // Lo que se pierde, dicho sin adornos: una compra del
+                // administrador ya no pasa por un segundo par de ojos, y este
+                // era el unico punto del sistema donde el dinero salia con
+                // doble firma. Para desarrollo y demostracion es lo razonable;
+                // en una instalacion real, la respuesta correcta seria tener
+                // dos administradores y volver a quitar esta excepcion —es
+                // borrar la condicion de abajo—.
+                //
+                // La restriccion SIGUE VIVA para todos los demas: si algun dia
+                // se le concede 'compras:aprobar' a Encargado de Compras desde
+                // la pantalla de roles, ese rol no podra aprobar lo suyo. Por
+                // eso la excepcion pregunta por el ROL y no por el permiso: el
+                // permiso se regala marcando una casilla, el rol no.
+                if (!Permisos.esAdministrador()
+                        && orden.getUsuarioSolicitante() != null
                         && orden.getUsuarioSolicitante().getIdUsuario().equals(idUsuarioActual)) {
                     throw new ValidationException("No puede aprobar ni rechazar una orden que usted mismo solicitó (separación de funciones)");
                 }

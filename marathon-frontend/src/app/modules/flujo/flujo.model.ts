@@ -66,7 +66,7 @@ export const FLUJO: PasoFlujo[] = [
     titulo: 'Comprar al proveedor',
     resumen: 'La mercancía entra por aquí: se pide, llega, se factura y se paga.',
     responsable: COMPRAS,
-    incumbencia: 'El Encargado de Compras crea la orden, registra lo que llega, la factura del proveedor y los pagos. Pero NO la aprueba: aprobar y rechazar son del Administrador, y además nadie puede aprobar una orden que haya solicitado él mismo, ni siquiera el Administrador.',
+    incumbencia: 'El Encargado de Compras crea la orden, registra lo que llega, la factura del proveedor y los pagos. Pero NO la aprueba: aprobar y rechazar son del Administrador. Y quien solicita una orden no puede aprobarla, aunque tenga el permiso; el Administrador es la única excepción y sí puede aprobar la suya.',
     nota: 'Recibir la mercancía y registrar la factura NO son opciones del menú: se hacen entrando a la orden concreta desde «Órdenes de compra». Es el orden correcto, porque no se puede facturar lo que todavía no ha llegado.',
     opciones: [
       { nombre: 'Nueva orden de compra', descripcion: 'Pedir mercancía a un proveedor', ruta: '/compras/nueva', roles: [ADMIN, COMPRAS], principal: true },

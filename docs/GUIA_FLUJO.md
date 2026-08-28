@@ -132,17 +132,24 @@ Requiere el permiso `compras:crear`. Solo se puede desde `borrador`.
 > `compras:aprobar` y `compras:rechazar` los tiene **únicamente el
 > Administrador**.
 >
-> Y hay una segunda barrera encima de la primera: **nadie puede aprobar una orden
-> que él mismo solicitó**, ni siquiera el Administrador. Si el admin crea una
-> orden y luego intenta aprobarla, el sistema responde:
+> Encima de eso hay una segunda barrera: **quien solicita una orden no puede
+> aprobarla**. Si el Encargado de Compras la pide, tiene que aprobarla el
+> Administrador. Y si algún día se le concediera `compras:aprobar` a otro rol
+> desde la pantalla de roles, ese rol seguiría sin poder aprobar lo suyo — la
+> comprobación **no es un permiso** y no se regala marcando una casilla.
 >
-> > *«No puede aprobar ni rechazar una orden que usted mismo solicitó (separación
-> > de funciones)»*
+> **El Administrador es la excepción** (decidido el 2026-08-28): él sí puede
+> aprobar una orden que él mismo creó. El motivo es práctico: `compras:aprobar`
+> lo tiene solo él y solo hay **un** usuario con ese rol, así que su propia orden
+> no la podía aprobar nadie y el flujo se quedaba muerto sin salida.
 >
-> Esa comprobación **no es un permiso** y no se puede quitar desde la pantalla de
-> roles: no depende de quién eres, sino de qué orden es.
+> **Lo que eso cuesta, dicho claro:** una compra del Administrador ya no pasa por
+> un segundo par de ojos, y este era el único punto del sistema donde el dinero
+> salía con doble firma. En una instalación real la respuesta correcta es tener
+> **dos administradores** y volver a quitar la excepción — es borrar una
+> condición en `OrdenCompraService`.
 >
-> **Para probarlo de verdad hacen falta dos personas:** crea la orden con
+> **Para ver la separación funcionando de verdad:** crea la orden con
 > `compras@marathon.com` y apruébala con `admin@marathon.com`.
 
 Al aprobar, el sistema guarda **quién aprobó y cuándo**.
@@ -449,7 +456,7 @@ veces** — es justo lo que demuestra que la separación de funciones existe.
 | 2 | `compras` | Nueva orden de compra → añade líneas → **guardar** |
 | 3 | `compras` | Cambia la orden a **`pendiente_aprobacion`** |
 | 4 | `compras` | **Intenta aprobarla.** No podrás: no tienes el permiso |
-| 5 | **`admin`** | **Aprueba la orden.** Se guarda quién aprobó y cuándo |
+| 5 | **`admin`** | **Aprueba la orden.** Se guarda quién aprobó y cuándo. (Si la orden la hubieras creado con `admin`, también podrías: el admin está exento) |
 | 6 | `compras` | Registra la **recepción** e indica la bodega |
 | 7 | `compras` | Registra la **factura**. Prueba a poner un subtotal mayor: te para |
 | 8 | `compras` | **Cuentas por pagar** → registra el pago |
@@ -504,7 +511,7 @@ veces** — es justo lo que demuestra que la separación de funciones existe.
 | Lo que ves | Casi siempre es |
 |---|---|
 | «No tienes acceso a esa sección» | Ese rol no entra ahí. Míralo en el `ⓘ` del flujo |
-| «No puede aprobar… que usted mismo solicitó» | Correcto. Necesitas **otra persona** |
+| «No puede aprobar… que usted mismo solicitó» | Correcto, si no eres administrador. El admin sí puede aprobar la suya |
 | «Solo se puede recibir mercancía de órdenes aprobadas» | Falta el paso 2.3 |
 | «…la orden de compra no tiene recepciones registradas» | Falta el paso 2.4 |
 | «El subtotal… supera el valor de la mercancía recibida» | Correcto. Sin flete, sin tolerancia |

@@ -47,6 +47,32 @@ public final class Permisos {
     }
 
     /**
+     * ¿Quien hace la peticion es administrador?
+     *
+     * <p>Se pregunta por el ROL y no por un permiso a proposito. Los permisos
+     * dicen <i>que</i> puede hacer alguien y son editables desde la pantalla de
+     * roles; esto pregunta <i>quien es</i>, que es otra cosa y no debe poder
+     * regalarse marcando una casilla. Lo usa la excepcion de la F64 a la
+     * separacion de funciones en las ordenes de compra.
+     *
+     * <p>Sin sesion devuelve {@code false}: el arnes de pruebas llama a los
+     * servicios sin contexto de seguridad, y ahi lo prudente es NO conceder la
+     * excepcion.
+     */
+    public static boolean esAdministrador() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            return false;
+        }
+        for (GrantedAuthority authority : auth.getAuthorities()) {
+            if ("ROLE_ADMINISTRADOR".equals(authority.getAuthority())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Igual, pero falla si no lo tiene.
      *
      * <p>Levanta {@code ValidationException} y no {@code AccessDeniedException}
