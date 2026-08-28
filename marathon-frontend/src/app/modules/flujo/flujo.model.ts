@@ -66,7 +66,7 @@ export const FLUJO: PasoFlujo[] = [
     titulo: 'Comprar al proveedor',
     resumen: 'La mercancía entra por aquí: se pide, llega, se factura y se paga.',
     responsable: COMPRAS,
-    incumbencia: 'El Encargado de Compras crea la orden, registra lo que llega, la factura del proveedor y las cuentas por pagar. La aprobación de la orden es de otra mano, a propósito: quien pide no aprueba.',
+    incumbencia: 'El Encargado de Compras crea la orden, registra lo que llega, la factura del proveedor y los pagos. Pero NO la aprueba: aprobar y rechazar son del Administrador, y además nadie puede aprobar una orden que haya solicitado él mismo, ni siquiera el Administrador.',
     nota: 'Recibir la mercancía y registrar la factura NO son opciones del menú: se hacen entrando a la orden concreta desde «Órdenes de compra». Es el orden correcto, porque no se puede facturar lo que todavía no ha llegado.',
     opciones: [
       { nombre: 'Nueva orden de compra', descripcion: 'Pedir mercancía a un proveedor', ruta: '/compras/nueva', roles: [ADMIN, COMPRAS], principal: true },
@@ -134,8 +134,9 @@ export const FLUJO: PasoFlujo[] = [
     numero: 7,
     titulo: 'Atender la posventa',
     resumen: 'Lo que el cliente devuelve: se inspecciona, se decide y se reembolsa.',
-    responsable: SUPERVISOR,
-    incumbencia: 'El Operador de Pedidos abre la solicitud desde el pedido; el Supervisor E-Commerce inspecciona y autoriza el reembolso. Lo que vuelve en buen estado regresa al inventario.',
+    responsable: BODEGA,
+    incumbencia: 'Va y viene entre dos roles: el Operador de Pedidos abre la solicitud desde el pedido y, al final, autoriza el reembolso; en medio, el Operador de Bodega es quien inspecciona lo que ha vuelto y decide si se acepta. El Supervisor E-Commerce lo ve todo, pero no interviene.',
+    nota: 'Los tres pasos son de roles distintos a propósito, y el sistema lo impone con permisos separados: crear, inspeccionar y reembolsar. Quien pide la devolución no es quien juzga el estado de la mercancía.',
     opciones: [
       { nombre: 'Devoluciones', descripcion: 'Solicitudes, inspección y reembolsos', ruta: '/devoluciones', roles: [ADMIN, SUPERVISOR, PEDIDOS, BODEGA], principal: true }
     ]
