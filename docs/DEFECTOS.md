@@ -23,18 +23,25 @@ Todas las rutas de archivo son relativas a `marathon-backend/src/main/java/com/m
 | **S4** | 5 | D-29 … D-33 |
 | | **43** | |
 
-## Estado a 2026-08-27
+## Estado a 2026-08-28
 
 | | Nº | Cuáles |
 |---|---|---|
-| **Cerrados** | 39 | los 30 de los 17 lotes; D-02 (F47), D-13 (F48), D-37 y D-38 del repaso de flujos; **D-39 (F49)**, que apareció al levantar la aplicación; y **D-40 a D-43**, que aparecieron depurando la interfaz en el navegador |
-| **Mitigados, no cerrados** | 2 | D-23 (ventana de 24 h → 2 h; sigue sin revocación) y D-26 (el secreto JWT ya no arranca por defecto; `datos-demo` sigue en `true`) |
-| **Abiertos por decisión** | 1 | D-27 (el JWT sigue en `localStorage`) |
-| **Abierto, pendiente de decisión de negocio** | 1 | **D-36**, el importe de la factura de compra |
+| **Cerrados** | **43** | los 43. Los 30 de los 17 lotes; D-02 (F47), D-13 (F48), D-37 y D-38 del repaso de flujos; **D-39 (F49)**; **D-40 a D-43**, de depurar la interfaz; y los **cuatro últimos el 2026-08-28**: D-36 (F60), D-23 (F60), D-27 (F60) y D-26 (F61) |
+| **Abiertos** | **0** | — |
 
-Los cuatro que no están cerrados lo están **por una decisión tomada y anotada**,
-no por olvido. Cada ficha dice quién lo decidió, cuándo y qué haría falta para
-cerrarlo.
+**No queda ninguno abierto.** Los tres últimos —D-23, D-26 y D-27— llevaban
+meses cerrados «por decisión», es decir, descartados por coste. El dueño del
+proyecto pidió el 2026-08-28 que se hicieran de verdad, y se hicieron. El
+cuarto, D-36, esperaba una respuesta de negocio que llegó el mismo día:
+**sin flete**.
+
+> **Lo que sigue sin ser perfecto, y conviene no confundir con un defecto
+> abierto.** Cerrar D-27 quita el token de `localStorage`, así que un XSS ya no
+> puede robarse la credencial; lo que sí puede seguir haciendo es actuar en
+> nombre del usuario mientras la página está abierta, porque el navegador
+> adjunta la cookie él solo. Eso no lo arregla `HttpOnly` ni ninguna otra
+> cookie: lo arregla no tener un XSS. Está dicho en la ficha de D-27.
 
 > **Nota de numeración.** D-34 y D-35 se añadieron el 2026-08-25, después de la primera redacción: estaban descritos en `AUDITORIA.md` (§2.2, flujos 5 y 2) pero se quedaron sin ficha propia. Los ids son cronológicos, no correlativos por severidad; ambos se listan en su sección de severidad correcta. `AUDITORIA.md` §2.2 flujo 5 citaba el del precio como «D-01», que es otro defecto; la referencia está corregida.
 
@@ -524,7 +531,27 @@ Una OC creada en `borrador` con una cantidad o un precio mal puestos solo se pue
 
 ---
 
-### D-23 · `logout` no invalida el token
+### D-23 · `logout` no invalida el token — **CERRADO el 2026-08-28 (F60)**
+
+> **Cerrado.** `POST /api/auth/logout` devolvía «Sesión cerrada correctamente» y
+> no hacía nada en absoluto: el token seguía sirviendo hasta caducar. Ahora cada
+> token lleva un identificador único (`jti`), el cierre de sesión lo apunta en
+> `token_revocado` y **el filtro consulta esa lista en cada petición**. Se
+> revocan los dos, el de acceso y el de refresco — sin lo segundo el logout no
+> habría cerrado nada, porque con el refresco se saca un token de acceso nuevo.
+>
+> **El costo que lo tenía descartado, asumido a propósito:** una consulta por
+> clave primaria en cada petición autenticada. La tabla se mantiene pequeña
+> purgando lo caducado en cada cierre.
+>
+> **Ante un fallo al consultar la lista se deja pasar**, no se deniega. Negar
+> ante la duda convertiría un problema con esa tabla en una caída total para
+> todos a la vez; así, una lista caída degrada a la seguridad que había antes
+> de la F60, que era la de un token de 2 h.
+>
+> `sql/fase60_revocacion_de_sesion.sql`, `service/TokenRevocadoService`,
+> `SesionRevocableTest` (6 pruebas). Comprobado además sobre la aplicación en
+> marcha: cerrar sesión y reutilizar la misma cookie devuelve 401.
 
 **Evidencia:** `controller/AuthController.java:40` + `marathon-frontend/src/app/core/services/auth.service.ts:44-49`
 
@@ -561,7 +588,30 @@ Se agrava en combinación con D-09, que ofrece un segundo oráculo de contraseñ
 
 ---
 
-### D-26 · Credenciales fijas en el código versionado, y un secreto JWT por defecto también versionado
+### D-26 · Credenciales fijas en el código versionado, y un secreto JWT por defecto también versionado — **CERRADO el 2026-08-28 (F61)**
+
+> **Cerrado.** `app.datos-demo.enabled` pasa a **`false`** por defecto.
+>
+> **Por qué no era una línea, que es lo que lo tenía atascado:** `DataInitializer`
+> no solo creaba los cinco usuarios de demostración, también **los roles y el
+> primer administrador**. Apagarlo dejaba una base sin roles, sin usuarios y sin
+> forma de entrar. Esa siembra vive ahora en
+> `sql/fase61_siembra_inicial.sql`, que es donde corresponde (regla 3: migran
+> los scripts, no la aplicación). El primer administrador se crea pasando su
+> hash BCrypt por variable de psql, no con una contraseña escrita en un fichero
+> que va a Git.
+>
+> **Y por el camino apareció algo peor que D-26.** En su primera ejecución
+> —base vacía— `DataInitializer` repartía **49 permisos** con criterio propio,
+> mientras que desde la F48 el reparto bueno son **94** derivados de
+> `SecurityConfig`. Es decir: este equipo tenía la matriz buena porque venía de
+> antes, pero **cualquier instalación nueva nacía con la vieja**, que además se
+> contradice con el propio `SecurityConfig`. No se habría notado hasta montar
+> el sistema en otra máquina. Ese reparto se ha quitado de `DataInitializer`;
+> lo hace la F48, y solo la F48.
+>
+> **Orden de instalación en una base nueva:** esquema → **fase61** → resto de
+> fases → **fase48**. La F48 aborta si falta algún rol, así que la 61 va antes.
 
 **Evidencia:** `config/DataInitializer.java:116` (`"Admin1234!"`) y `:237` (`"Demo1234!"`); `src/main/resources/application.properties:37` (`app.jwt.secret=${JWT_SECRET:defaultDevSecretChangeInProduction}`) y `:30` (`spring.datasource.password=${DB_PASSWORD:1234}`)
 
@@ -591,7 +641,32 @@ Los secretos reales sí están correctamente fuera de git (comprobado: `.env` y 
 
 ---
 
-### D-27 · El JWT se guarda en `localStorage`
+### D-27 · El JWT se guarda en `localStorage` — **CERRADO el 2026-08-28 (F60)**
+
+> **Cerrado.** El token viaja en dos cookies `HttpOnly` + `SameSite=Strict` que
+> el JavaScript de la página **no puede leer**. En `localStorage` solo quedan
+> el nombre, el rol, los permisos y la fecha de caducidad de la sesión: nada
+> que sirva como credencial. Comprobado en el navegador, no solo en una prueba:
+> `Object.keys(localStorage)` devuelve `["marathon_user","marathon_expira"]` y
+> `document.cookie` no ve el token.
+>
+> **CSRF sigue desactivado, y es una decisión, no un olvido.** Al pasar la
+> sesión a una cookie aparece el riesgo de que otro sitio dispare peticiones
+> autenticadas; lo cierra `SameSite=Strict`. Un token CSRF de doble envío no era
+> viable: el front está en `localhost:4300` y la API en `localhost:8080`, así
+> que el JavaScript del front no puede leer una cookie puesta por la API. Para
+> `SameSite` el puerto no cuenta —4300 y 8080 son el mismo sitio—, de modo que
+> la cookie sí viaja en las llamadas legítimas. **Si algún día el front se sirve
+> desde otro dominio, esto hay que rehacerlo.**
+>
+> **La cabecera `Authorization` sigue funcionando**, y no reabre nada: quien la
+> usa son los clientes que no son un navegador (`fase37_pruebas_endpoints.ps1`,
+> curl, Swagger), donde no hay `localStorage` que robar.
+>
+> **Lo que NO arregla:** un XSS sigue pudiendo actuar como el usuario mientras
+> la página está abierta, porque el navegador adjunta la cookie solo. Lo que ya
+> no puede es llevarse la credencial y usarla desde otro sitio, más tarde. Esa
+> es exactamente la diferencia que compra `HttpOnly`, ni más ni menos.
 
 **Evidencia:** `marathon-frontend/src/app/core/services/auth.service.ts:31-33`
 
@@ -690,7 +765,30 @@ esto quién lo comprueba?», y contrastando cada respuesta contra
 primeros no necesitaban decidir nada y se cerraron; el tercero sí, y se deja
 anotado.
 
-### D-36 · El importe de la factura de compra no se contrasta con lo recibido — S2, *abierto*
+### D-36 · El importe de la factura de compra no se contrasta con lo recibido — S2, **CERRADO el 2026-08-28 (F60)**
+
+> **Cerrado.** La respuesta de negocio llegó el 2026-08-28 y fue **«no, sin
+> flete»**: el subtotal **no puede superar** el valor de la mercancía recibida.
+> Sin cargos por encima y **sin tolerancia**.
+>
+> La comparación es exacta y no necesita margen: `precio_unitario` tiene dos
+> decimales y `cantidad_recibida` es entera, así que el producto y su suma son
+> exactos en `BigDecimal`. No hay redondeo que absorber. Si algún día se admite
+> flete, el cambio es una constante en `FacturaCompraService`.
+>
+> **Las 1.649 facturas históricas que incumplen la regla NO se tocan**
+> (PENDIENTE.md §5): son poblado masivo, no se pueden distinguir de lo que
+> escribió la aplicación, y corregirlas sería inventarse hechos. La validación
+> mira solo hacia adelante.
+>
+> **Un fallo propio que conviene dejar escrito:** la primera versión rechazaba
+> bien pero dejaba `log_accion` **vacía**. El apunte se escribía dentro de la
+> misma transacción que la excepción deshacía dos líneas después, así que el
+> rastro desaparecía justo en el caso que se quería rastrear. Se vio mirando la
+> base tras probar contra la aplicación en marcha, no en las pruebas. Corregido
+> con `LogService.registrarAparte` (`REQUIRES_NEW`) y **fijado con una prueba**.
+>
+> `FacturaCotejadaTest` (5 pruebas).
 
 **Evidencia:** `service/FacturaCompraService.java:63-88` — `crear()` valida que
 la orden exista, que tenga al menos una recepción, que el número no se repita y

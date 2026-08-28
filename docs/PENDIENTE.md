@@ -4,10 +4,19 @@
 > las sesiones anteriores**. Todo lo necesario para empezar está aquí; los otros
 > tres documentos de `docs/` amplían, pero no son requisito.
 >
-> Reescrito el **2026-08-27**, después de cerrar D-02, D-13 y D-39 a D-43.
-> **Los cinco últimos aparecieron levantando y usando la aplicación, no en las
-> pruebas** — que estaban las 131 en verde mientras tres roles no podían crear su
-> documento y un pedido recogido no se podía empacar.
+> Reescrito el **2026-08-28**, después de cerrar **los cuatro que quedaban**:
+> D-36, D-23, D-27 (fase 60) y D-26 (fase 61).
+>
+> **No queda ningún defecto abierto.** Tres de esos cuatro llevaban tiempo
+> descartados «por coste»; el dueño del proyecto pidió que se hicieran de
+> verdad. El cuarto esperaba una respuesta de negocio, que llegó: **sin flete**.
+>
+> Sigue en pie la lección de la sesión anterior, que es la que más cuesta:
+> **los cinco defectos previos aparecieron levantando y usando la aplicación, no
+> en las pruebas** — estaban las 131 en verde mientras tres roles no podían crear
+> su documento. Esta vez volvió a pasar en pequeño: la validación de D-36 se
+> escribió, pasó, y **dejaba la bitácora vacía**; se vio mirando la base después
+> de probar contra la aplicación en marcha.
 
 ---
 
@@ -19,16 +28,21 @@ las fases **47** (reserva de stock), **48** (matriz de permisos), **49** (D-39) 
 **50 a 53**, estas ultimas de depurar la aplicacion en el navegador, mas un
 repaso de flujos que encontro tres huecos mas.
 
-Se han encontrado **43 defectos** y se han cerrado **39**. Las pruebas pasaron de
-**0 → 105 → 131**, todas en verde. La compilación de producción del frontend
-funciona.
+Se han encontrado **43 defectos** y se han cerrado **los 43**. Las pruebas
+pasaron de **0 → 105 → 131 → 142**, todas en verde. La compilación de producción
+del frontend funciona.
 
-**De los cuatro que no están cerrados, tres lo están por una decisión tomada y
-escrita, y uno espera una respuesta de negocio.** Ninguno es un olvido.
+A las fases 47-59 se suman ahora:
+
+| Fase | Qué cierra |
+|---|---|
+| **F60** | D-36 (la factura se contrasta con lo recibido), D-23 (revocación real de sesión) y D-27 (el token sale de `localStorage` a una cookie `HttpOnly`) |
+| **F61** | D-26 (los datos demo dejan de crearse solos) **y un defecto latente que nadie había visto**: una instalación nueva nacía con la matriz de permisos vieja, de 49, en vez de la de la F48, de 94 |
+| **F62** | La pantalla de inicio pasa a ser **el flujo del sistema**: ocho pasos en orden, con sus opciones y con quién es responsable de cada uno |
 
 ---
 
-## 2. Antes de tocar nada: diez cosas que van a morderte
+## 2. Antes de tocar nada: once cosas que van a morderte
 
 Esto no es contexto de adorno. Cada punto costó una sesión descubrirlo.
 
@@ -89,6 +103,15 @@ Esto no es contexto de adorno. Cada punto costó una sesión descubrirlo.
     trae los 100 primeros de 19.000: **nada de eso lo detecta `mvn test`**. Cinco
     defectos (D-39 a D-43) aparecieron levantando la aplicación con las 131
     pruebas en verde. Antes de dar algo por bueno, **úsalo**.
+
+11. **Un apunte en la bitácora dentro de un método que va a lanzar una excepción
+    NO SE GUARDA.** `LogService.registrar` comparte la transacción de quien lo
+    llama; si el método acaba lanzando —un rechazo, una validación—, la
+    transacción se deshace y **se lleva el apunte con ella**. Es decir: falla
+    justo en el caso que se quería registrar. Pasó en la F60 con D-36: la
+    factura se rechazaba bien y `log_accion` quedaba vacía. Para dejar rastro de
+    algo que se rechaza hay que usar **`LogService.registrarAparte`**, que corre
+    en una transacción propia (`REQUIRES_NEW`).
 
 **Credenciales:** viven en `.env` y `application-local.properties`, ambos en
 `.gitignore`. `TEST_DB_PASSWORD` se pasa por variable de entorno. **Nunca se
@@ -247,55 +270,117 @@ cerrarlos no rompe ningún histórico.
 
 ---
 
-## 4. Lo que queda abierto
+## 3-bis. Lo que se cerró el 2026-08-28 (F60, F61 y F62)
 
-### D-36 · El importe de la factura de compra no se contrasta con lo recibido — S2
+### F60 · La sesión, de verdad (cierra D-23 y D-27) y la factura cotejada (D-36)
 
-**El único que espera una respuesta de negocio.**
+| Antes | Ahora |
+|---|---|
+| `logout` devolvía «Sesión cerrada correctamente» **y no hacía nada** | Revoca el token de acceso **y el de refresco**, y el filtro consulta la lista en cada petición |
+| El token vivía en `localStorage`, donde un XSS lo lee | Vive en dos cookies `HttpOnly` + `SameSite=Strict` que el JavaScript no puede leer |
+| El subtotal de la factura no se comparaba con nada | No puede superar el valor recibido. **Sin flete y sin tolerancia** (decisión de negocio del 2026-08-28) |
 
-`FacturaCompraService.crear()` valida la orden, que tenga recepciones, que el
-número no se repita y las fechas. **El subtotal lo pone quien registra la factura
-y nadie lo compara con lo que entró.** Los otros dos lados del cotejo sí están:
-la recepción no deja recibir más de lo pedido, y el pago no deja pagar más del
-saldo.
+**Por qué revocar también el refresco.** Sin eso el logout no habría cerrado
+nada: con el refresco se saca un token de acceso nuevo. Habría sido un rodeo de
+una petición, no una barrera.
 
-Medido: de **2.287** facturas, **1.649** tienen el subtotal por encima del valor
-recibido; el mayor exceso, **11.194,86**. Casi todas del poblado masivo, así que
-no se puede distinguir lo que escribió la aplicación.
+**Dónde mirarlo:** `sql/fase60_revocacion_de_sesion.sql`,
+`config/CookieSesion`, `service/TokenRevocadoService`,
+`SesionRevocableTest` (6 pruebas) y `FacturaCotejadaTest` (5).
 
-**La pregunta que hay que contestar antes de tocar código:** ¿puede el subtotal
-llevar flete u otros cargos por encima de lo recibido? ¿Con qué tolerancia? ¿Se
-bloquea o se avisa?
+### F61 · Los datos demo dejan de crearse solos (cierra D-26)
 
-**Mientras tanto** el descuadre deja de ser silencioso: queda en `log_accion`
-(`compras` / `factura_descuadre`) con las dos cifras. Antes de decidir la regla,
-mídelo:
+`app.datos-demo.enabled` pasa a `false`. No era una línea porque
+`DataInitializer` también creaba **los roles y el primer administrador**:
+apagarlo dejaba una base sin forma de entrar. Eso vive ahora en
+`sql/fase61_siembra_inicial.sql`.
 
-```sql
-SELECT count(*) FROM log_accion WHERE modulo='compras' AND accion='factura_descuadre';
-```
+> **Y apareció algo peor que D-26.** En base vacía, `DataInitializer` repartía
+> **49 permisos** con criterio propio, cuando desde la F48 el reparto bueno son
+> **94** derivados de `SecurityConfig`. Este equipo tenía el bueno por venir de
+> antes; **una instalación nueva habría nacido con el viejo**, y no se habría
+> notado hasta montar el sistema en otra máquina. Ese reparto ya no está en
+> `DataInitializer`.
 
-### D-23 · `logout` no invalida el token — S3, *mitigado*
+**Orden en una base nueva:** esquema → **fase61** → resto → **fase48**.
 
-La ventana baja de 24 h a 2 h. Lo que sigue abierto es la revocación real, que
-exige una lista de denegación persistida y una comprobación en **cada** petición.
-Descartado por coste el 2026-08-27.
+### F62 · El inicio es el flujo, no las cifras
 
-### D-26 · `app.datos-demo.enabled=true` — S3, *parcial*
+La pantalla de inicio pasa a ser **el flujo del sistema**: ocho pasos en orden,
+del catálogo a la auditoría, con las opciones de cada paso y un icono de
+información que dice **quién es responsable y qué le corresponde**.
 
-El agujero grave está cerrado: la aplicación se niega a arrancar con el secreto
-JWT por defecto. Queda que los datos demo se creen solos. El cambio es trivial
-(`DATOS_DEMO=false`); lo que hay que resolver antes es el procedimiento de primer
-arranque sin ellos —incluida la siembra de `rol`, ver §2.7— y avisar a quien ya
-tenga el entorno montado.
+El tablero de indicadores no desaparece: vive en **`/indicadores`**, está en el
+menú y es la primera opción del octavo paso.
 
-### D-27 · El JWT vive en `localStorage` — S3, *abierto por decisión*
+**Por qué.** Los indicadores contestan «cómo va todo», que es una pregunta que
+solo sabe hacerse quien ya conoce el sistema. Quien entra por primera vez tiene
+otra —«¿y ahora qué hago, y en qué orden?»— y no la contestaba nadie: el menú
+lateral agrupa por módulo, no por secuencia.
 
-Mover el token a cookie `HttpOnly` toca CORS, CSRF, el interceptor y todas las
-llamadas del front: es rediseñar la sesión. Fuera de alcance el 2026-08-27. Lo
-único que cambió es que el token robado caduca doce veces antes.
+**Dos decisiones que conviene no deshacer sin querer:**
+
+- **Las opciones que tu rol no puede abrir se ven, con candado y con el nombre
+  de quien sí.** Ocultarlas dejaría un flujo con agujeros, dando a entender que
+  el trabajo salta del paso 2 al 5. Los roles de cada tarjeta están copiados de
+  `app.routes.ts`: **si cambian allí, hay que cambiarlos en `flujo.model.ts` o
+  el tablero mentirá.**
+- **La ficha del icono de información empuja el contenido, no flota sobre él.**
+  Es la lección de los desplegables que se veían por detrás de las tarjetas de
+  más abajo: lo que no flota no puede quedar debajo de nada.
 
 ---
+
+## 4. Lo que queda abierto
+
+**Ningún defecto.** Los 43 están cerrados. Lo que sigue no son defectos: son
+cosas que conviene saber antes de tocar nada.
+
+### Deuda que sigue ahí, y que no es un defecto
+
+- **`scripts/fase37_pruebas_endpoints.ps1` sigue probando solo lecturas.** Es la
+  tarea pendiente más importante que queda. Es lo que dejó a D-39 escondido
+  desde la F37: 66 pruebas en verde, todas GET, mientras tres roles no podían
+  hacer un POST. Mientras siga así, el próximo defecto de ese tipo tampoco se
+  verá. **Probar siempre un POST por rol con la aplicación en marcha.**
+
+- **Las cinco tablas `*_respaldo_f59`** siguen en `mod_venta_inve`. Son la única
+  vuelta atrás de las 14.161 filas que borró la F59. Se borran cuando el dueño
+  lo diga, como se hizo con el respaldo de la F58.
+
+- **Los 11 productos que la F59 marcó como fabricados no tienen lista de
+  materiales**, así que no se les puede crear una orden de producción hasta que
+  alguien la defina. Es correcto que se note: son de marca propia, su origen
+  está bien, y «fabricado sin BOM todavía» es verdad y se puede completar,
+  mientras que «comprado» sería mentira.
+
+- **El kardex de materia prima no cuadra con el saldo en ninguna de las 300
+  materias primas.** Viene del poblado masivo y ya no cuadraba antes de la F59.
+  Si alguien lo mide, que no lo tome por un fallo nuevo.
+
+### Riesgos aceptados a conciencia
+
+- **Un XSS sigue pudiendo actuar como el usuario** mientras la página está
+  abierta: el navegador adjunta la cookie él solo. Lo que ya no puede, desde la
+  F60, es **robarse la credencial** para usarla desde otro sitio más tarde. Esa
+  es la diferencia exacta que compra `HttpOnly`, y no conviene venderla como
+  más de lo que es.
+
+- **CSRF sigue desactivado**, y ahora que la sesión va en cookie eso pide
+  explicación: lo cierra `SameSite=Strict`. El doble envío de token no era
+  viable —el front en el 4300 no puede leer una cookie puesta por la API en el
+  8080— y para `SameSite` el puerto no cuenta, así que la cookie sí viaja en las
+  llamadas legítimas. **Si el front se sirve algún día desde otro dominio, hay
+  que rehacer esto**: `SameSite` dejaría de proteger nada.
+
+- **Consultar la lista de revocación cuesta una consulta por petición
+  autenticada.** Es el precio de que cerrar sesión signifique algo. Si la
+  consulta falla **se deja pasar**, no se deniega: negar ante la duda
+  convertiría un problema de esa tabla en una caída total para todos a la vez.
+
+- **La reserva de stock de los 19.058 pedidos ya en `procesado` no se
+  reconstruyó.** Durante la transición el disponible es optimista respecto de
+  ellos. Se corrige solo según se despachen o se anulen.
 
 ## 5. Lo que NO hay que hacer
 
@@ -313,6 +398,15 @@ Recortes deliberados. Deshacerlos sin querer rompe trabajo que sí está bien:
   **las pruebas de L1, L5, L6 y L13 dependen de que se comporten igual**.
 - **No devuelvas la asignación de permisos a `DataInitializer`.** Pisa la matriz
   de la F48 en cada arranque.
+- **No devuelvas la siembra de roles ni de permisos a `DataInitializer`.** Desde
+  la F61 los roles los siembra `fase61_siembra_inicial.sql` y los permisos la
+  F48. `DataInitializer` ya no reparte permisos **ni siquiera en el primer
+  arranque**, que era el único rincón donde todavía lo hacía — y donde le daba
+  a una instalación nueva la matriz vieja de 49.
+- **No pongas `app.sesion.cookie-segura=true` en desarrollo.** Una cookie
+  `Secure` no viaja por `http://localhost`, así que la sesión dejaría de
+  funcionar sin decir por qué. En producción, con HTTPS, tiene que estar en
+  `true`.
 - **No metas Flyway ni Liquibase ahora.** Está anotado como deuda.
 - **No añadas librerías nuevas** si con lo que ya usa el proyecto alcanza. Las
   pruebas de permisos se hicieron sin `spring-security-test`, poniendo la
@@ -344,7 +438,7 @@ Se aplican a cualquier cosa que se añada, y no son negociables:
 ## 7. Cómo comprobar que no se rompió nada
 
 ```bash
-# Backend — 130 pruebas, deben quedar todas en verde
+# Backend — 142 pruebas, deben quedar todas en verde
 cd marathon-backend
 mvn test                     # necesita TEST_DB_PASSWORD en el entorno
 
@@ -353,9 +447,9 @@ cd marathon-frontend
 npx ng build --configuration production
 ```
 
-Si `mvn test` baja de 131 pruebas o alguna falla, **algo se rompió**.
+Si `mvn test` baja de 142 pruebas o alguna falla, **algo se rompió**.
 
-**Y con la aplicación levantada, la comprobación que faltaba.** Las 130 pruebas
+**Y con la aplicación levantada, la comprobación que faltaba.** Las 142 pruebas
 usan un solo pool (`app.datasource.roles.enabled=false`), así que **no ven** los
 privilegios por rol. D-39 pasó por ahí. Con el backend en marcha:
 

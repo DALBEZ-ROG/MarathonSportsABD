@@ -4,12 +4,19 @@ import { rolGuard } from './core/guards/rol.guard';
 
 export const routes: Routes = [
   { path: 'login', loadComponent: () => import('./modules/auth/login/login.component').then(m => m.LoginComponent) },
-  // D3 — el inicio es el tablero del rol, y es a donde lleva el login.
-  //   Antes el login caía en /portal, un menú de accesos que repetía lo que ya
-  //   hace la barra lateral, y el tablero quedaba como una pantalla más.
-  //   /portal y /dashboard siguen funcionando para no romper enlaces guardados.
-  { path: 'inicio', loadComponent: () => import('./modules/dashboard/dashboard.component').then(m => m.DashboardComponent), canActivate: [authGuard] },
-  { path: 'dashboard', redirectTo: 'inicio' },
+  // F62 — el inicio es EL FLUJO, y es a donde lleva el login.
+  //   El tablero de indicadores contesta «cómo va todo», que es una pregunta
+  //   que solo sabe hacerse quien ya conoce el sistema. Quien entra por primera
+  //   vez tiene otra —«¿y ahora qué hago, y en qué orden?»— y no la contestaba
+  //   ni el menú lateral, que agrupa por módulo, ni las cifras. Ahora la
+  //   contesta la pantalla de inicio.
+  //
+  //   Los indicadores NO desaparecen: viven en /indicadores, y el propio flujo
+  //   los ofrece como primera opción de su último paso. /dashboard y /portal
+  //   siguen respondiendo para no romper enlaces guardados.
+  { path: 'inicio', loadComponent: () => import('./modules/flujo/flujo.component').then(m => m.FlujoComponent), canActivate: [authGuard] },
+  { path: 'indicadores', loadComponent: () => import('./modules/dashboard/dashboard.component').then(m => m.DashboardComponent), canActivate: [authGuard] },
+  { path: 'dashboard', redirectTo: 'indicadores' },
   { path: 'portal', loadComponent: () => import('./modules/portal/portal.component').then(m => m.PortalComponent), canActivate: [authGuard] },
   { path: 'perfil', loadComponent: () => import('./modules/auth/perfil/perfil.component').then(m => m.PerfilComponent), canActivate: [authGuard] },
   {

@@ -319,6 +319,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   private allItems: NavItem[] = [
     { label: 'Inicio', route: '/inicio', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>' },
+    { label: 'Indicadores', route: '/indicadores', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>' },
     { label: 'Categorías', route: '/datos-maestros/categorias', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d=\"M3 7h18M3 12h18M3 17h12\"/></svg>', roles: ['Administrador'] },
     { label: 'Unidades de medida', route: '/datos-maestros/unidades-medida', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d=\"M2 12h20M6 9v6M10 10v4M14 9v6M18 10v4\"/></svg>', roles: ['Administrador'] },
     { label: 'Ciudades', route: '/datos-maestros/ciudades', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d=\"M21 21H3V9l6-4 6 4v3h6z\"/><path d=\"M9 21v-6h4v6\"/></svg>', roles: ['Administrador'] },
@@ -438,7 +439,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
     // `filtered` de arriba ya ha quitado las que el rol no puede abrir, así que
     // una sección que quede vacía no se pinta.
     const flujo: { title: string; rutas: string[] }[] = [
-      { title: 'Inicio',           rutas: ['/inicio'] },
+      { title: 'Inicio',           rutas: ['/inicio', '/indicadores'] },
       // D5 — las seis maestras, en el orden en que se dan de alta: primero el
       //   producto, luego lo que lo clasifica y lo mide, luego dónde vive y a
       //   quién se le compra.
