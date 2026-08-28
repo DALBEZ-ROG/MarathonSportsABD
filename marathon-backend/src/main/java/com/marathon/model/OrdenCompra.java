@@ -70,7 +70,28 @@ public class OrdenCompra {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    /**
+     * ¿Es una reposición del proveedor por una reclamación? (F69)
+     *
+     * <p>Si lo es, <b>no se factura</b>: la mercancía ya se pagó cuando se
+     * compró la que salió defectuosa. La línea lleva precio real de todos modos,
+     * para que la recepción no falsee el costo promedio ponderado.
+     */
+    @Column(name = "es_reposicion", nullable = false)
+    private Boolean esReposicion = false;
+
+    /** La devolución que originó esta reposición. Solo si es reposición. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_devolucion_prov")
+    private DevolucionProveedor devolucionProveedor;
+
     public OrdenCompra() {}
+
+    public Boolean getEsReposicion() { return esReposicion != null && esReposicion; }
+    public void setEsReposicion(Boolean esReposicion) { this.esReposicion = esReposicion; }
+
+    public DevolucionProveedor getDevolucionProveedor() { return devolucionProveedor; }
+    public void setDevolucionProveedor(DevolucionProveedor d) { this.devolucionProveedor = d; }
 
     public Integer getIdOrdenCompra() { return idOrdenCompra; }
     public void setIdOrdenCompra(Integer idOrdenCompra) { this.idOrdenCompra = idOrdenCompra; }

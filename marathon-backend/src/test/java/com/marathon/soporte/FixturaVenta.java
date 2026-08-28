@@ -410,6 +410,43 @@ public class FixturaVenta {
         return idOrden;
     }
 
+    /**
+     * Como {@link #ordenCompraRecibida}, pero la orden NACE marcada como
+     * reposicion del proveedor (F69).
+     *
+     * <p>Tiene que nacer asi: la F69 concede INSERT sobre {@code es_reposicion}
+     * pero NUNCA UPDATE, justamente para que nadie pueda volver no facturable
+     * una compra que si habia que pagar. Un {@code UPDATE} desde la prueba
+     * fallaria — y falló, que es como se comprobó que el candado cierra.
+     */
+    public Integer ordenCompraDeReposicionRecibida(int cantidad, java.math.BigDecimal precio, Bodega bodega) {
+        Integer idOrden = ordenCompraRecibida(cantidad, precio, bodega);
+        // Se reescribe la fila entera con la marca puesta, por el mismo camino
+        // que usaria la aplicacion: un INSERT. Se borra y se vuelve a insertar
+        // porque UPDATE esta denegado a proposito.
+        jdbc.update("delete from recepcion_mercancia where id_orden_compra = ?", idOrden);
+        jdbc.update("delete from orden_compra_detalle where id_orden_compra = ?", idOrden);
+        jdbc.update("delete from orden_compra where id_orden_compra = ?", idOrden);
+        idsOrdenCompra.remove(idOrden);
+
+        Integer nuevo = jdbc.queryForObject(
+                "insert into orden_compra (id_proveedor, id_usuario_solicitante, estado, es_reposicion) "
+                + "values (?, ?, ?, true) returning id_orden_compra",
+                Integer.class, idProveedor, usuario.getIdUsuario(), "recibida_completa");
+        idsOrdenCompra.add(nuevo);
+
+        jdbc.update("insert into orden_compra_detalle "
+                + "(id_orden_compra, tipo_item, id_producto, cantidad, precio_unitario, cantidad_recibida) "
+                + "values (?, ?, ?, ?, ?, ?)",
+                nuevo, "producto", idProducto, cantidad, precio, cantidad);
+
+        jdbc.update("insert into recepcion_mercancia "
+                + "(id_orden_compra, id_usuario_receptor, id_bodega) values (?, ?, ?)",
+                nuevo, usuario.getIdUsuario(), bodega.getIdBodega());
+
+        return nuevo;
+    }
+
     public void limpiar() {
         for (Integer idPedido : idsPedido) {
             // F47: reserva_stock apunta a pedido y a producto con ON DELETE

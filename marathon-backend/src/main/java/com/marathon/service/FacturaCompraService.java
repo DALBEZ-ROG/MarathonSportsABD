@@ -72,6 +72,21 @@ public class FacturaCompraService {
         OrdenCompra orden = ordenCompraRepository.findById(dto.getIdOrdenCompra())
                 .orElseThrow(() -> new ResourceNotFoundException("Orden de compra", dto.getIdOrdenCompra()));
 
+        // 1-bis. Una REPOSICION no se factura nunca (F69).
+        //
+        // La mercancia de una reposicion ya se pago: se pago cuando se compro la
+        // que salio defectuosa. Facturarla otra vez seria pagar dos veces lo
+        // mismo, y ademas generaria una cuenta por pagar contra un proveedor que
+        // no ha vendido nada — ha cumplido una reclamacion.
+        //
+        // Se corta aqui y no en la pantalla porque la pantalla se puede saltar:
+        // el endpoint es publico para cualquiera con 'facturas_compra:registrar'.
+        if (Boolean.TRUE.equals(orden.getEsReposicion())) {
+            throw new ValidationException("La orden #" + orden.getIdOrdenCompra()
+                    + " es una reposición del proveedor: la mercancía ya se pagó cuando se "
+                    + "compró la que salió defectuosa. No se factura ni genera cuenta por pagar.");
+        }
+
         // 2. Validar que la orden tenga al menos una recepción
         List<?> recepciones = recepcionRepository
                 .findByOrdenCompraIdOrdenCompraOrderByFechaRecepcionDesc(orden.getIdOrdenCompra());
@@ -316,6 +331,17 @@ public class FacturaCompraService {
     public FacturaCompraResponseDTO crearDesdeRecepcion(Integer idOrdenCompra, Integer idUsuarioActual) {
         OrdenCompra orden = ordenCompraRepository.findById(idOrdenCompra)
                 .orElseThrow(() -> new ResourceNotFoundException("Orden de compra", idOrdenCompra));
+
+        // La misma barrera que en crear(), pero ANTES de mirar lo recibido: si no
+        // se pone aqui, una reposicion sin recibir contesta "todavia no ha
+        // entrado mercancia", que es verdad pero no es el motivo. Un mensaje
+        // cierto que apunta al sitio equivocado hace perder mas tiempo que uno
+        // claro.
+        if (Boolean.TRUE.equals(orden.getEsReposicion())) {
+            throw new ValidationException("La orden #" + orden.getIdOrdenCompra()
+                    + " es una reposición del proveedor: la mercancía ya se pagó cuando se "
+                    + "compró la que salió defectuosa. No se factura ni genera cuenta por pagar.");
+        }
 
         java.math.BigDecimal recibido = valorRecibidoDe(idOrdenCompra);
         if (recibido.compareTo(java.math.BigDecimal.ZERO) <= 0) {

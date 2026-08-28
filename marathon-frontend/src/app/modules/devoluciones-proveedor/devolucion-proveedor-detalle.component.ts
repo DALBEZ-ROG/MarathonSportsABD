@@ -199,8 +199,10 @@ import { AuthService } from '../../core/services/auth.service';
               </button>
 
               <p class="nota" *ngIf="resolucion.tipoResolucion === 'reposicion'">
-                Ojo: registrar una reposición <strong>no mete stock</strong>. Cuando llegue
-                el reemplazo hay que recibirlo como cualquier otra mercancía.
+                Al guardar se creará <strong>una orden de compra de reposición</strong> con
+                esta mercancía, ya aprobada y esperando llegar. <strong>No se factura ni se
+                paga</strong>: ya se pagó al comprar la que salió defectuosa. Aparecerá en
+                el tablero bajo «Aprobadas sin recibir», que es tu aviso de que viene.
               </p>
 
               <div class="separador"><span>o bien</span></div>
@@ -224,9 +226,13 @@ import { AuthService } from '../../core/services/auth.service';
               <strong>{{ dev.montoReembolso | currency:'USD':'symbol':'1.2-2' }}</strong>.
             </p>
             <p *ngIf="dev.tipoResolucion === 'reposicion'">
-              El proveedor repuso la mercancía. Si aún no ha llegado, se recibe como una
-              compra más.
+              El proveedor repone la mercancía. Se creó una <strong>orden de compra de
+              reposición</strong> esperando su llegada: recíbela como cualquier otra
+              entrada, pero <strong>no se factura ni se paga</strong>.
             </p>
+            <a class="ir-oc" *ngIf="dev.tipoResolucion === 'reposicion'" routerLink="/compras">
+              Ver órdenes de compra →
+            </a>
             <p class="obs" *ngIf="dev.observaciones">«{{ dev.observaciones }}»</p>
           </div>
 
@@ -380,6 +386,7 @@ import { AuthService } from '../../core/services/auth.service';
     .cerrada.ok .tic  { background: rgba(76,175,80,.15); border: 1px solid var(--ms-green); color: var(--ms-green); }
     .cerrada.mal .tic { background: rgba(229,115,115,.15); border: 1px solid var(--ms-red); color: var(--ms-red); }
     .obs { font-style: italic; font-size: .84rem; color: var(--ms-text-muted); margin-top: .75rem; }
+    .ir-oc { display: inline-block; margin-top: .6rem; color: var(--ms-gold); font-size: .85rem; }
 
     .aviso-rol { border-color: var(--ms-border); }
     .aviso-rol p { margin: 0; }

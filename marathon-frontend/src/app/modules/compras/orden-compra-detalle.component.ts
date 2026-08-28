@@ -18,6 +18,8 @@ interface Detalle {
 
 interface OrdenCompra {
   idOrdenCompra: number;
+  esReposicion?: boolean;
+  idDevolucionProv?: number;
   fechaOrden: string;
   fechaAprobacion: string;
   estado: string;
@@ -45,7 +47,10 @@ interface Recepcion {
   template: `
     <div class="crud-container" *ngIf="oc">
       <div class="toolbar">
-        <h2>Orden de Compra #{{oc.idOrdenCompra}}</h2>
+        <h2>
+          Orden de Compra #{{oc.idOrdenCompra}}
+          <span class="rep-badge" *ngIf="oc.esReposicion">REPOSICIÓN · NO SE PAGA</span>
+        </h2>
         <button class="btn-cancel" routerLink="/compras">← Volver</button>
       </div>
 
@@ -110,11 +115,22 @@ interface Recepcion {
         </tbody>
       </table>
 
+      <div class="rep-aviso" *ngIf="oc.esReposicion">
+        <strong>Esta orden es una reposición del proveedor.</strong>
+        La generó la devolución
+        <a [routerLink]="['/devoluciones-proveedor', oc.idDevolucionProv]" *ngIf="oc.idDevolucionProv">#{{oc.idDevolucionProv}}</a>
+        <span *ngIf="!oc.idDevolucionProv">a proveedor</span>.
+        Recíbela como cualquier otra entrada —el stock sube igual— pero
+        <strong>no se factura ni genera cuenta por pagar</strong>: esta mercancía ya se
+        pagó cuando se compró la que salió defectuosa. El precio de las líneas está para
+        que el costo de bodega siga siendo correcto, no para cobrarlo.
+      </div>
+
       <div class="acciones-estado">
         <button *ngIf="(oc.estado === 'aprobada' || oc.estado === 'recibida_parcial') && esCompras"
                 class="btn-save" [routerLink]="['/compras', oc.idOrdenCompra, 'recepcion']">Registrar recepción</button>
 
-        <button *ngIf="(oc.estado === 'recibida_parcial' || oc.estado === 'recibida_completa') && esCompras"
+        <button *ngIf="(oc.estado === 'recibida_parcial' || oc.estado === 'recibida_completa') && esCompras && !oc.esReposicion"
                 class="btn-save factura-btn" [disabled]="documentando"
                 (click)="documentarCompra()">
           {{ documentando ? 'Generando documento…' : 'Documentar compra y abrir PDF' }}
@@ -142,6 +158,16 @@ interface Recepcion {
     .detail-card .label { font-size: .7rem; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.4); }
     .detail-card .total { color: #C9A84C; font-size: 1.1rem; font-weight: 600; }
     .acciones-estado { display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; }
+    .rep-badge { font-size: .62rem; font-weight: 700; letter-spacing: .06em;
+                 background: rgba(121,196,210,.15); border: 1px solid #79C4D2;
+                 color: #79C4D2; padding: .2rem .5rem; border-radius: 99px;
+                 margin-left: .6rem; vertical-align: middle; }
+    .rep-aviso { border: 1px solid #79C4D2; border-left-width: 3px;
+                 background: rgba(121,196,210,.07); border-radius: 8px;
+                 padding: 1rem 1.2rem; margin: 1rem 0; font-size: .87rem;
+                 line-height: 1.6; color: rgba(255,255,255,0.7); }
+    .rep-aviso strong { color: rgba(255,255,255,0.92); }
+    .rep-aviso a { color: #79C4D2; }
     .factura-btn { background: rgba(201,168,76,0.15) !important; border-color: rgba(201,168,76,0.4) !important; color: #C9A84C !important; }
     .pendiente-cero { color: #81C784; font-weight: 600; }
   `]

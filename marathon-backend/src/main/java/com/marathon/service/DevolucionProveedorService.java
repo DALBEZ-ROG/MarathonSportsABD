@@ -21,6 +21,9 @@ import com.marathon.exception.ResourceNotFoundException;
 import com.marathon.exception.ValidationException;
 import com.marathon.model.DevolucionProveedor;
 import com.marathon.model.DevolucionProveedorDetalle;
+import com.marathon.model.OrdenCompra;
+import com.marathon.model.OrdenCompraDetalle;
+import com.marathon.model.Producto;
 import com.marathon.model.ProductoProveedor;
 import com.marathon.model.Proveedor;
 import com.marathon.model.RecepcionMercanciaDetalle;
@@ -28,6 +31,8 @@ import com.marathon.model.SolicitudDevolucionDetalle;
 import com.marathon.model.Usuario;
 import com.marathon.repository.DevolucionProveedorDetalleRepository;
 import com.marathon.repository.DevolucionProveedorRepository;
+import com.marathon.repository.OrdenCompraDetalleRepository;
+import com.marathon.repository.OrdenCompraRepository;
 import com.marathon.repository.ProductoProveedorRepository;
 import com.marathon.repository.ProveedorRepository;
 import com.marathon.repository.RecepcionMercanciaDetalleRepository;
@@ -44,6 +49,8 @@ public class DevolucionProveedorService {
     private final ProductoProveedorRepository ppRepository;
     private final ProveedorRepository proveedorRepository;
     private final UsuarioRepository usuarioRepository;
+    private final OrdenCompraRepository ordenCompraRepository;
+    private final OrdenCompraDetalleRepository ordenCompraDetalleRepository;
     private final LogService logService;
 
 
@@ -54,6 +61,8 @@ public class DevolucionProveedorService {
                                       ProductoProveedorRepository ppRepository,
                                       ProveedorRepository proveedorRepository,
                                       UsuarioRepository usuarioRepository,
+                                      OrdenCompraRepository ordenCompraRepository,
+                                      OrdenCompraDetalleRepository ordenCompraDetalleRepository,
                                       LogService logService) {
         this.devolucionRepository = devolucionRepository;
         this.detalleRepository = detalleRepository;
@@ -62,6 +71,8 @@ public class DevolucionProveedorService {
         this.ppRepository = ppRepository;
         this.proveedorRepository = proveedorRepository;
         this.usuarioRepository = usuarioRepository;
+        this.ordenCompraRepository = ordenCompraRepository;
+        this.ordenCompraDetalleRepository = ordenCompraDetalleRepository;
         this.logService = logService;
     }
 
@@ -287,10 +298,122 @@ public class DevolucionProveedorService {
         if (dto.getObservaciones() != null) d.setObservaciones(dto.getObservaciones());
         devolucionRepository.save(d);
 
+        // F69: si repone, la mercancia que viene deja rastro desde ya.
+        if ("reposicion".equals(dto.getTipoResolucion())) {
+            crearOrdenDeReposicion(d, idUsuarioActual);
+        }
+
         logService.registrar(idUsuarioActual, "devoluciones_proveedor", "resolver",
                 "Devolucion #" + id + " resuelta: " + dto.getTipoResolucion()
                         + (dto.getMontoReembolso() != null ? " ($" + dto.getMontoReembolso() + ")" : ""), null);
         return toDTO(d);
+    }
+
+    /**
+     * Convierte una reposición aceptada en una orden de compra que espera llegar
+     * (F69).
+     *
+     * <p><b>Por qué existe.</b> Antes, registrar «el proveedor manda otra igual»
+     * cerraba la devolución y ahí moría: nada decía que había mercancía en
+     * camino, ni cuánta, ni de qué reclamación venía. Y cuando llegaba, entraba
+     * como una compra más — con su factura y su cuenta por pagar, es decir,
+     * <b>pagando dos veces lo mismo</b>.
+     *
+     * <p><b>Precio real, no cero.</b> Lo natural sería una orden «gratis», pero
+     * no se puede y tampoco conviene: {@code chk_oc_detalle_precio} exige
+     * {@code precio_unitario > 0}, y la recepción recalcula el costo promedio
+     * ponderado (F29) — entrar mercancía a cero falsearía el costo de todo lo
+     * que hay en bodega. Lo que impide pagarla no es un cero: es la marca
+     * {@code es_reposicion}, que {@code FacturaCompraService} respeta.
+     *
+     * <p><b>Nace aprobada.</b> Aprobar una orden es autorizar un gasto, y aquí
+     * no se gasta: el proveedor ya se comprometió al aceptar la reclamación.
+     * Hacerla pasar por aprobación sería pedir que se autorice un desembolso que
+     * no existe.
+     *
+     * <p>Aparece en el tablero bajo «Aprobadas sin recibir», que es justo el
+     * aviso de que algo está por llegar.
+     */
+    private void crearOrdenDeReposicion(DevolucionProveedor d, Integer idUsuarioActual) {
+        List<DevolucionProveedorDetalle> lineas =
+                detalleRepository.findByDevolucionProveedorIdDevolucionProv(d.getIdDevolucionProv());
+        if (lineas.isEmpty()) {
+            return;   // sin lineas no hay nada que reponer
+        }
+
+        Usuario usuario = usuarioRepository.findById(idUsuarioActual)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario", idUsuarioActual));
+
+        OrdenCompra oc = new OrdenCompra();
+        oc.setProveedor(d.getProveedor());
+        oc.setUsuarioSolicitante(usuario);
+        // NO se pone aprobador ni fecha de aprobacion, y son dos razones a la vez:
+        //
+        //   1. Es la verdad: nadie la aprobo. No hubo nada que aprobar, porque no
+        //      se esta comprando nada. Poner un aprobador seria inventarse una
+        //      firma. La orden nace "aprobada" en el sentido de "lista para
+        //      recibir", no de "alguien autorizo un gasto".
+        //
+        //   2. La F34 no le concede a rol_encargado_compras el INSERT de
+        //      id_usuario_aprobador ni fecha_aprobacion — a proposito, para que
+        //      quien compra no pueda auto-aprobarse al crear. Rellenarlas aqui
+        //      hacia que PostgreSQL rechazara el INSERT entero con "permiso
+        //      denegado", que es como se descubrio esto. La respuesta correcta
+        //      NO era conceder el privilegio: era no escribir esas columnas.
+        oc.setEstado("aprobada");
+        oc.setEsReposicion(true);
+        oc.setDevolucionProveedor(d);
+        oc.setObservaciones("Reposición por la devolución a proveedor #"
+                + d.getIdDevolucionProv() + ". No se factura: ya se pagó al comprar "
+                + "la mercancía que salió defectuosa.");
+        oc = ordenCompraRepository.save(oc);
+
+        for (DevolucionProveedorDetalle linea : lineas) {
+            if (linea.getProducto() == null) {
+                continue;
+            }
+            OrdenCompraDetalle det = new OrdenCompraDetalle();
+            det.setOrdenCompra(oc);
+            det.setTipoItem("producto");
+            det.setProducto(linea.getProducto());
+            det.setCantidad(linea.getCantidad());
+            det.setPrecioUnitario(precioDeCompra(linea.getProducto(), d.getProveedor()));
+            det.setCantidadRecibida(0);
+            ordenCompraDetalleRepository.save(det);
+        }
+
+        logService.registrar(idUsuarioActual, "compras", "reposicion_creada",
+                "Orden de compra #" + oc.getIdOrdenCompra() + " creada como reposición de la "
+                + "devolución #" + d.getIdDevolucionProv() + ". No facturable.", null);
+    }
+
+    /**
+     * El precio que se usa en la línea de la reposición.
+     *
+     * <p>No es lo que se va a pagar —una reposición no se paga— sino lo que vale
+     * esa mercancía, para que al recibirla el costo promedio de la bodega siga
+     * diciendo la verdad. Se toma el precio pactado con ese proveedor; si no lo
+     * hay, el precio del catálogo; y si tampoco, un céntimo, que es lo mínimo
+     * que admite {@code chk_oc_detalle_precio}.
+     */
+    private java.math.BigDecimal precioDeCompra(Producto producto, Proveedor proveedor) {
+        java.math.BigDecimal precio = ppRepository.findByProductoIdProducto(producto.getIdProducto())
+                .stream()
+                .filter(pp -> pp.getProveedor() != null
+                        && pp.getProveedor().getIdProveedor().equals(proveedor.getIdProveedor()))
+                .map(pp -> pp.getPrecioCompra())
+                .filter(p -> p != null && p.compareTo(java.math.BigDecimal.ZERO) > 0)
+                .findFirst()
+                .orElse(null);
+
+        if (precio != null) {
+            return precio;
+        }
+        if (producto.getPrecio() != null
+                && producto.getPrecio().compareTo(java.math.BigDecimal.ZERO) > 0) {
+            return producto.getPrecio();
+        }
+        return new java.math.BigDecimal("0.01");
     }
 
     // ---------------------------------------------------------------

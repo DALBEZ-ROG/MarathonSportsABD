@@ -19,9 +19,19 @@ public class OrdenCompraResponseDTO {
     private UsuarioSimpleDTO usuarioSolicitante;
     private UsuarioSimpleDTO usuarioAprobador;
 
+    /** F69: true = el proveedor repone por una reclamacion. NO se factura. */
+    private Boolean esReposicion;
+    /** La devolucion que la origino, si es reposicion. */
+    private Integer idDevolucionProv;
+
     private List<DetalleDTO> detalles;
 
     public OrdenCompraResponseDTO() {}
+
+    public Boolean getEsReposicion() { return esReposicion; }
+    public void setEsReposicion(Boolean v) { this.esReposicion = v; }
+    public Integer getIdDevolucionProv() { return idDevolucionProv; }
+    public void setIdDevolucionProv(Integer v) { this.idDevolucionProv = v; }
 
     public Integer getIdOrdenCompra() { return idOrdenCompra; }
     public void setIdOrdenCompra(Integer idOrdenCompra) { this.idOrdenCompra = idOrdenCompra; }

@@ -293,9 +293,30 @@ pendiente ──► enviada ──► resuelta
 > aceptó la reclamación, no que tú rechaces la devolución. Por eso solo se puede
 > marcar desde `enviada`: es su respuesta, no una decisión tuya.
 
-> **Una reposición no mete stock.** Registrar que el proveedor «manda otra igual»
-> deja constancia del acuerdo; cuando el reemplazo llegue físicamente hay que
-> **recibirlo como cualquier otra mercancía**. El sistema no lo inventa.
+> ### Si el proveedor repone, el sistema te lo prepara y **no lo cobras**
+>
+> Al registrar «manda otra igual», el sistema crea automáticamente una **orden de
+> compra de reposición** con esa mercancía. Y trae tres cosas resueltas:
+>
+> | | |
+> |---|---|
+> | **Sabes que viene** | La orden nace `aprobada` y aparece en el tablero bajo «Aprobadas sin recibir» |
+> | **Entra al stock** | Se recibe como cualquier otra entrada, con su movimiento y su rastro |
+> | **No se paga** | **No se puede facturar.** Ni desde el botón ni llamando al API |
+>
+> Si alguien lo intenta, el sistema responde: *«La orden #X es una reposición del
+> proveedor: la mercancía ya se pagó cuando se compró la que salió defectuosa. No
+> se factura ni genera cuenta por pagar.»*
+
+> **¿Por qué la orden lleva precio si no se paga?** Porque la recepción recalcula
+> el **costo promedio** de la bodega. Si entrara a cero, arrastraría ese promedio
+> hacia abajo y falsearía lo que de verdad vale la mercancía almacenada. El precio
+> está para que el costo siga siendo verdad, no para cobrarlo — lo que impide
+> pagarla es la marca de reposición, no la cifra.
+
+> **La orden de reposición no tiene aprobador, y es correcto.** Aprobar una orden
+> es autorizar un gasto, y aquí no se gasta nada: el proveedor ya se comprometió
+> al aceptar la reclamación. Poner una firma sería inventarla.
 
 Crear y resolver son los dos del Encargado de Compras.
 

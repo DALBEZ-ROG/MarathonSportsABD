@@ -29,7 +29,7 @@ las fases **47** (reserva de stock), **48** (matriz de permisos), **49** (D-39) 
 repaso de flujos que encontro tres huecos mas.
 
 Se han encontrado **43 defectos** y se han cerrado **los 43**. Las pruebas
-pasaron de **0 → 105 → 131 → 160**, todas en verde. La compilación de producción
+pasaron de **0 → 105 → 131 → 165**, todas en verde. La compilación de producción
 del frontend funciona.
 
 A las fases 47-59 se suman ahora:
@@ -45,6 +45,7 @@ A las fases 47-59 se suman ahora:
 | **F66** | Documentar la compra es **un clic y un PDF**, con el importe calculado de lo recibido |
 | **F67** | La pantalla de pago se parte en dos: a la izquierda lo que se revisa, a la derecha lo que se hace |
 | **F68** | La devolución a proveedor **explica de dónde nace**, en qué punto está y qué toca hacer |
+| **F69** | Si el proveedor repone, se crea una orden de compra **que no se puede facturar** |
 
 ---
 
@@ -509,6 +510,54 @@ otro origen no la lleva: saldría un 401 en blanco.
 **Ningún defecto.** Los 43 están cerrados. Lo que sigue no son defectos: son
 cosas que conviene saber antes de tocar nada.
 
+### F69 · La reposición del proveedor deja de ser una promesa verbal
+
+Lo preguntó el dueño al registrar que un proveedor «manda otra igual»: *«¿yo no
+tendría que pagar eso, no? ¿y cómo sé que me va a llegar?»*. Tenía razón en las
+dos, y eran dos agujeros distintos: **la reposición llegaba y se recibía como una
+compra cualquiera**, con su factura y su cuenta por pagar — es decir, pagando dos
+veces la misma mercancía.
+
+Ahora, al aceptar una reposición se crea una **orden de compra marcada**
+(`es_reposicion`), ya aprobada y ligada a la devolución. Sabes que viene porque
+sale en «Aprobadas sin recibir»; entra al stock al recibirla, con su movimiento;
+y **no se puede facturar por ninguna vía**.
+
+**Su propuesta era una orden a precio cero, y se cambió una cosa.** La idea de
+fondo —reutilizar la orden de compra, que ya tiene el circuito de recepción
+montado— es la correcta. El precio cero no:
+
+- `chk_oc_detalle_precio` exige `precio_unitario > 0`, y §5 prohíbe tocar los CHECK.
+- La recepción recalcula el **costo promedio ponderado** (F29). Entrar mercancía
+  a cero falsearía el costo de todo lo que hay en bodega — una mentira contable
+  peor que el problema original.
+
+Así que la línea lleva **precio real** y lo que impide pagarla es la marca, no un
+cero. `FacturaCompraService` la rechaza en las dos vías: la automática y la
+manual. Blindar solo el botón no habría servido — el endpoint está abierto a
+cualquiera con `facturas_compra:registrar`.
+
+> **Dos decisiones que parecen omisiones y no lo son.**
+>
+> **La orden no tiene aprobador.** Aprobar es autorizar un gasto, y aquí no se
+> gasta: el proveedor ya se comprometió al aceptar la reclamación. Poner una
+> firma sería inventarla. Y hay una segunda razón, descubierta a la fuerza: la
+> F34 no le concede a Compras el INSERT de `id_usuario_aprobador` —para que no
+> pueda auto-aprobarse—, así que rellenarlo hacía que PostgreSQL rechazara el
+> INSERT entero. La respuesta correcta **no era conceder el privilegio**.
+>
+> **`es_reposicion` tiene INSERT pero NUNCA UPDATE.** La marca se pone al nacer
+> la orden o no se pone; nadie puede volver no facturable una compra que sí había
+> que pagar. Se comprobó sin querer: la primera versión de la prueba hacía un
+> `UPDATE` y PostgreSQL lo rechazó, que es exactamente lo que tenía que pasar.
+
+`sql/fase69_reposicion_del_proveedor.sql`, `ReposicionNoSePagaTest` (5 pruebas).
+Comprobado de punta a punta sobre la aplicación: recepción con 2 defectuosas →
+devolución → reposición → orden #2679 creada → recibida (**el stock subió**) →
+factura rechazada por las dos vías.
+
+---
+
 ### Lo que el dueño dejó pedido y sin hacer
 
 - **La pantalla de recepción de mercancía (`/compras/:id/recepcion`) está sin
@@ -628,7 +677,7 @@ Se aplican a cualquier cosa que se añada, y no son negociables:
 ## 7. Cómo comprobar que no se rompió nada
 
 ```bash
-# Backend — 160 pruebas, deben quedar todas en verde
+# Backend — 165 pruebas, deben quedar todas en verde
 cd marathon-backend
 mvn test                     # necesita TEST_DB_PASSWORD en el entorno
 
@@ -637,9 +686,9 @@ cd marathon-frontend
 npx ng build --configuration production
 ```
 
-Si `mvn test` baja de 160 pruebas o alguna falla, **algo se rompió**.
+Si `mvn test` baja de 165 pruebas o alguna falla, **algo se rompió**.
 
-**Y con la aplicación levantada, la comprobación que faltaba.** Las 160 pruebas
+**Y con la aplicación levantada, la comprobación que faltaba.** Las 165 pruebas
 usan un solo pool (`app.datasource.roles.enabled=false`), así que **no ven** los
 privilegios por rol. D-39 pasó por ahí. Con el backend en marcha:
 

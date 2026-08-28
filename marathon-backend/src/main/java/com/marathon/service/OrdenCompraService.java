@@ -368,6 +368,9 @@ public class OrdenCompraService {
         dto.setEstado(oc.getEstado());
         dto.setTotal(oc.getTotal());
         dto.setObservaciones(oc.getObservaciones());
+        dto.setEsReposicion(oc.getEsReposicion());
+        dto.setIdDevolucionProv(oc.getDevolucionProveedor() != null
+                ? oc.getDevolucionProveedor().getIdDevolucionProv() : null);
         dto.setCreatedAt(oc.getCreatedAt());
         dto.setUpdatedAt(oc.getUpdatedAt());
 
