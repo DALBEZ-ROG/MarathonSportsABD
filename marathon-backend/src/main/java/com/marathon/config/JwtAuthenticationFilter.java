@@ -9,6 +9,7 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.marathon.service.TokenRevocadoService;
 import com.marathon.service.UsuarioDetailsService;
 
 import jakarta.servlet.FilterChain;
@@ -22,9 +23,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtUtils jwtUtils;
     private final UsuarioDetailsService usuarioDetailsService;
 
-    public JwtAuthenticationFilter(JwtUtils jwtUtils, UsuarioDetailsService usuarioDetailsService) {
+    private final TokenRevocadoService tokenRevocadoService;
+
+    public JwtAuthenticationFilter(JwtUtils jwtUtils,
+                                   UsuarioDetailsService usuarioDetailsService,
+                                   TokenRevocadoService tokenRevocadoService) {
         this.jwtUtils = jwtUtils;
         this.usuarioDetailsService = usuarioDetailsService;
+        this.tokenRevocadoService = tokenRevocadoService;
     }
 
     @Override
@@ -32,14 +38,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
-        final String authHeader = request.getHeader("Authorization");
+        // ------------------------------------------------------------------
+        // F60 (D-27): la cookie manda; la cabecera sigue valiendo.
+        // ------------------------------------------------------------------
+        // El navegador manda una cookie HttpOnly que su propio JavaScript no
+        // puede leer: ahi esta el cierre de D-27. La cabecera Authorization se
+        // conserva a proposito, y no reabre el agujero — quien la usa son los
+        // clientes que NO son un navegador (fase37_pruebas_endpoints.ps1, curl,
+        // Swagger), donde no hay localStorage que robar. Lo que importaba de
+        // D-27 era que el token dejara de estar guardado donde un XSS puede
+        // leerlo, y ya no lo esta.
+        String jwt = CookieSesion.leer(request, CookieSesion.COOKIE_ACCESO);
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            return;
+        if (jwt == null) {
+            final String authHeader = request.getHeader("Authorization");
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+            jwt = authHeader.substring(7);
         }
-
-        final String jwt = authHeader.substring(7);
 
         try {
             final String userEmail = jwtUtils.extractUsername(jwt);
@@ -59,6 +77,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // via documentada para retirar el acceso— no retiraba el acceso.
                 if (!userDetails.isEnabled()) {
                     logger.debug("Token de un usuario inactivo: " + userEmail);
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
+                // ------------------------------------------------------------
+                // F60 (D-23): una sesion cerrada esta cerrada de verdad.
+                // ------------------------------------------------------------
+                // Hasta aqui, /api/auth/logout devolvia "Sesion cerrada
+                // correctamente" y no invalidaba nada: el token seguia
+                // sirviendo hasta caducar. Ahora cada peticion pregunta si ese
+                // jti concreto fue revocado. Es una consulta por clave primaria
+                // por peticion — el costo real de tener revocacion, y el motivo
+                // por el que antes se habia descartado.
+                if (tokenRevocadoService.estaRevocado(jwtUtils.extractJti(jwt))) {
+                    logger.debug("Token revocado (sesion cerrada): " + userEmail);
                     filterChain.doFilter(request, response);
                     return;
                 }

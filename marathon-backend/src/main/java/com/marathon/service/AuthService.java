@@ -32,6 +32,7 @@ public class AuthService {
     private final LogService logService;
     private final HttpServletRequest httpServletRequest;
     private final LimitadorDeIntentos limitador;
+    private final TokenRevocadoService tokenRevocadoService;
 
     public AuthService(AuthenticationManager authenticationManager,
                        UsuarioDetailsService usuarioDetailsService,
@@ -39,7 +40,8 @@ public class AuthService {
                        UsuarioRepository usuarioRepository,
                        LogService logService,
                        HttpServletRequest httpServletRequest,
-                       LimitadorDeIntentos limitador) {
+                       LimitadorDeIntentos limitador,
+                       TokenRevocadoService tokenRevocadoService) {
         this.authenticationManager = authenticationManager;
         this.usuarioDetailsService = usuarioDetailsService;
         this.jwtUtils = jwtUtils;
@@ -47,6 +49,7 @@ public class AuthService {
         this.logService = logService;
         this.httpServletRequest = httpServletRequest;
         this.limitador = limitador;
+        this.tokenRevocadoService = tokenRevocadoService;
     }
 
     public LoginResponseDTO login(LoginRequestDTO request) {
@@ -80,7 +83,7 @@ public class AuthService {
             logService.registrar(usuario.getIdUsuario(), "auth", "login",
                     "Login exitoso: " + usuario.getCorreo(), ip);
 
-            return new LoginResponseDTO(
+            LoginResponseDTO respuesta = new LoginResponseDTO(
                     token,
                     refreshToken,
                     usuario.getIdUsuario(),
@@ -90,6 +93,11 @@ public class AuthService {
                     roles.isEmpty() ? "" : roles.get(0),
                     permisos
             );
+
+            // F60 (D-27): el front ya no puede leer el token para saber cuando
+            // caduca la sesion, asi que se le dice.
+            respuesta.setExpiraEn(jwtUtils.extractExpiration(token).getTime());
+            return respuesta;
 
         } catch (DisabledException | BadCredentialsException e) {
             // L10 (D-25): el MISMO mensaje en los dos casos.
@@ -113,6 +121,14 @@ public class AuthService {
                 throw new ValidationException("Refresh token inválido o expirado");
             }
 
+            // F60 (D-23): sin esto, cerrar sesion invalidaba el token de acceso
+            // pero NO el de refresco, y con el refresco se saca uno de acceso
+            // nuevo. Es decir: el logout no habria cerrado nada, solo obligado a
+            // dar un rodeo de una peticion.
+            if (tokenRevocadoService.estaRevocado(jwtUtils.extractJti(refreshToken))) {
+                throw new ValidationException("La sesión fue cerrada. Vuelve a entrar.");
+            }
+
             UserDetails userDetails = usuarioDetailsService.loadUserByUsername(email);
             Usuario usuario = (Usuario) userDetails;
 
@@ -133,7 +149,7 @@ public class AuthService {
             String newToken = jwtUtils.generateToken(usuario, roles, permisos);
             String newRefreshToken = jwtUtils.generateRefreshToken(usuario);
 
-            return new LoginResponseDTO(
+            LoginResponseDTO respuesta = new LoginResponseDTO(
                     newToken,
                     newRefreshToken,
                     usuario.getIdUsuario(),
@@ -143,6 +159,11 @@ public class AuthService {
                     roles.isEmpty() ? "" : roles.get(0),
                     permisos
             );
+
+            // F60 (D-27): el front ya no puede leer el token para saber cuando
+            // caduca la sesion, asi que se le dice.
+            respuesta.setExpiraEn(jwtUtils.extractExpiration(newToken).getTime());
+            return respuesta;
 
         } catch (Exception e) {
             if (e instanceof ValidationException) throw e;

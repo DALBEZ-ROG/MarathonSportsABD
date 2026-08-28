@@ -6,6 +6,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -47,6 +48,12 @@ public class JwtUtils {
     private String buildToken(Map<String, Object> extraClaims, String subject, long expirationTime) {
         return Jwts.builder()
                 .setClaims(extraClaims)
+                // F60 (D-23): identificador unico por token. Sin el, revocar
+                // una sesion obligaria a guardar el token entero —es decir, a
+                // guardar la credencial— o a invalidar TODAS las sesiones del
+                // usuario a la vez. El jti permite nombrar un token concreto
+                // sin conservarlo.
+                .setId(UUID.randomUUID().toString())
                 .setSubject(subject)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + expirationTime))
@@ -77,6 +84,18 @@ public class JwtUtils {
     public List<String> extractPermisos(String token) {
         Claims claims = extractAllClaims(token);
         return claims.get("permisos", List.class);
+    }
+
+    /** Identificador unico del token (claim {@code jti}). Ver F60 / D-23. */
+    public String extractJti(String token) {
+        return extractClaim(token, Claims::getId);
+    }
+
+    /** La expiracion del token como {@code LocalDateTime}, para persistirla. */
+    public java.time.LocalDateTime expiracionComoFecha(String token) {
+        return extractExpiration(token).toInstant()
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalDateTime();
     }
 
     private Claims extractAllClaims(String token) {

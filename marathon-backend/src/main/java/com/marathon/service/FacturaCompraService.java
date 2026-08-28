@@ -87,25 +87,30 @@ public class FacturaCompraService {
         Usuario usuario = usuarioRepository.findById(idUsuarioActual)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario", idUsuarioActual));
 
-        // 4-bis. El importe de la factura NO se contrasta con lo recibido.
+        // 4-bis. El importe de la factura SE CONTRASTA con lo recibido (D-36).
         //
-        // Se comprueba que la orden exista, que tenga recepciones, que el numero
-        // no se repita y que las fechas sean coherentes — pero el subtotal lo
-        // pone quien registra la factura y nadie lo compara con la mercancia que
-        // de verdad entro. Una factura de 50.000 sobre una orden de la que se
-        // recibieron 500 se acepta, y genera una cuenta por pagar de 50.000.
+        // La regla la decidio el dueno del proyecto el 2026-08-28, y es la
+        // estricta: el subtotal NO puede superar el valor de la mercancia que
+        // de verdad entro. Sin flete ni otros cargos por encima, y sin margen
+        // de tolerancia.
         //
-        // No se BLOQUEA aqui, y es deliberado: decidir si el subtotal puede
-        // llevar flete u otros cargos por encima de lo recibido, y con que
-        // tolerancia, es una decision de negocio, no de codigo — la misma clase
-        // de decision que PENDIENTE.md exigia tomar antes de tocar D-02. Ademas,
-        // 1.649 de las 2.287 facturas que hay en la base estan por encima de lo
-        // recibido (casi todas del poblado masivo de la F38), asi que un bloqueo
-        // duro tampoco se puede contrastar contra el historico.
+        // Hasta aqui el cotejo estaba cojo de un lado: la recepcion no deja
+        // recibir mas de lo pedido y el pago no deja pagar mas del saldo, pero
+        // el subtotal lo escribia quien registraba la factura y no se comparaba
+        // con nada. Una factura de 50.000 sobre una orden de la que se
+        // recibieron 500 se aceptaba, y generaba una cuenta por pagar de 50.000.
         //
-        // Lo que si se hace es dejar de callarlo: el descuadre queda en la
-        // bitacora, con las dos cifras, para que se pueda medir cuanto ocurre de
-        // verdad ANTES de decidir la regla. Ver docs/PENDIENTE.md, D-36.
+        // La comparacion es EXACTA y no lleva tolerancia: precio_unitario tiene
+        // dos decimales y cantidad_recibida es entera, asi que el producto y su
+        // suma son exactos en BigDecimal. No hay error de redondeo que absorber.
+        // Si algun dia negocio admite flete, el cambio es una constante aqui.
+        //
+        // OJO CON EL HISTORICO: 1.649 de las 2.287 facturas que ya estan en la
+        // base incumplen esta regla (poblado masivo de la F38). NO se tocan
+        // —regla de PENDIENTE.md §5: no se reparan datos historicos, porque no
+        // se puede distinguir lo que escribio la aplicacion de lo que
+        // escribieron los scripts de poblado—. Esta validacion mira solo hacia
+        // adelante: rige para las facturas que se registren desde ahora.
         java.math.BigDecimal valorRecibido = ordenCompraDetalleRepository
                 .findByOrdenCompraIdOrdenCompra(orden.getIdOrdenCompra()).stream()
                 .map(d -> d.getPrecioUnitario().multiply(
@@ -114,11 +119,28 @@ public class FacturaCompraService {
                 .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
 
         if (dto.getSubtotal() != null && dto.getSubtotal().compareTo(valorRecibido) > 0) {
-            logService.registrar(idUsuarioActual, "compras", "factura_descuadre",
+            java.math.BigDecimal exceso = dto.getSubtotal().subtract(valorRecibido);
+
+            // Queda en la bitacora TAMBIEN cuando se rechaza: un proveedor que
+            // insiste en facturar de mas es informacion, y un rechazo sin
+            // rastro no la deja en ningun sitio.
+            //
+            // registrarAparte y no registrar, y es la diferencia entre que esto
+            // funcione o no: crear() es @Transactional, asi que la excepcion de
+            // dos lineas mas abajo desharia la transaccion entera —incluido el
+            // apunte que se acaba de escribir—. Se comprobo: la primera version
+            // rechazaba bien y dejaba log_accion vacia.
+            logService.registrarAparte(idUsuarioActual, "compras", "factura_rechazada_descuadre",
                     "Factura '" + dto.getNumeroFacturaProveedor() + "' de la OC #"
                             + orden.getIdOrdenCompra() + ": subtotal " + dto.getSubtotal()
                             + " por encima del valor recibido " + valorRecibido
-                            + " (diferencia " + dto.getSubtotal().subtract(valorRecibido) + ")", null);
+                            + " (exceso " + exceso + "). Rechazada.", null);
+
+            throw new ValidationException(
+                    "El subtotal de la factura (" + dto.getSubtotal() + ") supera el valor de la "
+                    + "mercancía recibida (" + valorRecibido + ") en " + exceso + ". No se admiten "
+                    + "cargos por encima de lo recibido: revisa la factura del proveedor, o "
+                    + "registra primero la recepción que falte.");
         }
 
         // 5. Insertar factura (total es GENERATED — no se asigna)

@@ -125,6 +125,31 @@ public class LogService {
         }
     }
 
+    /**
+     * Como {@link #registrar}, pero en una transacción <b>aparte</b>.
+     *
+     * <p>Existe porque {@code registrar} comparte la transacción de quien lo
+     * llama, y eso lo hace inútil justo cuando más falta hace: <b>al dejar
+     * constancia de algo que se rechaza</b>. El rechazo lanza una excepción, la
+     * transacción se deshace, y con ella se borra el apunte que acababa de
+     * escribirse. El rastro desaparecía exactamente en el caso que se quería
+     * rastrear.
+     *
+     * <p>Se descubrió en la F60 (D-36): la factura por encima de lo recibido se
+     * rechazaba bien, pero {@code log_accion} quedaba vacía. Con
+     * {@code REQUIRES_NEW} el apunte se confirma por su cuenta y el rechazo del
+     * llamador ya no se lo lleva por delante.
+     *
+     * <p>Cuesta una segunda conexión del pool mientras dura. Es aceptable
+     * porque solo se usa en los caminos de rechazo, que son la excepción.
+     */
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public void registrarAparte(Integer idUsuario, String modulo, String accion,
+                                String descripcion, String ipAddress) {
+        registrar(idUsuario, modulo, accion, descripcion, ipAddress);
+    }
+
     public PageResponseDTO<LogAccionResponseDTO> listar(int page, int size, Integer idUsuario, String modulo,
                                                         LocalDateTime desde, LocalDateTime hasta) {
         Integer idU = idUsuario != null ? idUsuario : 0;

@@ -14,6 +14,17 @@ public class LoginResponseDTO {
     private String rol;
     private List<String> permisos;
 
+    /**
+     * Instante en que caduca la sesion, en milisegundos desde 1970.
+     *
+     * <p>Existe por la F60 (D-27): el token pasa a una cookie HttpOnly, asi que
+     * el navegador YA NO PUEDE leerlo para mirar cuando expira —era lo que hacia
+     * antes, descifrando el payload del JWT a mano—. La caducidad no es un
+     * secreto, asi que se la damos aparte y el front la usa para saber cuando
+     * mandar al usuario a la pantalla de entrada sin esperar a comerse un 401.
+     */
+    private Long expiraEn;
+
     public LoginResponseDTO() {
         this.tipo = "Bearer";
     }
@@ -31,6 +42,9 @@ public class LoginResponseDTO {
         this.rol = rol;
         this.permisos = permisos;
     }
+
+    public Long getExpiraEn() { return expiraEn; }
+    public void setExpiraEn(Long expiraEn) { this.expiraEn = expiraEn; }
 
     public String getToken() { return token; }
     public void setToken(String token) { this.token = token; }

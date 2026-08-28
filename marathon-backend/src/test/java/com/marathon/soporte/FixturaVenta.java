@@ -72,6 +72,8 @@ public class FixturaVenta {
     private Integer idUnidad;
     private Integer idCiudad;
     private final List<Integer> idsBodega = new ArrayList<>();
+    private final List<Integer> idsOrdenCompra = new ArrayList<>();
+    private Integer idProveedor;
     private long maxLogAlEmpezar;
 
     private Ciudad ciudad;
@@ -370,6 +372,44 @@ public class FixturaVenta {
      * {@code ON DELETE RESTRICT}, asi que un borrado en el orden equivocado no
      * corrompe nada — simplemente falla.
      */
+    /**
+     * Una orden de compra con mercancia YA RECIBIDA, para poder facturarla.
+     *
+     * <p>La necesita la prueba de D-36: contrastar el importe de la factura con
+     * lo recibido exige que haya algo recibido con lo que contrastar.
+     *
+     * <p>Se inserta con {@code JdbcTemplate} y no por los repositorios a
+     * proposito: son cuatro tablas de las que aqui solo interesan seis columnas,
+     * y {@code orden_compra_detalle.subtotal} es GENERATED ALWAYS —Hibernate
+     * intentaria escribirla y PostgreSQL lo rechazaria—.
+     *
+     * @return el id de la orden, cuyo valor recibido es {@code cantidad * precio}
+     */
+    public Integer ordenCompraRecibida(int cantidad, java.math.BigDecimal precio, Bodega bodega) {
+        if (idProveedor == null) {
+            idProveedor = jdbc.queryForObject(
+                    "insert into proveedor (nombre, estado) values (?, ?) returning id_proveedor",
+                    Integer.class, MARCA + "proveedor", "activo");
+        }
+
+        Integer idOrden = jdbc.queryForObject(
+                "insert into orden_compra (id_proveedor, id_usuario_solicitante, estado) "
+                + "values (?, ?, ?) returning id_orden_compra",
+                Integer.class, idProveedor, usuario.getIdUsuario(), "recibida_completa");
+        idsOrdenCompra.add(idOrden);
+
+        jdbc.update("insert into orden_compra_detalle "
+                + "(id_orden_compra, tipo_item, id_producto, cantidad, precio_unitario, cantidad_recibida) "
+                + "values (?, ?, ?, ?, ?, ?)",
+                idOrden, "producto", idProducto, cantidad, precio, cantidad);
+
+        jdbc.update("insert into recepcion_mercancia "
+                + "(id_orden_compra, id_usuario_receptor, id_bodega) values (?, ?, ?)",
+                idOrden, usuario.getIdUsuario(), bodega.getIdBodega());
+
+        return idOrden;
+    }
+
     public void limpiar() {
         for (Integer idPedido : idsPedido) {
             // F47: reserva_stock apunta a pedido y a producto con ON DELETE
@@ -379,6 +419,20 @@ public class FixturaVenta {
             jdbc.update("delete from comprobante_interno where id_pedido = ?", idPedido);
             jdbc.update("delete from detalle_pedido where id_pedido = ?", idPedido);
             jdbc.update("delete from pedido where id_pedido = ?", idPedido);
+        }
+        for (Integer idOrden : idsOrdenCompra) {
+            // De la hoja a la raiz: la cuenta por pagar cuelga de la factura, la
+            // factura de la orden, y la recepcion y el detalle tambien.
+            jdbc.update("delete from cuenta_por_pagar where id_factura_compra in "
+                    + "(select id_factura_compra from factura_compra where id_orden_compra = ?)", idOrden);
+            jdbc.update("delete from factura_compra where id_orden_compra = ?", idOrden);
+            jdbc.update("delete from recepcion_mercancia where id_orden_compra = ?", idOrden);
+            jdbc.update("delete from orden_compra_detalle where id_orden_compra = ?", idOrden);
+            jdbc.update("delete from orden_compra where id_orden_compra = ?", idOrden);
+        }
+        if (idProveedor != null) {
+            jdbc.update("delete from producto_proveedor where id_proveedor = ?", idProveedor);
+            jdbc.update("delete from proveedor where id_proveedor = ?", idProveedor);
         }
         for (Integer idInv : idsInventario) {
             jdbc.update("delete from movimiento_inventario where id_inventario = ? or id_inventario_destino = ?",
@@ -417,6 +471,8 @@ public class FixturaVenta {
         idsInventario.clear();
         idsPedido.clear();
         idsBodega.clear();
+        idsOrdenCompra.clear();
+        idProveedor = null;
         idProducto = null;
         idCliente = null;
         idCategoria = null;
