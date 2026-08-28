@@ -2,6 +2,7 @@ package com.marathon.model;
 
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.DynamicInsert;
 import org.hibernate.annotations.DynamicUpdate;
 
 import jakarta.persistence.Column;
@@ -21,6 +22,16 @@ import org.hibernate.generator.EventType;
 
 @Entity
 @Table(name = "orden_produccion")
+// F49 (D-39): @DynamicInsert es OBLIGATORIO aqui, no una optimizacion.
+// Sin el, Hibernate nombra en el INSERT TODAS las columnas mapeadas, incluidas
+// las que solo se rellenan en una etapa POSTERIOR del flujo:
+//   id_usuario_completa, fecha_inicio, fecha_fin, cantidad_producida — las pone el cierre de la orden.
+// La fase 34 concede privilegios columna por columna, asi que el rol que
+// ARRANCA el flujo
+// no las tiene y la base rechaza el INSERT entero con "permiso denegado".
+// Con @DynamicInsert solo se nombran las columnas con valor, y el INSERT pasa.
+// Ver marathon-backend/sql/fase49_privilegios_de_creacion.sql.
+@DynamicInsert
 @DynamicUpdate
 public class OrdenProduccion {
 
