@@ -7,8 +7,8 @@ import { AppIconComponent } from '../../shared/components/icon/icon.component';
 import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 
 interface Proveedor { idProveedor: number; nombre: string; }
-interface Producto { idProducto: number; nombre: string; }
-interface MateriaPrima { idMateriaPrima: number; nombre: string; }
+interface Producto { idProducto: number; nombre: string; precioCompra: number; }
+interface MateriaPrima { idMateriaPrima: number; nombre: string; costoUnitarioPromedio: number; }
 
 interface LineaNueva {
   tipoItem: 'producto' | 'materia_prima';
@@ -58,13 +58,15 @@ interface LineaNueva {
             <label>Producto</label>
             <app-searchable-select [(ngModel)]="lineaIdProducto" name="lineaIdProducto"
               [items]="productos" labelKey="nombre" valueKey="idProducto"
-              placeholder="Escriba el nombre o código del producto..."/>
+              placeholder="Escriba el nombre o código del producto..."
+              (ngModelChange)="onItemElegido()"/>
           </div>
           <div class="form-group flex-2" *ngIf="lineaTipo === 'materia_prima'">
             <label>Materia Prima</label>
             <app-searchable-select [(ngModel)]="lineaIdMateria" name="lineaIdMateria"
               [items]="materiasPrimas" labelKey="nombre" valueKey="idMateriaPrima"
-              placeholder="Escriba el nombre de la materia prima..."/>
+              placeholder="Escriba el nombre de la materia prima..."
+              (ngModelChange)="onItemElegido()"/>
           </div>
           <div class="form-group">
             <label>Cantidad</label>
@@ -72,6 +74,8 @@ interface LineaNueva {
           </div>
           <div class="form-group">
             <label>Precio unitario</label>
+            <!-- F56: se propone el del catalogo, pero SE PUEDE CORREGIR: en una
+                 compra el precio es el que cobra el proveedor ese dia. -->
             <input type="number" [(ngModel)]="lineaPrecio" name="lineaPrecio" step="0.01" min="0.01"/>
           </div>
           <div class="form-group" style="align-self:flex-end">
@@ -158,6 +162,32 @@ export class OrdenCompraNuevaComponent implements OnInit {
   onTipoChange() {
     this.lineaIdProducto = null;
     this.lineaIdMateria = null;
+    this.lineaPrecio = null;
+  }
+
+  /**
+   * F56: al elegir el ítem se propone su precio.
+   *
+   * <p>Para un producto, el <b>precio de compra</b> del catálogo; para una
+   * materia prima, su <b>costo unitario promedio</b>. Los dos venían ya en la
+   * respuesta de la API y la pantalla los estaba tirando: había que teclear a
+   * mano un número que el sistema ya conocía.
+   *
+   * <p><b>Aquí el campo sigue siendo editable</b>, al revés que en «Nuevo
+   * pedido». No es un descuido: en un pedido de venta el precio lo impone el
+   * catálogo y el backend descarta lo que mande el cliente (D-34); en una orden
+   * de compra el precio es lo que cobra el proveedor ese día, y
+   * `OrdenCompraService` guarda exactamente el que se envía. Por eso esto es
+   * una propuesta, no una imposición: se rellena, y se puede corregir.
+   */
+  onItemElegido() {
+    if (this.lineaTipo === 'producto') {
+      const p = this.productos.find(x => x.idProducto === this.lineaIdProducto);
+      this.lineaPrecio = p ? p.precioCompra : null;
+    } else {
+      const m = this.materiasPrimas.find(x => x.idMateriaPrima === this.lineaIdMateria);
+      this.lineaPrecio = m ? m.costoUnitarioPromedio : null;
+    }
   }
 
   agregarLinea() {
