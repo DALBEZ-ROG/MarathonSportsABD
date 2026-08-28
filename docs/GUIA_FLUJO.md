@@ -252,10 +252,52 @@ Si la factura cubre solo parte de la orden —porque la recepción fue parcial�
 detalle lo cuadra a la vista: valor recibido de la orden, lo documentado en otras
 facturas, y el total de esta.
 
-### 2.7 · Si llegó algo defectuoso — *Encargado de Compras*
+### 2.7 · Devolverle al proveedor lo defectuoso — *Encargado de Compras*
 
-**Devoluciones a proveedor** e **Ítems defectuosos**. Crear y resolver son los
-dos del Encargado de Compras.
+> ### ⚠ Esto NO empieza en la pantalla de devoluciones
+>
+> Es la confusión más común del módulo. Una devolución a proveedor **no se
+> inventa**: solo puede agrupar mercancía que **ya se marcó como defectuosa**
+> antes, en uno de estos dos sitios:
+>
+> | De dónde sale | Quién lo marca | Cuándo |
+> |---|---|---|
+> | **Recepción de compra** | Encargado de Compras | Al recibir, anota una **cantidad defectuosa** (paso 2.4) |
+> | **Devolución de cliente** | Operador de Bodega | Al inspeccionar lo devuelto, marca la línea **defectuosa** (paso 7.2) |
+>
+> Si nadie marcó nada como defectuoso, **no hay nada que devolver** y la bandeja
+> sale vacía. Eso no es un fallo.
+
+**El recorrido, de principio a fin:**
+
+1. **Ítems defectuosos** (`/devoluciones-proveedor/pendientes`) — la bandeja. Ahí
+   caen todos los ítems marcados como defectuosos que **aún no se han reclamado**.
+   El sistema sugiere el proveedor a partir del proveedor principal del producto.
+2. Se agrupan los de **un mismo proveedor** y se crea la devolución. Nace en
+   `pendiente`. **Un ítem solo entra en una devolución**: el sistema no deja
+   reclamarlo dos veces.
+3. **La mercancía sale** hacia el proveedor. Cuando salga de verdad, se marca:
+   «Ya se la envié al proveedor» → `enviada`.
+4. **El proveedor responde**, y hay tres finales posibles:
+   - **Devuelve el dinero** → `resuelta`, con el monto. Es obligatorio y mayor que cero.
+   - **Manda otra igual** → `resuelta`, reposición.
+   - **No acepta la reclamación** → `rechazada`.
+
+```
+pendiente ──► enviada ──► resuelta
+                  │
+                  └──► rechazada
+```
+
+> **Cuidado con la palabra «rechazada».** Significa que **el proveedor** no
+> aceptó la reclamación, no que tú rechaces la devolución. Por eso solo se puede
+> marcar desde `enviada`: es su respuesta, no una decisión tuya.
+
+> **Una reposición no mete stock.** Registrar que el proveedor «manda otra igual»
+> deja constancia del acuerdo; cuando el reemplazo llegue físicamente hay que
+> **recibirlo como cualquier otra mercancía**. El sistema no lo inventa.
+
+Crear y resolver son los dos del Encargado de Compras.
 
 ### Estados de la orden de compra
 

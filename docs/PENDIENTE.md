@@ -43,6 +43,8 @@ A las fases 47-59 se suman ahora:
 | **F64** | El Administrador queda **exento** de la separación de funciones al aprobar órdenes de compra |
 | **F65** | Compras y Producción **no podían terminar su parte del flujo**: dos GRANT que nunca se concedieron y un guardado de más |
 | **F66** | Documentar la compra es **un clic y un PDF**, con el importe calculado de lo recibido |
+| **F67** | La pantalla de pago se parte en dos: a la izquierda lo que se revisa, a la derecha lo que se hace |
+| **F68** | La devolución a proveedor **explica de dónde nace**, en qué punto está y qué toca hacer |
 
 ---
 
@@ -506,6 +508,14 @@ otro origen no la lleva: saldría un 401 en blanco.
 
 **Ningún defecto.** Los 43 están cerrados. Lo que sigue no son defectos: son
 cosas que conviene saber antes de tocar nada.
+
+### Lo que el dueño dejó pedido y sin hacer
+
+- **La pantalla de recepción de mercancía (`/compras/:id/recepcion`) está sin
+  rehacer.** Pedido el 2026-08-28, aplazado a propósito por él mismo mientras se
+  arreglaba la de devoluciones a proveedor. Es la misma clase de trabajo que la
+  F67 y la F68: la pantalla funciona, pero no explica lo que hace. **Es la
+  siguiente de la lista.**
 
 ### Deuda que sigue ahí, y que no es un defecto
 
