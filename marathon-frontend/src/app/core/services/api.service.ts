@@ -16,6 +16,16 @@ export class ApiService {
     return this.http.get<T>(`${this.baseUrl}/${endpoint}`);
   }
 
+  /**
+   * Descarga binaria (PDF, Excel...). El interceptor le pone `withCredentials`
+   * igual que a las demas, asi que la cookie de sesion viaja: por eso se pide
+   * asi y no apuntando una pestana nueva a la URL de la API, que iria sin
+   * sesion y devolveria un 401 en blanco.
+   */
+  getBlob(endpoint: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/${endpoint}`, { responseType: "blob" });
+  }
+
   post<T>(endpoint: string, body: any): Observable<T> {
     return this.http.post<T>(`${this.baseUrl}/${endpoint}`, body);
   }

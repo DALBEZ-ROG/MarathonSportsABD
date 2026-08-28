@@ -55,6 +55,38 @@ public class FacturaCompraController {
                 .body(facturaService.crear(dto, usuario.getIdUsuario()));
     }
 
+    /**
+     * Documenta de una lo que se recibio, sin pedir nada (F66).
+     *
+     * <p>Sustituye a la pantalla de formulario: numero, fechas, subtotal e
+     * impuesto se deducen de la orden y de sus recepciones. El importe es lo
+     * recibido MENOS lo ya documentado, asi que una orden recibida en dos veces
+     * no se cobra dos veces.
+     */
+    @PostMapping("/orden/{idOrdenCompra}/desde-recepcion")
+    @PreAuthorize("hasAuthority('facturas_compra:registrar')")
+    public ResponseEntity<FacturaCompraResponseDTO> crearDesdeRecepcion(
+            @PathVariable Integer idOrdenCompra, Authentication authentication) {
+        Usuario usuario = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(facturaService.crearDesdeRecepcion(idOrdenCompra, usuario.getIdUsuario()));
+    }
+
+    /** El documento en PDF, listo para imprimir o archivar. */
+    @GetMapping("/{id}/pdf")
+    @PreAuthorize("hasAuthority('facturas_compra:ver')")
+    public ResponseEntity<byte[]> pdf(@PathVariable Integer id) {
+        FacturaCompraResponseDTO f = facturaService.obtener(id);
+        byte[] pdf = facturaService.pdf(id);
+
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_PDF);
+        // inline: se abre en una pestana, no se descarga. Es lo que se pidio.
+        headers.set(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                "inline; filename=\"compra-" + f.getNumeroFacturaProveedor() + ".pdf\"");
+        return new ResponseEntity<>(pdf, headers, HttpStatus.OK);
+    }
+
     @PostMapping("/{id}/anular")
     @PreAuthorize("hasAuthority('facturas_compra:anular')")
     public ResponseEntity<FacturaCompraResponseDTO> anular(@PathVariable Integer id,

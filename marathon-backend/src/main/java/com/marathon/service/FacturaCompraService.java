@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.marathon.dto.PageResponseDTO;
+import com.marathon.dto.facturacompra.FacturaCompraPdfDTO;
 import com.marathon.dto.facturacompra.FacturaCompraRequestDTO;
 import com.marathon.dto.facturacompra.FacturaCompraResponseDTO;
 import com.marathon.exception.ResourceNotFoundException;
@@ -39,6 +40,10 @@ public class FacturaCompraService {
     private final OrdenCompraDetalleRepository ordenCompraDetalleRepository;
     private final UsuarioRepository usuarioRepository;
     private final LogService logService;
+    private final PdfService pdfService;
+
+    @org.springframework.beans.factory.annotation.Value("${app.compras.iva-porcentaje:15}")
+    private java.math.BigDecimal ivaPorcentaje;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -49,7 +54,8 @@ public class FacturaCompraService {
                                 RecepcionMercanciaRepository recepcionRepository,
                                 OrdenCompraDetalleRepository ordenCompraDetalleRepository,
                                 UsuarioRepository usuarioRepository,
-                                LogService logService) {
+                                LogService logService,
+                                PdfService pdfService) {
         this.facturaRepository = facturaRepository;
         this.cuentaRepository = cuentaRepository;
         this.ordenCompraRepository = ordenCompraRepository;
@@ -57,6 +63,7 @@ public class FacturaCompraService {
         this.ordenCompraDetalleRepository = ordenCompraDetalleRepository;
         this.usuarioRepository = usuarioRepository;
         this.logService = logService;
+        this.pdfService = pdfService;
     }
 
     @Transactional
@@ -277,5 +284,154 @@ public class FacturaCompraService {
         }
 
         return dto;
+    }
+
+    // ==================================================================
+    // F66 — documentar de una lo que se recibio
+    // ==================================================================
+
+    /**
+     * Crea el documento de compra a partir de <b>lo que de verdad entro</b>,
+     * sin pedirle nada a quien lo registra.
+     *
+     * <p>Antes habia que teclear numero, fechas, subtotal e impuesto en una
+     * pantalla aparte. Los cuatro se pueden deducir de la orden y de sus
+     * recepciones, y deducirlos ademas <b>elimina de raiz</b> el descuadre que
+     * D-36 tenia que vigilar: si el subtotal se calcula de lo recibido, no
+     * puede superarlo.
+     *
+     * <p><b>Lo que se factura es lo recibido MENOS lo ya documentado.</b> Sin
+     * esa resta, una orden recibida en dos veces se documentaria dos veces por
+     * el total y la cuenta por pagar saldria al doble. Es el caso que pidio el
+     * dueno del proyecto: «si se recibe parcial, que tambien se facture solo lo
+     * recibido».
+     *
+     * <p>El numero lo pone el sistema ({@code FC-000123-1}) porque el del
+     * proveedor no se puede adivinar. Por eso el PDF se titula <b>documento
+     * interno de compra</b> y dice en su pie que no sustituye a la factura del
+     * proveedor. Para registrar la factura real del proveedor, con su numero y
+     * su importe, sigue estando {@code POST /api/facturas-compra}.
+     */
+    @Transactional
+    public FacturaCompraResponseDTO crearDesdeRecepcion(Integer idOrdenCompra, Integer idUsuarioActual) {
+        OrdenCompra orden = ordenCompraRepository.findById(idOrdenCompra)
+                .orElseThrow(() -> new ResourceNotFoundException("Orden de compra", idOrdenCompra));
+
+        java.math.BigDecimal recibido = valorRecibidoDe(idOrdenCompra);
+        if (recibido.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            throw new ValidationException("Todavía no ha entrado mercancía de esta orden. "
+                    + "Registra primero la recepción.");
+        }
+
+        java.math.BigDecimal yaDocumentado = yaFacturadoDe(idOrdenCompra);
+        java.math.BigDecimal pendiente = recibido.subtract(yaDocumentado);
+        if (pendiente.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            throw new ValidationException("No queda nada por documentar: de esta orden se "
+                    + "recibieron $" + recibido + " y ya se documentaron $" + yaDocumentado
+                    + ". Si ha entrado más mercancía, registra la recepción primero.");
+        }
+
+        FacturaCompraRequestDTO dto = new FacturaCompraRequestDTO();
+        dto.setIdOrdenCompra(idOrdenCompra);
+        dto.setNumeroFacturaProveedor(siguienteNumeroDe(idOrdenCompra));
+        dto.setFechaFactura(java.time.LocalDate.now());
+        dto.setFechaVencimiento(java.time.LocalDate.now().plusDays(30));
+        dto.setSubtotal(pendiente);
+        dto.setImpuesto(pendiente.multiply(ivaPorcentaje)
+                .divide(new java.math.BigDecimal("100"), 2, java.math.RoundingMode.HALF_UP));
+
+        return crear(dto, idUsuarioActual);
+    }
+
+    /** El PDF de un documento ya registrado. */
+    @Transactional(readOnly = true)
+    public byte[] pdf(Integer idFactura) {
+        FacturaCompra fc = facturaRepository.findById(idFactura)
+                .orElseThrow(() -> new ResourceNotFoundException("Factura de compra", idFactura));
+        return pdfService.generarFacturaCompraPDF(datosParaPdf(fc));
+    }
+
+    private FacturaCompraPdfDTO datosParaPdf(FacturaCompra fc) {
+        OrdenCompra o = fc.getOrdenCompra();
+        FacturaCompraPdfDTO d = new FacturaCompraPdfDTO();
+
+        d.setIdFacturaCompra(fc.getIdFacturaCompra());
+        d.setNumeroFacturaProveedor(fc.getNumeroFacturaProveedor());
+        d.setFechaFactura(fc.getFechaFactura());
+        d.setFechaVencimiento(fc.getFechaVencimiento());
+        d.setSubtotal(fc.getSubtotal());
+        d.setImpuesto(fc.getImpuesto());
+        d.setTotal(fc.getTotal());
+        d.setEstado(fc.getEstado());
+        d.setIvaPorcentaje(ivaPorcentaje);
+
+        d.setIdOrdenCompra(o.getIdOrdenCompra());
+        d.setFechaOrden(o.getFechaOrden());
+        d.setFechaAprobacion(o.getFechaAprobacion());
+        d.setEstadoOrden(o.getEstado());
+        d.setObservacionesOrden(o.getObservaciones());
+        d.setProveedorNombre(o.getProveedor() != null ? o.getProveedor().getNombre() : null);
+        d.setSolicitante(nombreDe(o.getUsuarioSolicitante()));
+        d.setAprobador(nombreDe(o.getUsuarioAprobador()));
+        d.setRegistradoPor(nombreDe(fc.getUsuarioRegistro()));
+
+        d.setLineas(ordenCompraDetalleRepository
+                .findByOrdenCompraIdOrdenCompra(o.getIdOrdenCompra()).stream()
+                .map(det -> {
+                    int rec = det.getCantidadRecibida() != null ? det.getCantidadRecibida() : 0;
+                    return new FacturaCompraPdfDTO.LineaPdf(
+                            nombreDelItem(det),
+                            det.getTipoItem(),
+                            det.getCantidad(),
+                            rec,
+                            det.getPrecioUnitario(),
+                            det.getPrecioUnitario().multiply(java.math.BigDecimal.valueOf(rec)));
+                })
+                .collect(java.util.stream.Collectors.toList()));
+
+        java.math.BigDecimal recibido = valorRecibidoDe(o.getIdOrdenCompra());
+        d.setValorRecibidoTotal(recibido);
+        // Lo documentado ANTES de esta: se descuenta la propia.
+        d.setYaFacturadoAntes(yaFacturadoDe(o.getIdOrdenCompra())
+                .subtract(fc.getSubtotal() != null ? fc.getSubtotal() : java.math.BigDecimal.ZERO));
+        return d;
+    }
+
+    private String nombreDelItem(com.marathon.model.OrdenCompraDetalle det) {
+        if (det.getProducto() != null) {
+            return det.getProducto().getNombre();
+        }
+        if (det.getMateriaPrima() != null) {
+            return det.getMateriaPrima().getNombre();
+        }
+        return "(sin nombre)";
+    }
+
+    private String nombreDe(Usuario u) {
+        return u != null ? (u.getNombre() + " " + u.getApellido()) : null;
+    }
+
+    /** Valor de la mercancía que entró: cantidad recibida por su precio. */
+    private java.math.BigDecimal valorRecibidoDe(Integer idOrdenCompra) {
+        return ordenCompraDetalleRepository.findByOrdenCompraIdOrdenCompra(idOrdenCompra).stream()
+                .map(d -> d.getPrecioUnitario().multiply(java.math.BigDecimal.valueOf(
+                        d.getCantidadRecibida() != null ? d.getCantidadRecibida() : 0)))
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+    }
+
+    /**
+     * Lo ya documentado de esta orden. Las anuladas NO cuentan: si una factura
+     * se anula, lo suyo vuelve a estar pendiente.
+     */
+    private java.math.BigDecimal yaFacturadoDe(Integer idOrdenCompra) {
+        return facturaRepository.findByOrdenCompraIdOrdenCompra(idOrdenCompra).stream()
+                .filter(fc -> !"anulada".equals(fc.getEstado()))
+                .map(fc -> fc.getSubtotal() != null ? fc.getSubtotal() : java.math.BigDecimal.ZERO)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+    }
+
+    private String siguienteNumeroDe(Integer idOrdenCompra) {
+        int n = facturaRepository.findByOrdenCompraIdOrdenCompra(idOrdenCompra).size() + 1;
+        return String.format("FC-%06d-%d", idOrdenCompra, n);
     }
 }

@@ -167,13 +167,46 @@ Al aprobar, el sistema guarda **quién aprobó y cuándo**.
 - Si falta algo, la orden queda en `recibida_parcial` y puedes volver; si llega
   todo, pasa a `recibida_completa`.
 
-### 2.5 · Registrar la factura — *Encargado de Compras*
+### 2.5 · Documentar la compra — *Encargado de Compras*
 
-**Compras → la orden → Registrar factura**
+**Compras → la orden → «Documentar compra y abrir PDF»**
 
-- Exige **al menos una recepción**. No se factura lo que no ha llegado.
-- El número de factura no se puede repetir en la misma orden.
-- El vencimiento no puede ser anterior a la factura.
+Un solo clic: el sistema registra el documento y **abre el PDF en otra pestaña**.
+No hay formulario que rellenar.
+
+| Dato | De dónde sale |
+|---|---|
+| Número | Lo pone el sistema: `FC-002676-1` |
+| Fecha / vencimiento | Hoy y hoy + 30 días |
+| **Subtotal** | **Lo recibido menos lo ya documentado** |
+| IVA | El 15%, configurable con `app.compras.iva-porcentaje` |
+
+> ### Si la recepción fue parcial, se documenta solo lo recibido
+>
+> Y si después llega el resto, el segundo documento cubre **solo la diferencia**.
+> Una orden de 10 unidades recibida en dos tandas de 4 y 6 produce un documento
+> de 40 y otro de 60, no dos de 100.
+>
+> Sin esa resta la cuenta por pagar saldría al doble. Es el error que más caro
+> sale descubrir tarde, porque **no falla: cuadra mal**.
+>
+> Volver a documentar sin que haya entrado nada nuevo se rechaza, y lo dice:
+> *«No queda nada por documentar: de esta orden se recibieron $40.00 y ya se
+> documentaron $40.00»*.
+
+> ### El PDF se llama «documento interno de compra», no «factura»
+>
+> La factura la emite el **proveedor**: lleva su numeración, su membrete y su
+> firma. Este lo emite Marathon a partir de lo que entró en la bodega, así que
+> llamarlo factura sería decir que es algo que no es. Sirve para archivar,
+> cotejar contra el papel del proveedor y pasar a contabilidad, y su pie lo dice.
+>
+> Para registrar la factura **real** del proveedor —con su número y su importe—
+> sigue estando `POST /api/facturas-compra`, que es donde se aplica el tope de
+> D-36.
+
+El PDF trae: proveedor, orden, fechas, **quién solicitó, quién aprobó y quién
+registró**, el detalle con lo pedido frente a lo recibido, subtotal, IVA y total.
 
 > ### ⚠ El subtotal no puede superar lo recibido
 >
@@ -186,8 +219,13 @@ Al aprobar, el sistema guarda **quién aprobó y cuándo**.
 > El intento queda en la bitácora (`compras` / `factura_rechazada_descuadre`).
 > **Facturar de menos sí se permite:** un proveedor puede facturar en partes lo
 > que entregó de golpe.
+>
+> Desde la F66, documentar desde la pantalla **no puede incumplir esta regla**:
+> el importe se calcula de lo recibido, así que no hay forma de que lo supere.
+> El tope sigue vigilando la vía del API, que es donde alguien podría teclear
+> una cifra a mano.
 
-Al registrarla se crea automáticamente la **cuenta por pagar**.
+En los dos casos se crea automáticamente la **cuenta por pagar**.
 
 ### 2.6 · Pagar — *Encargado de Compras*
 

@@ -24,6 +24,7 @@ import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 import com.marathon.dto.comprobante.ComprobanteResponseDTO;
+import com.marathon.dto.facturacompra.FacturaCompraPdfDTO;
 import com.marathon.dto.pedido.DetallePedidoResponseDTO;
 
 @Service
@@ -136,6 +137,132 @@ public class PdfService {
         Paragraph pie2 = new Paragraph("Marathon Sports — Sistema interno")
                 .setFontSize(8).setFontColor(ColorConstants.GRAY).setTextAlignment(TextAlignment.CENTER);
         doc.add(pie2);
+
+        doc.close();
+        return baos.toByteArray();
+    }
+
+    /**
+     * El documento de compra en PDF (F66).
+     *
+     * <p><b>Se llama «documento interno de compra» y no «factura», y es a
+     * proposito.</b> La factura la emite el PROVEEDOR: lleva su numeracion, su
+     * membrete y su firma. Esto lo emite Marathon a partir de lo que de verdad
+     * entro en la bodega, asi que llamarlo factura seria decir que es algo que
+     * no es. Sirve para archivar, cotejar contra el papel del proveedor y pasar
+     * a contabilidad.
+     *
+     * <p>Las lineas muestran <b>lo pedido y lo recibido</b>, no solo lo
+     * recibido. Cuando la recepcion es parcial, esa diferencia es justo lo que
+     * hay que ver de un vistazo, y esconderla dejaria un documento que cuadra
+     * pero no explica nada.
+     */
+    public byte[] generarFacturaCompraPDF(FacturaCompraPdfDTO f) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfWriter writer = new PdfWriter(baos);
+        PdfDocument pdf = new PdfDocument(writer);
+        Document doc = new Document(pdf, PageSize.A4);
+        doc.setMargins(36, 36, 36, 36);
+
+        doc.add(new Paragraph("MARATHON SPORTS")
+                .setFontColor(MARATHON_GREEN).setFontSize(24).setBold()
+                .setTextAlignment(TextAlignment.CENTER));
+        doc.add(new Paragraph("Documento interno de compra")
+                .setFontSize(11).setFontColor(ColorConstants.GRAY)
+                .setTextAlignment(TextAlignment.CENTER));
+        doc.add(new LineSeparator(new SolidLine(1f)).setMarginTop(8).setMarginBottom(12));
+
+        // --- Cabecera: el documento y la orden de la que sale ---------------
+        Table cab = new Table(UnitValue.createPercentArray(new float[]{1, 1}))
+                .useAllAvailableWidth().setMarginBottom(6);
+        Cell izq = new Cell().setBorder(Border.NO_BORDER);
+        izq.add(linea("Documento N.º: ", nz(f.getNumeroFacturaProveedor())));
+        izq.add(linea("Fecha: ", f.getFechaFactura() != null ? f.getFechaFactura().toString() : "-"));
+        izq.add(linea("Vencimiento: ", f.getFechaVencimiento() != null ? f.getFechaVencimiento().toString() : "-"));
+        izq.add(linea("Estado: ", nz(f.getEstado())));
+        Cell der = new Cell().setBorder(Border.NO_BORDER);
+        der.add(linea("Proveedor: ", nz(f.getProveedorNombre())));
+        der.add(linea("Orden de compra: ", "#" + f.getIdOrdenCompra()));
+        der.add(linea("Fecha de la orden: ", f.getFechaOrden() != null ? f.getFechaOrden().format(FMT) : "-"));
+        der.add(linea("Estado de la orden: ", nz(f.getEstadoOrden())));
+        cab.addCell(izq);
+        cab.addCell(der);
+        doc.add(cab);
+
+        // --- Quien hizo que. Es la separacion de funciones, impresa ---------
+        doc.add(seccionTitulo("RESPONSABLES"));
+        doc.add(linea("Solicitó la orden: ", nz(f.getSolicitante())));
+        doc.add(linea("Aprobó la orden: ", nz(f.getAprobador())));
+        doc.add(linea("Registró el documento: ", nz(f.getRegistradoPor())));
+
+        // --- El detalle -----------------------------------------------------
+        doc.add(seccionTitulo("DETALLE DE LO RECIBIDO"));
+        Table t = new Table(UnitValue.createPercentArray(new float[]{40, 12, 12, 16, 20}))
+                .useAllAvailableWidth().setMarginTop(4);
+        t.addHeaderCell(headerCell("Item"));
+        t.addHeaderCell(headerCell("Pedido"));
+        t.addHeaderCell(headerCell("Recibido"));
+        t.addHeaderCell(headerCell("P. unitario"));
+        t.addHeaderCell(headerCell("Importe"));
+
+        boolean hayParcial = false;
+        if (f.getLineas() != null) {
+            for (FacturaCompraPdfDTO.LineaPdf l : f.getLineas()) {
+                int pedido = l.getCantidadPedida() != null ? l.getCantidadPedida() : 0;
+                int recibido = l.getCantidadRecibida() != null ? l.getCantidadRecibida() : 0;
+                if (recibido < pedido) {
+                    hayParcial = true;
+                }
+                t.addCell(bodyCell(nz(l.getItem())));
+                t.addCell(bodyCell(String.valueOf(pedido)).setTextAlignment(TextAlignment.CENTER));
+                t.addCell(bodyCell(String.valueOf(recibido)).setTextAlignment(TextAlignment.CENTER));
+                t.addCell(bodyCell("$ " + fmt(l.getPrecioUnitario())).setTextAlignment(TextAlignment.RIGHT));
+                t.addCell(bodyCell("$ " + fmt(l.getImporte())).setTextAlignment(TextAlignment.RIGHT));
+            }
+        }
+        doc.add(t);
+
+        // --- Totales --------------------------------------------------------
+        Table tot = new Table(UnitValue.createPercentArray(new float[]{70, 30}))
+                .useAllAvailableWidth().setMarginTop(10);
+        tot.addCell(totalLabel("Subtotal"));
+        tot.addCell(totalValue("$ " + fmt(f.getSubtotal())));
+        String etiquetaIva = f.getIvaPorcentaje() != null
+                ? "IVA (" + f.getIvaPorcentaje().stripTrailingZeros().toPlainString() + "%)"
+                : "IVA";
+        tot.addCell(totalLabel(etiquetaIva));
+        tot.addCell(totalValue("$ " + fmt(f.getImpuesto())));
+        tot.addCell(totalLabelBold("TOTAL"));
+        tot.addCell(totalValueBold("$ " + fmt(f.getTotal())));
+        doc.add(tot);
+
+        // --- Lo que hay que decir cuando la recepcion no esta completa ------
+        if (hayParcial) {
+            doc.add(new Paragraph("Recepción parcial: este documento cubre únicamente "
+                    + "las cantidades recibidas. Lo que falte por llegar se documenta "
+                    + "aparte, cuando se reciba.")
+                    .setFontSize(9).setItalic().setFontColor(ColorConstants.DARK_GRAY)
+                    .setMarginTop(10));
+        }
+        if (f.getYaFacturadoAntes() != null
+                && f.getYaFacturadoAntes().compareTo(BigDecimal.ZERO) > 0) {
+            doc.add(new Paragraph("De esta orden ya se había documentado $ "
+                    + fmt(f.getYaFacturadoAntes()) + " con anterioridad. Este documento "
+                    + "cubre solo la diferencia, para no contar dos veces lo mismo.")
+                    .setFontSize(9).setItalic().setFontColor(ColorConstants.DARK_GRAY)
+                    .setMarginTop(4));
+        }
+        if (f.getObservacionesOrden() != null && !f.getObservacionesOrden().isBlank()) {
+            doc.add(seccionTitulo("OBSERVACIONES DE LA ORDEN"));
+            doc.add(new Paragraph(f.getObservacionesOrden()).setFontSize(9));
+        }
+
+        doc.add(new LineSeparator(new SolidLine(0.5f)).setMarginTop(18).setMarginBottom(6));
+        doc.add(new Paragraph("Documento generado por el sistema el "
+                + LocalDateTime.now().format(FMT) + ". No sustituye a la factura del "
+                + "proveedor: sirve para archivarlo y cotejarlo contra ella.")
+                .setFontSize(8).setFontColor(ColorConstants.GRAY)
+                .setTextAlignment(TextAlignment.CENTER));
 
         doc.close();
         return baos.toByteArray();

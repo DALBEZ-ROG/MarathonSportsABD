@@ -1,5 +1,6 @@
 package com.marathon.repository;
 
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,6 +14,9 @@ public interface FacturaCompraRepository extends JpaRepository<FacturaCompra, In
     Page<FacturaCompra> findByOrdenCompraProveedorIdProveedor(Integer idProveedor, Pageable pageable);
 
     Page<FacturaCompra> findByEstadoAndOrdenCompraProveedorIdProveedor(String estado, Integer idProveedor, Pageable pageable);
+
+    /** Todas las facturas de una orden, anuladas incluidas. Las filtra quien llame. */
+    List<FacturaCompra> findByOrdenCompraIdOrdenCompra(Integer idOrdenCompra);
 
     boolean existsByOrdenCompraIdOrdenCompraAndNumeroFacturaProveedor(Integer idOrdenCompra, String numeroFacturaProveedor);
 }

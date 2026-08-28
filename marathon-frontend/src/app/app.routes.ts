@@ -58,7 +58,12 @@ export const routes: Routes = [
   { path: 'compras', loadComponent: () => import('./modules/compras/ordenes-compra.component').then(m => m.OrdenesCompraComponent), canActivate: [authGuard, rolGuard], data: { roles: ['Administrador', 'Encargado de Compras'] } },
   { path: 'compras/nueva', loadComponent: () => import('./modules/compras/orden-compra-nueva.component').then(m => m.OrdenCompraNuevaComponent), canActivate: [authGuard, rolGuard], data: { roles: ['Administrador', 'Encargado de Compras'] } },
   { path: 'compras/:id/recepcion', loadComponent: () => import('./modules/compras/recepcion-nueva.component').then(m => m.RecepcionNuevaComponent), canActivate: [authGuard, rolGuard], data: { roles: ['Administrador', 'Encargado de Compras'] } },
-  { path: 'compras/:id/factura', loadComponent: () => import('./modules/compras/factura-compra-nueva.component').then(m => m.FacturaCompraNuevaComponent), canActivate: [authGuard, rolGuard], data: { roles: ['Administrador', 'Encargado de Compras'] } },
+  // F66 — /compras/:id/factura ya no existe. El boton de la orden documenta lo
+  //   recibido y abre el PDF en el acto: numero, fechas, subtotal e impuesto se
+  //   deducen de la orden y de sus recepciones, asi que el formulario pedia
+  //   datos que el sistema ya tenia. Para registrar la factura REAL del
+  //   proveedor, con su numero y su importe, sigue estando POST
+  //   /api/facturas-compra.
   { path: 'compras/:id', loadComponent: () => import('./modules/compras/orden-compra-detalle.component').then(m => m.OrdenCompraDetalleComponent), canActivate: [authGuard, rolGuard], data: { roles: ['Administrador', 'Encargado de Compras'] } },
   { path: 'cuentas-por-pagar', loadComponent: () => import('./modules/compras/cuentas-por-pagar.component').then(m => m.CuentasPorPagarComponent), canActivate: [authGuard, rolGuard], data: { roles: ['Administrador', 'Encargado de Compras', 'Supervisor E-Commerce'] } },
   { path: 'cuentas-por-pagar/:id', loadComponent: () => import('./modules/compras/cuenta-por-pagar-detalle.component').then(m => m.CuentaPorPagarDetalleComponent), canActivate: [authGuard, rolGuard], data: { roles: ['Administrador', 'Encargado de Compras', 'Supervisor E-Commerce'] } },

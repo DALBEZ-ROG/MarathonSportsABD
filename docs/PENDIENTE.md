@@ -29,7 +29,7 @@ las fases **47** (reserva de stock), **48** (matriz de permisos), **49** (D-39) 
 repaso de flujos que encontro tres huecos mas.
 
 Se han encontrado **43 defectos** y se han cerrado **los 43**. Las pruebas
-pasaron de **0 → 105 → 131 → 154**, todas en verde. La compilación de producción
+pasaron de **0 → 105 → 131 → 160**, todas en verde. La compilación de producción
 del frontend funciona.
 
 A las fases 47-59 se suman ahora:
@@ -42,6 +42,7 @@ A las fases 47-59 se suman ahora:
 | **F63** | Tres cosas que salieron de **recorrer el flujo entero con cada rol**, no solo con el administrador |
 | **F64** | El Administrador queda **exento** de la separación de funciones al aprobar órdenes de compra |
 | **F65** | Compras y Producción **no podían terminar su parte del flujo**: dos GRANT que nunca se concedieron y un guardado de más |
+| **F66** | Documentar la compra es **un clic y un PDF**, con el importe calculado de lo recibido |
 
 ---
 
@@ -460,6 +461,45 @@ manda quien registra el pago.
 > rol en cada paso (pedido → picking → empaque → comprobante → entrega →
 > devolución → inspección): **cero fallos**.
 
+### F66 · Documentar la compra: un clic, un PDF, y solo lo recibido
+
+Registrar la factura llevaba a un formulario con cinco campos —número, fecha,
+vencimiento, subtotal e impuesto—. Cuatro de los cinco se deducen de la orden y
+de sus recepciones. Ahora el botón de la orden **documenta y abre el PDF en otra
+pestaña**, sin pantalla intermedia.
+
+**Lo importante no es el ahorro de teclas.** Calcular el subtotal de lo recibido
+**elimina de raíz el descuadre que D-36 tenía que vigilar**: si el importe sale
+de lo que entró, no puede superarlo. El tope de D-36 sigue en pie para
+`POST /api/facturas-compra`, que es la vía donde alguien puede teclear una cifra.
+
+**La regla, que es la que pidió el dueño del proyecto:**
+
+```
+importe = valor recibido − lo ya documentado (las anuladas no cuentan)
+```
+
+Una orden de 10 unidades recibida en dos tandas de 4 y 6 produce un documento de
+40 y otro de 60. **Sin esa resta saldrían dos de 100 y la cuenta por pagar
+quedaría al doble** — el error que más caro sale descubrir tarde, porque no
+falla: cuadra mal. Lo fija `DocumentoDeCompraTest` (6 pruebas).
+
+> **Se llama «documento interno de compra» y no «factura», a propósito.** La
+> factura la emite el proveedor, con su numeración y su firma; esto lo emite
+> Marathon a partir de lo que entró en la bodega. Llamarlo factura sería decir
+> que es algo que no es, así que el PDF lo dice en el título y en el pie. Para
+> registrar la factura real del proveedor sigue estando el endpoint de siempre,
+> **que no se tocó**.
+
+**El IVA es una propiedad, no una constante**: `app.compras.iva-porcentaje`, 15
+por defecto (Ecuador desde 2024). Un tipo impositivo cambia por ley, no por un
+despliegue.
+
+**Detalle del front que conviene no deshacer:** el PDF se pide con
+`ApiService.getBlob` y se abre como `blob:`, no apuntando una pestaña nueva a la
+URL del API. Desde la F60 la sesión va en una cookie, y una pestaña nueva hacia
+otro origen no la lleva: saldría un 401 en blanco.
+
 ---
 
 ## 4. Lo que queda abierto
@@ -578,7 +618,7 @@ Se aplican a cualquier cosa que se añada, y no son negociables:
 ## 7. Cómo comprobar que no se rompió nada
 
 ```bash
-# Backend — 154 pruebas, deben quedar todas en verde
+# Backend — 160 pruebas, deben quedar todas en verde
 cd marathon-backend
 mvn test                     # necesita TEST_DB_PASSWORD en el entorno
 
@@ -587,9 +627,9 @@ cd marathon-frontend
 npx ng build --configuration production
 ```
 
-Si `mvn test` baja de 154 pruebas o alguna falla, **algo se rompió**.
+Si `mvn test` baja de 160 pruebas o alguna falla, **algo se rompió**.
 
-**Y con la aplicación levantada, la comprobación que faltaba.** Las 154 pruebas
+**Y con la aplicación levantada, la comprobación que faltaba.** Las 160 pruebas
 usan un solo pool (`app.datasource.roles.enabled=false`), así que **no ven** los
 privilegios por rol. D-39 pasó por ahí. Con el backend en marcha:
 

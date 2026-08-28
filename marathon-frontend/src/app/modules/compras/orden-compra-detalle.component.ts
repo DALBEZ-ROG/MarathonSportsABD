@@ -115,7 +115,10 @@ interface Recepcion {
                 class="btn-save" [routerLink]="['/compras', oc.idOrdenCompra, 'recepcion']">Registrar recepción</button>
 
         <button *ngIf="(oc.estado === 'recibida_parcial' || oc.estado === 'recibida_completa') && esCompras"
-                class="btn-save factura-btn" [routerLink]="['/compras', oc.idOrdenCompra, 'factura']">Registrar factura de compra</button>
+                class="btn-save factura-btn" [disabled]="documentando"
+                (click)="documentarCompra()">
+          {{ documentando ? 'Generando documento…' : 'Documentar compra y abrir PDF' }}
+        </button>
 
         <button *ngIf="oc.estado === 'borrador' && esCompras"
                 class="btn-save" (click)="cambiar('pendiente_aprobacion')">Enviar a aprobación</button>
@@ -151,6 +154,7 @@ export class OrdenCompraDetalleComponent implements OnInit {
   esCompras = false;
   toast = '';
   toastError = false;
+  documentando = false;
 
   private etiquetas: Record<string, string> = {
     borrador: 'Borrador',
@@ -199,6 +203,55 @@ export class OrdenCompraDetalleComponent implements OnInit {
     this.api.put<OrdenCompra>(`ordenes-compra/${this.id}/estado`, { estado }).subscribe({
       next: res => { this.oc = res; this.mostrarToast('Estado actualizado a ' + this.etiqueta(estado)); },
       error: (err) => { this.mostrarToast(err.error?.message || 'Error al cambiar estado', true); }
+    });
+  }
+
+  /**
+   * Documenta lo recibido y abre el PDF, en un solo clic (F66).
+   *
+   * Antes esto llevaba a un formulario donde había que teclear número, fechas,
+   * subtotal e impuesto. Los cuatro se deducen de la orden y de sus
+   * recepciones, así que pedirlos era pedirle al usuario datos que el sistema
+   * ya tiene — y además abría la puerta a teclear un importe que no cuadrase
+   * con lo recibido.
+   *
+   * **El importe es lo recibido menos lo ya documentado.** Si la orden se
+   * recibió en dos veces, el segundo documento cubre solo la diferencia.
+   */
+  documentarCompra() {
+    if (this.documentando) { return; }
+    this.documentando = true;
+
+    this.api.post<any>(`facturas-compra/orden/${this.id}/desde-recepcion`, {}).subscribe({
+      next: factura => {
+        this.documentando = false;
+        this.mostrarToast('Documento ' + factura.numeroFacturaProveedor + ' registrado');
+        this.abrirPdf(factura.idFacturaCompra);
+        this.cargar();
+      },
+      error: err => {
+        this.documentando = false;
+        this.mostrarToast(err.error?.message || 'No se pudo documentar la compra', true);
+      }
+    });
+  }
+
+  /**
+   * Abre el PDF en otra pestaña.
+   *
+   * Se pide con `withCredentials` y se abre como blob en vez de apuntar la
+   * pestaña a la URL de la API: desde la F60 la sesión va en una cookie, y una
+   * pestaña nueva hacia otro origen no la lleva — saldría un 401 en blanco.
+   */
+  private abrirPdf(idFactura: number) {
+    this.api.getBlob(`facturas-compra/${idFactura}/pdf`).subscribe({
+      next: (pdf: Blob) => {
+        const url = URL.createObjectURL(pdf);
+        window.open(url, '_blank');
+        // Se suelta el objeto cuando el navegador ya lo ha tomado.
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      },
+      error: () => this.mostrarToast('El documento se registró, pero no se pudo abrir el PDF', true)
     });
   }
 
