@@ -132,6 +132,9 @@ public class LogService {
         LocalDateTime d = desde != null ? desde : LocalDateTime.of(1970, 1, 1, 0, 0);
         LocalDateTime h = hasta != null ? hasta : LocalDateTime.of(2999, 12, 31, 23, 59);
 
+        // F51 (D-41): sin Sort aqui A PROPOSITO. La consulta lleva su propio
+        // ORDER BY en el JPQL, con desempate por id para que la paginacion sea
+        // estable. Anadir un Sort aqui lo pisaria.
         Pageable pageable = PageRequest.of(page, size);
         Page<LogAccion> result = logAccionRepository.buscar(idU, mod, d, h, pageable);
 

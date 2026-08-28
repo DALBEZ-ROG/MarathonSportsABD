@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,7 +43,12 @@ public class ClienteService {
     }
 
     public PageResponseDTO<ClienteResponseDTO> listar(int page, int size, String nombre, String estado) {
-        Pageable pageable = PageRequest.of(page, size);
+        // F51 (D-41): el ORDEN es obligatorio en una lista paginada.
+        // Sin ORDER BY, PostgreSQL devuelve las filas en el orden del monton, y
+        // un UPDATE reescribe la fila al final: la que acabas de editar
+        // desaparece de su pagina. Ademas, dos paginas consecutivas pueden
+        // repetir una fila y esconder otra.
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "idCliente"));
         Page<Cliente> result;
 
         if (nombre != null && !nombre.isEmpty() && estado != null && !estado.isEmpty()) {
@@ -138,6 +144,8 @@ public class ClienteService {
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente", id));
 
+        // No es un listado: solo pregunta "¿este cliente tiene algun pedido?".
+        // El orden da igual porque nunca se mira el contenido (F51, D-41).
         Page<com.marathon.model.Pedido> pedidosCliente = pedidoRepository.findByClienteIdCliente(id, PageRequest.of(0, 1));
         boolean tienePedidos = pedidosCliente.getTotalElements() > 0;
         if (tienePedidos) {

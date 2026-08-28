@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import com.marathon.dto.PageResponseDTO;
@@ -33,7 +34,12 @@ public class BodegaService {
     }
 
     public PageResponseDTO<BodegaResponseDTO> listar(int page, int size, String nombre, String estado) {
-        Pageable pageable = PageRequest.of(page, size);
+        // F51 (D-41): el ORDEN es obligatorio en una lista paginada.
+        // Sin ORDER BY, PostgreSQL devuelve las filas en el orden del monton, y
+        // un UPDATE reescribe la fila al final: la que acabas de editar
+        // desaparece de su pagina. Ademas, dos paginas consecutivas pueden
+        // repetir una fila y esconder otra.
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "idBodega"));
         Page<Bodega> result;
 
         if (nombre != null && !nombre.isEmpty() && estado != null && !estado.isEmpty()) {
@@ -55,7 +61,7 @@ public class BodegaService {
     }
 
     public List<BodegaResponseDTO> listarActivas() {
-        return bodegaRepository.findByEstado("activo").stream()
+        return bodegaRepository.findByEstadoOrderByNombreAsc("activo").stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
@@ -107,6 +113,10 @@ public class BodegaService {
     private void mapFromDTO(Bodega bodega, BodegaRequestDTO dto) {
         bodega.setNombre(dto.getNombre());
         bodega.setDireccion(dto.getDireccion());
+        // F50 (D-40): el DTO traia este campo desde siempre y nadie lo leia, asi
+        // que la pantalla decia "guardada correctamente" y el responsable se
+        // perdia por el camino.
+        bodega.setResponsable(dto.getResponsable());
 
         if (dto.getIdCiudad() != null) {
             Ciudad ciudad = ciudadRepository.findById(dto.getIdCiudad())
@@ -120,6 +130,7 @@ public class BodegaService {
         dto.setIdBodega(bodega.getIdBodega());
         dto.setNombre(bodega.getNombre());
         dto.setDireccion(bodega.getDireccion());
+        dto.setResponsable(bodega.getResponsable());
         dto.setEstado(bodega.getEstado());
         dto.setCreatedAt(bodega.getCreatedAt());
         if (bodega.getCiudad() != null) {

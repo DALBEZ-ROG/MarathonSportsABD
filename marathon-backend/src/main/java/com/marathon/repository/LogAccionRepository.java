@@ -21,7 +21,7 @@ public interface LogAccionRepository extends JpaRepository<LogAccion, Integer> {
 
     @Query("SELECT l FROM LogAccion l WHERE (:idUsuario = 0 OR l.usuario.idUsuario = :idUsuario) "
             + "AND (:modulo = '' OR l.modulo = :modulo) "
-            + "AND l.fecha BETWEEN :desde AND :hasta ORDER BY l.fecha DESC")
+            + "AND l.fecha BETWEEN :desde AND :hasta ORDER BY l.fecha DESC, l.idLog DESC")
     Page<LogAccion> buscar(@Param("idUsuario") Integer idUsuario,
                            @Param("modulo") String modulo,
                            @Param("desde") LocalDateTime desde,

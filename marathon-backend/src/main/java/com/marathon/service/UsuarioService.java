@@ -14,6 +14,7 @@ import com.marathon.repository.UsuarioRolRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -48,7 +49,12 @@ public class UsuarioService {
     }
 
     public PageResponseDTO<UsuarioResponseDTO> listar(int page, int size, String nombre, String estado) {
-        Pageable pageable = PageRequest.of(page, size);
+        // F51 (D-41): el ORDEN es obligatorio en una lista paginada.
+        // Sin ORDER BY, PostgreSQL devuelve las filas en el orden del monton, y
+        // un UPDATE reescribe la fila al final: la que acabas de editar
+        // desaparece de su pagina. Ademas, dos paginas consecutivas pueden
+        // repetir una fila y esconder otra.
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "idUsuario"));
         Page<Usuario> result;
 
         if (nombre != null && !nombre.isEmpty() && estado != null && !estado.isEmpty()) {

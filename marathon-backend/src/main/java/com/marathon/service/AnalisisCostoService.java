@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import com.marathon.dto.PageResponseDTO;
@@ -76,7 +77,12 @@ public class AnalisisCostoService {
     }
 
     public PageResponseDTO<CostoProductoFabricadoDTO> listarCostosPorProducto(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
+        // F51 (D-41): el ORDEN es obligatorio en una lista paginada.
+        // Sin ORDER BY, PostgreSQL devuelve las filas en el orden del monton, y
+        // un UPDATE reescribe la fila al final: la que acabas de editar
+        // desaparece de su pagina. Ademas, dos paginas consecutivas pueden
+        // repetir una fila y esconder otra.
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "idProducto"));
         Page<Producto> result = productoRepository.findByOrigen("fabricado", pageable);
 
         List<CostoProductoFabricadoDTO> content = result.getContent().stream().map(p -> {

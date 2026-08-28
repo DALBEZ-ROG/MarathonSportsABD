@@ -17,7 +17,7 @@ public interface HistorialInventarioRepository extends JpaRepository<HistorialIn
 
     @Query("SELECT h FROM HistorialInventario h WHERE (:idProducto = 0 OR h.inventario.producto.idProducto = :idProducto) "
             + "AND (:idBodega = 0 OR h.inventario.bodega.idBodega = :idBodega) "
-            + "AND h.fecha BETWEEN :desde AND :hasta ORDER BY h.fecha DESC")
+            + "AND h.fecha BETWEEN :desde AND :hasta ORDER BY h.fecha DESC, h.idHistorial DESC")
     Page<HistorialInventario> buscarAuditoria(@Param("idProducto") Integer idProducto,
                                               @Param("idBodega") Integer idBodega,
                                               @Param("desde") LocalDateTime desde,

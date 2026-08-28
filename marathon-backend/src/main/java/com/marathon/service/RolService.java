@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,7 +45,9 @@ public class RolService {
     }
 
     public List<RolResponseDTO> listarTodos() {
-        return rolRepository.findAll().stream()
+        // F51 (D-41): sin orden, la lista de roles se reordenaba sola en cuanto
+        // se editaba uno.
+        return rolRepository.findAll(Sort.by(Sort.Direction.ASC, "idRol")).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
