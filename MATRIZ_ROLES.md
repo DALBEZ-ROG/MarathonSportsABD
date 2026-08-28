@@ -153,3 +153,69 @@ lo que la base ya decía:
 Verificado con `scripts/fase37_pruebas_endpoints.ps1` (66 de 66) y
 `scripts/fase37_pruebas_navbar.ps1` (20 de 20): **todo enlace que el menú ofrece a
 un rol abre, y todo lo que no le corresponde devuelve 403.**
+
+---
+
+## La quinta capa — los permisos, desde la F48 (2026-08-27)
+
+Hasta la F48 este documento describía **cuatro** capas: navbar, guard de ruta,
+`SecurityConfig` y los `GRANT` de PostgreSQL. Había una quinta construida —49
+permisos, `rol_permiso`, `PermisoController`, la pantalla de roles— que **no
+decidía nada**: la prueba era que el Encargado de Producción tenía 0 permisos de
+49 y trabajaba con normalidad (defecto D-13).
+
+Desde la F48 esa capa **decide**. El reparto vive en
+`marathon-backend/sql/fase48_matriz_permisos.sql` y lo aplican **153 anotaciones**
+`@PreAuthorize("hasAuthority('modulo:accion')")`, una por método de controlador.
+
+**No es una capa nueva de restricciones**, y esto importa: la matriz está
+**derivada de las reglas por rol de `SecurityConfig`** que esta tabla ya
+documenta. Encenderla no le quitó el acceso a nadie. Lo que cambia es quién manda:
+
+> Antes, cambiar quién puede hacer qué era editar `SecurityConfig` y recompilar.
+> Ahora es **editar la matriz en la pantalla de roles**, y surte efecto en la
+> petición siguiente — las authorities se releen de `rol_permiso` en cada
+> petición, no del claim del token, así que ni siquiera hace falta volver a
+> entrar.
+
+### Permisos por rol
+
+| Rol | Permisos | Módulos que cubre |
+|---|---|---|
+| Administrador | 94 | todos |
+| Encargado de Compras | 24 | compras, recepciones, facturas, cuentas por pagar, pagos, devoluciones a proveedor, materia prima (ver), BOM (ver), proveedores (ver), catálogos (ver) |
+| Operador de Pedidos | 20 | pedidos, clientes, comprobantes, devoluciones de cliente, empaque (ver), catálogos (ver) |
+| Encargado de Producción | **20** | producción, materia prima, BOM, análisis de costos, informes de manufactura, catálogos (ver) |
+| Supervisor E-Commerce | 20 | tablero, informes, IA, y lectura del circuito de venta, compras (CxP) y producción |
+| Operador de Bodega | 19 | picking, empaque, inventario (movimientos), pedidos (estado), devoluciones (inspección), catálogos (ver) |
+
+**Ningún rol puede quedarse en cero**: lo impide el propio script —falla dentro de
+la transacción y no aplica nada— y lo vigila `MatrizPermisosTest`, que además
+comprueba que no haya ningún `@PreAuthorize` con un permiso inexistente, ninguno
+huérfano, y ningún método de controlador sin cubrir.
+
+### Los dos endpoints sin permiso, a propósito
+
+`GET /api/dashboard/resumen` y `PUT /api/usuarios/{id}/password` son de los seis
+roles: cada uno ve sus indicadores y cambia su propia contraseña. Darles un
+permiso obligaría a concedérselo a los seis, que es una forma retorcida de
+escribir «cualquiera con sesión».
+
+### Los cuatro que se comprueban en el servicio
+
+`PUT /api/pedidos/{id}/estado` y `PUT /api/ordenes-compra/{id}/estado` hacen
+varias cosas con repartos distintos en una sola llamada, así que la comprobación
+no cabe en una anotación y vive en `config/Permisos`:
+
+| Llamada | Permiso que exige |
+|---|---|
+| Pedido → cualquier estado | `pedidos:editar` |
+| Pedido → `anulado` | `pedidos:anular` |
+| OC → `pendiente_aprobacion` | `compras:crear` |
+| OC → `aprobada` | `compras:aprobar` (**solo Administrador**) |
+| OC → `rechazada` | `compras:rechazar` (**solo Administrador**) |
+| OC → `cancelada` | `compras:cancelar` |
+
+La separación de funciones —quien solicita una orden no puede aprobarla— **no**
+se convirtió en permiso y sigue donde estaba: no depende de quién seas sino de
+qué orden sea, y eso ningún permiso lo puede expresar.

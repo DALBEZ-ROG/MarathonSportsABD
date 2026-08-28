@@ -17,11 +17,24 @@ Todas las rutas de archivo son relativas a `marathon-backend/src/main/java/com/m
 
 | Severidad | Nº | IDs |
 |---|---|---|
-| **S1** | 5 | D-01, D-02, D-03, D-04, **D-34** |
-| **S2** | 10 | D-05 … D-13, **D-35** |
-| **S3** | 15 | D-14 … D-28 |
+| **S1** | 7 | D-01, D-02, D-03, D-04, **D-34**, **D-39**, **D-42** |
+| **S2** | 14 | D-05 … D-13, **D-35**, **D-36**, **D-38**, **D-40**, **D-41** |
+| **S3** | 17 | D-14 … D-28, **D-37**, **D-43** |
 | **S4** | 5 | D-29 … D-33 |
-| | **35** | |
+| | **43** | |
+
+## Estado a 2026-08-27
+
+| | Nº | Cuáles |
+|---|---|---|
+| **Cerrados** | 39 | los 30 de los 17 lotes; D-02 (F47), D-13 (F48), D-37 y D-38 del repaso de flujos; **D-39 (F49)**, que apareció al levantar la aplicación; y **D-40 a D-43**, que aparecieron depurando la interfaz en el navegador |
+| **Mitigados, no cerrados** | 2 | D-23 (ventana de 24 h → 2 h; sigue sin revocación) y D-26 (el secreto JWT ya no arranca por defecto; `datos-demo` sigue en `true`) |
+| **Abiertos por decisión** | 1 | D-27 (el JWT sigue en `localStorage`) |
+| **Abierto, pendiente de decisión de negocio** | 1 | **D-36**, el importe de la factura de compra |
+
+Los cuatro que no están cerrados lo están **por una decisión tomada y anotada**,
+no por olvido. Cada ficha dice quién lo decidió, cuándo y qué haría falta para
+cerrarlo.
 
 > **Nota de numeración.** D-34 y D-35 se añadieron el 2026-08-25, después de la primera redacción: estaban descritos en `AUDITORIA.md` (§2.2, flujos 5 y 2) pero se quedaron sin ficha propia. Los ids son cronológicos, no correlativos por severidad; ambos se listan en su sección de severidad correcta. `AUDITORIA.md` §2.2 flujo 5 citaba el del precio como «D-01», que es otro defecto; la referencia está corregida.
 
@@ -71,7 +84,34 @@ Ninguno de los tres emite aviso alguno. El endpoint devuelve 200.
 
 ### D-02 · Crear un pedido no comprueba ni reserva stock
 
-**Evidencia:** `service/PedidoService.java:131-180` — `crear()` valida cliente y producto por id, pero no consulta `inventario` en ningún momento. Tampoco hay reserva.
+> **Estado: CERRADO en la F47 (2026-08-27).** Existe `reserva_stock`, y con ella
+> las tres respuestas de negocio que faltaban:
+>
+> - **Cuándo se reserva:** al pasar el pedido de `pendiente` a `procesado`.
+>   Crear comprueba el disponible y lo rechaza si no alcanza, pero no retiene
+>   nada — hay 16.099 pedidos en `pendiente` y retener ahí bloquearía mercancía
+>   por cada pedido abandonado. Excepción: un **pedido especial** se crea aunque
+>   no haya stock (se fabrica; existen órdenes de producción para eso) y el
+>   déficit queda en la bitácora.
+> - **Quién libera:** la anulación libera, el despacho consume. No hay otro
+>   camino automático.
+> - **Pedido abandonado:** la reserva **vence a los 7 días y sale en un
+>   informe** (`GET /api/inventario/reservas/vencidas`, y un aviso en la pantalla
+>   de Inventario). **No se libera sola**; la suelta una persona, con motivo.
+>
+> `disponible(p) = SUM(inventario.stock_actual) − SUM(reservas activas)`. Lo
+> respetan además el despacho (no se come la reserva de otro pedido) y los
+> movimientos manuales de salida y de ajuste a la baja.
+>
+> Cubierto por `ReservaStockTest` (12 pruebas). Script:
+> `sql/fase47_reserva_stock.sql`.
+>
+> **Lo que NO se hizo, y se dice:** no se reconstruyeron reservas para los
+> 19.058 pedidos que ya estaban en `procesado`. No se sabe cuáles siguen vivos y
+> fabricárselas sería inventarse hechos. Durante la transición, el disponible es
+> **optimista** respecto de esos pedidos.
+
+**Evidencia (del defecto original):** `service/PedidoService.java:131-180` — `crear()` valida cliente y producto por id, pero no consulta `inventario` en ningún momento. Tampoco hay reserva.
 
 Combinado con D-01 (que no detiene el despacho cuando falta stock), no hay **ningún** punto del flujo de venta donde la falta de existencias frene la operación. Se pueden crear 100 pedidos de un producto con 3 unidades y despacharlos todos.
 
@@ -285,7 +325,44 @@ Se agrava porque **faltan manejadores** para `DataIntegrityViolationException` (
 
 ### D-13 · El modelo de permisos está construido de punta a punta y no se aplica en ninguna parte
 
-**Evidencia:** 49 filas en `permiso` y la tabla `rol_permiso` en la base; `controller/PermisoController.java`; claim `permisos` en `config/JwtUtils.java`; array `permisos` en `LoginResponseDTO`; `marathon-frontend/src/app/core/guards/permiso.guard.ts`; `AuthService.hasPermiso()`.
+> **Estado: CERRADO en la F48 (2026-08-27).** Se siguió el orden que exigía el
+> plan, y en ese orden:
+>
+> 1. **Cargar la matriz.** `sql/fase48_matriz_permisos.sql`. Los 49 permisos
+>    pasan a **94**: se añaden los 14 módulos que no tenían ninguna fila
+>    (empaque, devoluciones, recepciones, facturas de compra, cuentas por pagar,
+>    pagos, devoluciones a proveedor, materia prima, producción, BOM, análisis de
+>    costos, auditoría, logs, IA) y las acciones que faltaban. **La matriz no
+>    está inventada:** cada fila sale de una regla que ya se aplicaba en
+>    `SecurityConfig`, que es la autorización real y funciona. Por eso encender
+>    la comprobación no le quitó el acceso a nadie.
+> 2. **Verificar que ningún rol queda en cero.** Lo comprueba el propio script,
+>    dentro de la transacción: si algún rol quedara vacío no se aplica nada. Hoy:
+>    Administrador 94, Compras 24, Pedidos 20, Producción **20** (era 0),
+>    Supervisor 20, Bodega 19.
+> 3. **Encender.** `@EnableMethodSecurity` y **153 anotaciones**
+>    `@PreAuthorize("hasAuthority('modulo:accion')")`, una por método de
+>    controlador. Las cuatro decisiones que no caben en una anotación —anular un
+>    pedido frente a cambiarle el estado, y aprobar/rechazar/cancelar una orden
+>    de compra, que comparten endpoint— se comprueban dentro del servicio con
+>    `config/Permisos`.
+>
+> Las authorities se releen de `rol_permiso` en **cada petición**
+> (`JwtAuthenticationFilter` → `UsuarioDetailsService`), no del claim del token:
+> un cambio en la pantalla de roles surte efecto en la siguiente llamada, sin
+> volver a entrar. La pantalla de roles pasa de ser un editor de adorno a ser el
+> mando real.
+>
+> `DataInitializer.ensureComprasFase21()` ya **no** asigna permisos: volvía a
+> colgar `compras:aprobar` del Encargado de Compras en cada arranque, y eso
+> contradecía al propio `OrdenCompraService`, que exige Administrador.
+>
+> Cubierto por `MatrizPermisosTest` (6 pruebas: ningún rol en cero, ningún
+> permiso inventado, ninguno huérfano, ningún endpoint sin cubrir) y
+> `PermisosSeAplicanTest` (5 pruebas: quitar el permiso quita de verdad la
+> capacidad).
+
+**Evidencia (del defecto original):** 49 filas en `permiso` y la tabla `rol_permiso` en la base; `controller/PermisoController.java`; claim `permisos` en `config/JwtUtils.java`; array `permisos` en `LoginResponseDTO`; `marathon-frontend/src/app/core/guards/permiso.guard.ts`; `AuthService.hasPermiso()`.
 
 Comprobado:
 
@@ -453,6 +530,17 @@ Una OC creada en `borrador` con una cantidad o un precio mal puestos solo se pue
 
 El logout solo borra `localStorage` en el navegador. Con JWT sin estado y sin lista de revocación, el token sigue siendo válido hasta su expiración (24 h; el de refresco, 7 días). Un token capturado antes del cierre de sesión sigue sirviendo.
 
+> **Estado: MITIGADO, no cerrado (2026-08-27).** `app.jwt.expiration` baja de
+> **24 h a 2 h** (`application.properties`). La ventana de un token robado se
+> reduce doce veces, y la misma línea acorta también la de D-27. No obliga a
+> nadie a volver a entrar: el refresh sigue durando 7 días y desde la L7
+> comprueba que el usuario siga activo.
+>
+> **Lo que sigue abierto:** el logout no invalida nada. Cerrarlo de verdad exige
+> una lista de revocación persistida y una comprobación en **cada** petición. El
+> dueño del proyecto lo dejó fuera del alcance el 2026-08-27, a la vista del
+> coste; no es un olvido.
+
 ---
 
 ### D-24 · Se puede vender un producto dado de baja
@@ -485,6 +573,22 @@ Los secretos reales sí están correctamente fuera de git (comprobado: `.env` y 
 
 **Qué debería pasar:** que la aplicación **no arranque** si `app.jwt.secret` conserva el valor por defecto; y que las cuentas demo se creen solo bajo un perfil explícito.
 
+> **Estado: SIGUE PARCIAL (revisado el 2026-08-27).** La primera mitad —la
+> grave— la cerró `ComprobacionesDeArranque`: la aplicación se niega a arrancar
+> con el secreto por defecto, así que ya no se pueden forjar tokens de
+> administrador. La segunda sigue abierta: `app.datos-demo.enabled=true`.
+>
+> El dueño del proyecto decidió el 2026-08-27 **no** ponerlo en `false` todavía.
+> Lo que hay que resolver antes no es el código (`DATOS_DEMO=false` y ya), sino
+> el procedimiento de primer arranque sin datos de demo y el aviso a quien ya
+> tenga el entorno montado.
+>
+> **Detalle que descubrió la F48 y hay que tener presente:** `DataInitializer`
+> está entero bajo `@ConditionalOnProperty("app.datos-demo.enabled")`. Con los
+> datos demo apagados **no se crean ni los roles**, así que el día que se apague
+> hay que sembrar `rol` por script antes de ejecutar `fase48_matriz_permisos.sql`
+> —que falla a propósito, y con un mensaje claro, si los seis roles no existen—.
+
 ---
 
 ### D-27 · El JWT se guarda en `localStorage`
@@ -492,6 +596,15 @@ Los secretos reales sí están correctamente fuera de git (comprobado: `.env` y 
 **Evidencia:** `marathon-frontend/src/app/core/services/auth.service.ts:31-33`
 
 Accesible desde cualquier JavaScript de la página, así que un XSS entrega el token. La alternativa habitual es una cookie `HttpOnly` + `Secure` + `SameSite`. Se anota como S3 porque no hay hoy un XSS conocido en la aplicación, pero eleva el coste de cualquier otro defecto de front.
+
+> **Estado: ABIERTO por decisión (2026-08-27).** Lo único que cambió es que el
+> token que se puede robar **caduca en 2 h en vez de en 24** (ver D-23): el
+> agujero es el mismo, la ventana es doce veces menor.
+>
+> Mover el token a cookie `HttpOnly` toca CORS, CSRF —hoy deshabilitado a
+> propósito—, el interceptor HTTP y todas las llamadas del front. Es rediseñar la
+> sesión, no arreglar un fallo, y el dueño del proyecto lo dejó fuera del alcance
+> el 2026-08-27.
 
 ---
 
@@ -566,6 +679,242 @@ public PedidoResponseDTO obtener(Integer id) {        Pedido pedido = pedidoRepo
 La ruta `/clientes` admite `Supervisor E-Commerce`, pero `POST`/`PUT`/`DELETE /api/clientes` está reservado a Administrador y Operador de Pedidos. Un Supervisor entra a la pantalla, ve los botones de crear y editar, y recibe un 403 al pulsarlos.
 
 Es el desajuste típico entre el guard de ruta (que decide si se ve la pantalla) y la autorización real (que decide si se puede actuar). El resto de las rutas está bien alineado.
+
+---
+
+## Añadidos del repaso de flujos del 2026-08-27
+
+Tras cerrar D-02 y D-13 se recorrió el sistema flujo por flujo preguntando «¿y
+esto quién lo comprueba?», y contrastando cada respuesta contra
+`mod_venta_inve`. Salieron tres huecos que no estaban en la lista de 35. Los dos
+primeros no necesitaban decidir nada y se cerraron; el tercero sí, y se deja
+anotado.
+
+### D-36 · El importe de la factura de compra no se contrasta con lo recibido — S2, *abierto*
+
+**Evidencia:** `service/FacturaCompraService.java:63-88` — `crear()` valida que
+la orden exista, que tenga al menos una recepción, que el número no se repita y
+que las fechas sean coherentes. **El subtotal lo pone quien registra la factura y
+nadie lo compara con la mercancía que entró.** Una factura de 50.000 sobre una
+orden de la que se recibieron 500 se acepta y genera una cuenta por pagar de
+50.000, que después se paga.
+
+Es el tercer lado del cotejo clásico OC ↔ recepción ↔ factura. Los otros dos sí
+están: la recepción no deja recibir más de lo pedido, y el pago no deja pagar más
+del saldo. Falta este.
+
+**Medido en la base (2026-08-27):** de **2.287** facturas, **1.649** tienen el
+subtotal por encima del valor recibido de su orden; el mayor exceso es
+**11.194,86**. Casi todas vienen del poblado masivo de la F38, así que **no se
+puede distinguir** lo que escribió la aplicación de lo que escribieron los
+scripts — la misma limitación que impide reparar los despachos históricos.
+
+**Por qué no se cierra:** hace falta decidir antes si el subtotal puede incluir
+flete u otros cargos por encima de lo recibido y con qué tolerancia. Bloquear sin
+esa respuesta es inventarse la regla, y con el histórico así tampoco se puede
+contrastar el bloqueo.
+
+**Qué se hizo mientras tanto:** el descuadre deja de ser silencioso. Se registra
+en `log_accion` con módulo `compras` y acción `factura_descuadre`, con las dos
+cifras y la diferencia, para poder medir cuánto ocurre de verdad **antes** de
+decidir la regla:
+
+```sql
+SELECT count(*), min(fecha), max(fecha)
+  FROM log_accion WHERE modulo = 'compras' AND accion = 'factura_descuadre';
+```
+
+## Añadidos del 2026-08-27 (tarde) — depurando la aplicación en el navegador
+
+Los cuatro siguientes salieron de conducir la interfaz con Chrome, pantalla por
+pantalla y rol por rol. **Ninguno lo veían las 131 pruebas.** El primero lo
+reportó el dueño del proyecto usando el sistema.
+
+### D-40 · La bodega decía «guardada correctamente» y no guardaba el responsable — S2, *cerrado*
+
+**Cómo apareció:** el dueño del proyecto editó la bodega 1 para ponerle un
+responsable. Salió el aviso verde y la columna siguió vacía.
+
+**La cadena entera, y dónde se rompía:**
+
+| Capa | Qué hacía con `responsable` |
+|---|---|
+| `bodegas.component.ts` | lo pide en el formulario, lo envía y tiene columna para pintarlo |
+| `BodegaRequestDTO` | lo acepta |
+| **`BodegaService`** | **no lo miraba** |
+| `model/Bodega` | no tenía el campo |
+| **tabla `bodega`** | **no tenía la columna** |
+| `BodegaResponseDTO` | tiene el campo, siempre `null` |
+
+Es la misma familia que D-34 (el precio del pedido, aceptado e ignorado) y que
+D-13 (una pantalla que aparentaba controlar accesos): **el sistema afirma haber
+hecho algo que no hizo.**
+
+**Cerrado:** `sql/fase50_bodega_responsable.sql` añade la columna, y la entidad y
+el servicio la mapean. Se añadió la columna en vez de quitar el campo porque
+todo el trabajo de interfaz ya estaba hecho y el dato es útil; quitarlo era tirar
+eso para que el sistema dejara de mentir.
+
+**Privilegios:** ninguno hizo falta, y es la excepción a la regla del §2.4 de
+`PENDIENTE.md`: sobre `bodega` la F34 concedió a nivel de **tabla**, no de
+columna, y un GRANT de tabla cubre las columnas futuras. Se comprobó igualmente.
+
+### D-41 · Las listas paginadas no tenían orden: la fila que editabas desaparecía — S2, *cerrado*
+
+**Cómo apareció:** al verificar D-40. Se guardó el responsable, y la bodega 1
+**se cayó de la lista**: la primera fila pasó a ser la bodega 2, con la 1 aún
+activa en la base.
+
+**La causa:** `PageRequest.of(page, size)` **sin `Sort`**. Sin `ORDER BY`,
+PostgreSQL devuelve las filas en el orden del montón, y un `UPDATE` reescribe la
+fila al final: la que acabas de editar salta a la última página. Además dos
+páginas consecutivas pueden repetir una fila y esconder otra.
+
+**Alcance:** **16 listados** paginados y **4 listas sin paginar** que alimentan
+desplegables e informes. La segunda tanda apareció al hacer el picking: el
+desplegable de bodegas mostraba la AAM1 **al final** de las 20, por lo mismo.
+
+**Cerrado:**
+- catálogos y maestros → por id ascendente (es el orden que enseña la columna ID);
+- comprobantes y movimientos de inventario → por id descendente (lo más reciente primero);
+- desplegable de bodegas → **alfabético**, que es como se busca una bodega entre 20;
+- auditoría, bitácora y despachos → ya ordenaban por fecha, que **no es única**: se les añadió el id como desempate, sin el cual la paginación sigue sin ser estable;
+- `ClienteService:147` y `DashboardService:79` se dejaron sin `Sort` **a propósito**, y con su comentario: el primero es una comprobación de existencia, el segundo lleva su `ORDER BY` en el JPQL.
+
+### D-42 · Un pedido recién recogido no se podía empacar — S1, *cerrado*
+
+**Cómo apareció:** haciendo el flujo completo de venta por navegador. Se creó el
+pedido, se procesó, se recogió… y en la pantalla de Empaque **no estaba**.
+
+**Medido:** la pantalla pedía a `/api/picking/pedidos` los **100 primeros**
+pedidos en `procesado` —ordenados del más antiguo— y filtraba en el navegador
+los que tenían el picking completo. Hay **19.059** pedidos en `procesado`. El
+pedido recién recogido estaba en la posición **19.059 de 19.059**. No había
+paginación ni buscador: era inalcanzable.
+
+Dicho de otro modo: **quien recogía un pedido no podía empacarlo.** El flujo de
+almacén estaba cortado por la mitad para todo lo que no fueran los 100 pedidos
+más antiguos del sistema.
+
+**Cerrado:**
+- `PedidoRepository.buscarListosParaEmpacar` filtra **en la base** (procesado + picking completo), en vez de traer 100 y descartar en el cliente;
+- `GET /api/empaque/pedidos/listos`, paginado;
+- ordena del **más reciente al más antiguo**, al revés que la cola de picking: la cola de picking es trabajo por hacer y va por orden de llegada; el empaque es lo que *acabas* de recoger;
+- la pantalla pagina de verdad y dice cuántos hay (`Página 1 de 901 · 9.002 pedidos listos para empacar`).
+
+El `EXISTS` de la consulta no sobra: sin él, un pedido **sin líneas** cumpliría
+el `NOT EXISTS` por vacuidad y saldría listado como listo para empacar.
+
+### D-43 · Cinco «Ver detalle» del tablero de inicio no llevaban a ninguna parte — S3, *cerrado*
+
+**Cómo apareció:** recorriendo con cada rol todas las pantallas que su menú
+ofrece. Tres roles tenían enlaces que los devolvían a `/inicio`.
+
+**La causa:** `DashboardResumenService` da a cada indicador la ruta de su enlace
+«Ver detalle», y esa ruta es **del frontend**. Cinco de las catorce estaban
+puestas con el nombre del **endpoint de la API**, que se parece pero no coincide:
+
+| Emitía | Existe en `app.routes.ts` |
+|---|---|
+| `/ordenes-compra` | `/compras` |
+| `/ordenes-produccion` | `/produccion` |
+| `/analisis-costos` | `/produccion/costos` |
+| `/recepciones` | no hay pantalla suelta → `/compras` |
+| `/pedidos-especiales` | `/pedidos/especiales` |
+
+Afectaba al inicio de **Operador de Pedidos, Encargado de Compras y Encargado de
+Producción** — casi todo lo que ven esos tres roles al entrar.
+
+**Cerrado:** rutas corregidas, y `RutasDelTableroTest` contrasta cada ruta que
+emite el tablero contra `app.routes.ts`. Nada en el compilador ata un literal de
+Java con uno de TypeScript; esa prueba lo ata. Se comprobó por mutación: al
+devolver una ruta a su valor roto, la prueba falla.
+
+---
+
+### D-39 · Tres de los seis roles no podían crear el documento central de su trabajo — S1, *cerrado*
+
+> **El defecto más grave de los que quedaban, y llevaba abierto desde la F37.**
+
+**Cómo apareció:** levantando la aplicación para probar las fases 47 y 48. El
+primer `POST /api/pedidos` como `pedidos@marathon.com` devolvió **403**, y el
+registro decía *«permiso denegado a la tabla pedido»*.
+
+**Medido contra la aplicación en marcha (2026-08-27):**
+
+| Rol | Su documento | Antes | Después |
+|---|---|---|---|
+| Operador de Pedidos | `POST /api/pedidos` | **403** | 201 |
+| Encargado de Compras | `POST /api/ordenes-compra` | **403** | 201 |
+| Encargado de Producción | `POST /api/ordenes-produccion` | **403** | 201 |
+
+**La causa, que es una sola para los tres.** Hibernate escribe por omisión un
+INSERT **estático**: nombra *todas* las columnas mapeadas de la entidad, tengan
+valor o no. En un documento que atraviesa varias etapas eso significa nombrar
+columnas que solo se rellenan **más tarde** —`numero_hu` y `transportista` las
+pone el empaque; `id_usuario_aprobador` y `fecha_aprobacion`, la aprobación;
+`fecha_inicio` y `fecha_fin`, el cierre de la orden—. La fase 34 concede
+privilegios columna por columna, así que el rol que **arranca** el flujo
+correctamente no las tiene, y PostgreSQL no rechaza esas columnas: **rechaza el
+INSERT entero**.
+
+**Por qué no se había visto.** `scripts/fase37_pruebas_endpoints.ps1` dio 66 de
+66, pero **todas sus pruebas son GET**: comprueban quién puede *ver* cada
+pantalla, no quién puede *escribir* en ella. El único camino de escritura que se
+ejercitaba de verdad era el del Administrador, que usa el pool por defecto y
+tiene INSERT sobre la tabla entera. Con el administrador todo funcionaba; con los
+otros tres roles, nada. Es el mismo punto ciego que ya había señalado
+`PENDIENTE.md §2.5` —«una consulta nueva debe ser ejecutable por el rol que la va
+a pedir»— aplicado a la escritura.
+
+**Cerrado en dos mitades:**
+
+1. `@DynamicInsert` en `Pedido`, `DetallePedido`, `OrdenCompra` y
+   `OrdenProduccion`. Hibernate pasa a nombrar solo las columnas **con valor**,
+   así que las que se rellenan más tarde desaparecen del INSERT. Resuelve las
+   nueve columnas que están a NULL al crear, **sin conceder ni un privilegio**.
+2. `sql/fase49_privilegios_de_creacion.sql`, para las cuatro que sí llevan valor
+   porque la entidad les da un valor por defecto en Java
+   (`picking_completado`=false, `cantidad_recogida`=0, `costo_mano_obra`=0,
+   `costo_indirecto`=0). En los cuatro casos el valor insertado es **exactamente
+   el DEFAULT que ya tiene la columna**, y se concede **INSERT y no UPDATE**: el
+   Operador de Pedidos puede crear una línea con el picking sin empezar, pero
+   **sigue sin poder marcarla como recogida** — eso es del Operador de Bodega.
+
+**Cómo se comprobó:** con la aplicación en marcha, los tres POST devuelven 201, y
+`has_column_privilege('usr_pedidos_marathon','detalle_pedido','picking_completado','UPDATE')`
+sigue devolviendo `false`.
+
+**Lo que deja abierto:** `fase37_pruebas_endpoints.ps1` sigue probando solo
+lecturas. Mientras siga así, este defecto puede volver con cualquier entidad
+nueva.
+
+---
+
+### D-37 · Un traslado podía tener la misma bodega de origen y destino — S3, *cerrado*
+
+**Evidencia:** `service/InventarioService.java`, rama `traslado`. Se exigía
+bodega destino, pero no que fuera distinta de la de origen. Con las dos iguales,
+origen y destino son **la misma fila** de `inventario`: el `−cantidad` y el
+`+cantidad` se anulan y en el kardex queda un movimiento de traslado que no
+trasladó nada.
+
+**Cerrado:** se rechaza con un 400. Había **0 casos** en la base, así que no
+rompe histórico. Cubierto por `ValidacionesDeFlujoTest`.
+
+### D-38 · Las devoluciones se comprobaban solicitud a solicitud, no acumulando — S2, *cerrado*
+
+**Evidencia:** `service/SolicitudDevolucionService.java` — se comprobaba
+`item.getCantidadDevuelta() > dp.getCantidad()` mirando **solo la solicitud en
+curso**. Dos solicitudes seguidas sobre el mismo pedido podían devolver cada una
+las 10 unidades de una línea de 10, y las dos pasaban: 20 unidades devueltas de
+10 vendidas, con su reembolso detrás.
+
+**Cerrado:** se compara contra el acumulado
+(`SolicitudDevolucionDetalleRepository.devueltoAcumuladoDe`), excluyendo las
+solicitudes `rechazada` —que no se llevaron mercancía y no deben gastar cupo—.
+Había **0 casos** en la base. El mensaje dice las tres cifras: comprado, ya
+devuelto y lo que queda.
 
 ---
 
