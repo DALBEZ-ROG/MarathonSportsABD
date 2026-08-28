@@ -26,6 +26,8 @@ interface CuentaPorPagar {
       <div class="toolbar">
         <h2>Cuentas por Pagar</h2>
         <div class="filters">
+          <input type="text" [(ngModel)]="busqueda" (input)="onBuscar()"
+                 placeholder="Buscar por proveedor o N.° de factura..." class="input-search"/>
           <select [(ngModel)]="filtroEstado" (change)="onFiltro()" class="select-filter">
             <option value="">Todos los estados</option>
             <option value="vigente">Vigente</option>
@@ -106,10 +108,19 @@ export class CuentasPorPagarComponent implements OnInit {
     return c.estado === 'vencida' || (c.estado === 'vigente' && new Date(c.fechaVencimiento) < new Date());
   }
 
+  /** F54: buscador por texto. Se espera 300 ms para no lanzar una consulta por tecla. */
+  busqueda = '';
+  private buscarTimeout: any;
+
+  onBuscar() {
+    clearTimeout(this.buscarTimeout);
+    this.buscarTimeout = setTimeout(() => { this.page = 0; this.cargar(); }, 300);
+  }
   cargar() {
     this.loading = true;
     let url = 'cuentas-por-pagar?page=' + this.page + '&size=' + this.size;
     if (this.filtroEstado) { url += '&estado=' + this.filtroEstado; }
+    if (this.busqueda) url += '&busqueda=' + encodeURIComponent(this.busqueda);
 
     this.api.get<any>(url).subscribe({
       next: (res: any) => { this.data = res.content; this.totalPages = res.totalPages; this.loading = false; },

@@ -18,6 +18,22 @@ public interface InventarioRepository extends JpaRepository<Inventario, Integer>
 
     Page<Inventario> findByBodegaIdBodega(Integer idBodega, Pageable pageable);
 
+    /**
+     * Inventario con filtro de bodega y BUSQUEDA POR PRODUCTO (F54).
+     *
+     * <p>La pantalla solo tenia un desplegable de bodegas: para saber cuanto
+     * queda de un articulo concreto habia que recorrer las paginas a mano.
+     * Se busca por nombre de producto y por nombre de bodega.
+     */
+    @Query("SELECT i FROM Inventario i WHERE "
+         + "(:idBodega IS NULL OR i.bodega.idBodega = :idBodega) "
+         + "AND (:texto IS NULL "
+         + "     OR LOWER(i.producto.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')) "
+         + "     OR LOWER(i.bodega.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))")
+    Page<Inventario> buscar(@Param("idBodega") Integer idBodega,
+                            @Param("texto") String texto,
+                            Pageable pageable);
+
     List<Inventario> findByProductoIdProducto(Integer idProducto);
 
     Optional<Inventario> findByProductoIdProductoAndBodegaIdBodega(Integer idProducto, Integer idBodega);

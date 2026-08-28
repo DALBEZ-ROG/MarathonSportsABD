@@ -399,3 +399,71 @@ SELECT count(*) FROM reserva_stock
 | `docs/DEFECTOS.md` | Ficha de los 43 defectos, con evidencia y `fichero:línea` |
 | `docs/PLAN.md` | Los 17 lotes, el estado final de cada uno y los recortes razonados |
 | `docs/DASHBOARD.md` | Diagnóstico y rediseño del tablero; las 22 cifras contrastadas |
+
+---
+
+## 9. Interfaz: lo que se rehizo el 2026-08-27 (F54)
+
+Tres quejas del dueño del proyecto, y lo que salió de cada una.
+
+### La tabla se quedaba a media pantalla — una línea de CSS
+
+`styles.scss` ponía `display: block` a las tablas **sin media query**, o sea en
+todas las pantallas. Sobre un `<table>`, `display: block` deshace la caja de
+tabla: el ancho pasa a calcularlo una caja anónima que se encoge al contenido, y
+el `width: 100%` de la regla de arriba deja de tener efecto.
+
+Medido antes y después en el navegador, sobre seis pantallas: la tabla ocupaba
+**~65 %** del ancho útil y ahora ocupa **100 %**. El desplazamiento horizontal
+—que era la intención original y es buena— se movió a la media query de
+pantallas estrechas, que es donde hace falta.
+
+**Una sola regla arregló las 31 pantallas con tabla.**
+
+### Filtros de búsqueda por escrito
+
+Siete listados solo tenían desplegables. Se les añadió búsqueda por texto, con
+el filtro **en la base**, no en el navegador:
+
+| Pantalla | Busca por | Efecto medido |
+|---|---|---|
+| Pedidos | nº de pedido o cliente | 23.000 páginas → 33 buscando «Doris» |
+| Órdenes de compra | nº de orden o proveedor | 267 páginas → 1 buscando «2665» |
+| Inventario | producto o bodega | 200 páginas → 2 buscando «SAMBA» |
+| Órdenes de producción | nº de orden o producto | 300 → 227 |
+| Cuentas por pagar | proveedor o nº de factura | 229 → 45 |
+| Devoluciones | nº, pedido o cliente | 80 páginas → 1 |
+| Dev. a proveedor | nº o proveedor | 40 → 8 |
+
+En Pedidos se acepta **«PED-230005», «230005» y «Doris»**: el número con formato
+lo compone el DTO y no existe como columna, así que copiar lo que se ve en
+pantalla no encontraba nada — la forma más segura de que alguien concluya que su
+pedido se perdió.
+
+### El producto se escribe, no se despliega
+
+`orden-compra-nueva` tenía un `<select>` con todos los productos. Ahora usa
+`app-searchable-select`, **que ya existía** y usaba la pantalla de pedidos: aquí
+solo faltaba usarlo. Proveedor, producto y materia prima se escriben.
+
+### Dos trampas que dejó esto, y que conviene no repetir
+
+1. **Un parámetro nulo en un `LIKE` no se puede tipar.** `CONCAT('%', :texto,
+   '%')` con `:texto` nulo hace que PostgreSQL lo tome por `bytea` y falle con
+   *«el operador no existe: text ~~ bytea»*. Hay que escribir
+   `CAST(:texto AS string)`.
+2. **Ni un `? IS NULL` con una fecha.** Da *«no se pudo determinar el tipo del
+   parámetro»*. Por eso las fechas se pasan **siempre**, con topes por defecto —
+   que es lo que ya hacía `EmpaqueService.listarDespachados`.
+
+Las dos juntas rompieron los **siete** listados sin búsqueda, que es el caso
+normal. **Y mi primera comprobación en el navegador dio verde**, porque medí el
+resultado *con* búsqueda y no el listado sin ella. Al probar una pantalla,
+comprueba el caso vacío antes que el caso lleno.
+
+### El puerto: Marathon ahora es el 4300
+
+Los dos proyectos Angular de este equipo tomaban el 4200 por defecto y el primero
+que arrancaba se lo quedaba; el navegador llegó a servir **otra aplicación entera
+desde caché** mientras el servidor ya devolvía ésta. `angular.json` fija el
+**4300**, y el CORS de `SecurityConfig` lo acompaña.

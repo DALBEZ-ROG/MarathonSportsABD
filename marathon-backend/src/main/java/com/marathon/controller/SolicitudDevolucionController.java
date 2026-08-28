@@ -39,8 +39,9 @@ public class SolicitudDevolucionController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String estado,
-            @RequestParam(required = false) Integer idPedido) {
-        return ResponseEntity.ok(service.listar(page, size, estado, idPedido));
+            @RequestParam(required = false) Integer idPedido,
+            @RequestParam(required = false) String busqueda) {
+        return ResponseEntity.ok(service.listar(page, size, estado, idPedido, busqueda));
     }
 
     @GetMapping("/{id}")

@@ -138,22 +138,13 @@ public class SolicitudDevolucionService {
         return toDTO(solicitud);
     }
 
-    public PageResponseDTO<SolicitudDevolucionResponseDTO> listar(int page, int size, String estado, Integer idPedido) {
+    public PageResponseDTO<SolicitudDevolucionResponseDTO> listar(int page, int size, String estado,
+                                                                 Integer idPedido, String busqueda) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "idSolicitud"));
-        Page<SolicitudDevolucion> result;
-
-        boolean hasEstado = estado != null && !estado.isEmpty();
-        boolean hasPedido = idPedido != null;
-
-        if (hasEstado && hasPedido) {
-            result = solicitudRepository.findByEstadoAndPedidoIdPedido(estado, idPedido, pageable);
-        } else if (hasEstado) {
-            result = solicitudRepository.findByEstado(estado, pageable);
-        } else if (hasPedido) {
-            result = solicitudRepository.findByPedidoIdPedido(idPedido, pageable);
-        } else {
-            result = solicitudRepository.findAll(pageable);
-        }
+        // F54: busqueda por texto, sin la cual encontrar un registro concreto
+        // entre miles era pasar paginas una a una.
+        Page<SolicitudDevolucion> result = solicitudRepository.buscar(
+                Filtros.vacioComoNulo(estado), idPedido, Filtros.numeroDePedido(busqueda), pageable);
 
         List<SolicitudDevolucionResponseDTO> content = result.getContent().stream()
                 .map(this::toDTO).collect(Collectors.toList());

@@ -26,7 +26,7 @@
 //
 // Si en algun despliegue el backend vive en otro dominio, hay que poner aqui la
 // URL absoluta CON https y anadir ese origen a corsConfigurationSource() en
-// SecurityConfig, que hoy solo admite http://localhost:4200.
+// SecurityConfig, que hoy solo admite http://localhost:4300.
 export const environment = {
   production: true,
   apiUrl: '/api'

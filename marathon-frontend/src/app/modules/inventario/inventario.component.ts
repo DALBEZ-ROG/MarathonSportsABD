@@ -96,6 +96,8 @@ interface PageResponse<T> {
       <div class="toolbar">
         <h2>Inventario</h2>
         <div class="filters">
+          <input type="text" [(ngModel)]="busqueda" (input)="onBuscar()"
+                 placeholder="Buscar por producto o bodega..." class="input-search"/>
           <select [(ngModel)]="filtroBodega" (change)="cargar()" class="select-filter">
             <option [ngValue]="null">Todas las bodegas</option>
             <option *ngFor="let b of bodegas" [ngValue]="b.idBodega">{{b.nombre}}</option>
@@ -316,7 +318,7 @@ export class InventarioComponent implements OnInit {
   cargaError: string | null = null;
 
   /** ¿Hay busqueda o filtros puestos? Cambia el mensaje de lista vacia. */
-  get hayFiltroPuesto(): boolean { return this.filtroBodega !== null; }
+  get hayFiltroPuesto(): boolean { return this.filtroBodega !== null || !!this.busqueda; }
 
   saving = false;
   page = 0;
@@ -400,10 +402,19 @@ export class InventarioComponent implements OnInit {
     });
   }
 
+  /** F54: buscador por texto. 300 ms de espera para no consultar por tecla. */
+  busqueda = '';
+  private buscarTimeout: any;
+
+  onBuscar() {
+    clearTimeout(this.buscarTimeout);
+    this.buscarTimeout = setTimeout(() => { this.page = 0; this.cargar(); }, 300);
+  }
   cargar() {
     this.loading = true;
     let params = new HttpParams().set('page', this.page).set('size', this.size);
     if (this.filtroBodega) params = params.set('idBodega', this.filtroBodega);
+    if (this.busqueda) params = params.set('busqueda', this.busqueda);
 
     this.http.get<PageResponse<Inventario>>(`${this.apiUrl}/inventario`, { params }).subscribe({
       next: res => { this.cargaError = null; this.data = res.content; this.totalPages = res.totalPages; this.loading = false; },

@@ -39,8 +39,9 @@ public class PedidoController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String estado,
             @RequestParam(required = false) String fechaDesde,
+            @RequestParam(required = false) String busqueda,
             @RequestParam(required = false) String fechaHasta) {
-        return ResponseEntity.ok(pedidoService.listar(page, size, estado, fechaDesde, fechaHasta));
+        return ResponseEntity.ok(pedidoService.listar(page, size, estado, fechaDesde, fechaHasta, busqueda));
     }
 
     @GetMapping("/especiales")

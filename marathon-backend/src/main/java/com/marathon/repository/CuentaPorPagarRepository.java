@@ -39,4 +39,17 @@ public interface CuentaPorPagarRepository extends JpaRepository<CuentaPorPagar, 
     long countByEstado(String estado);
 
     List<CuentaPorPagar> findByProveedorIdProveedorAndEstadoIn(Integer idProveedor, List<String> estados);
+
+    /** Listado con filtros y busqueda por proveedor o numero de factura (F54). */
+    @Query("SELECT c FROM CuentaPorPagar c WHERE "
+         + "(:estado IS NULL OR c.estado = :estado) "
+         + "AND (:idProveedor IS NULL OR c.proveedor.idProveedor = :idProveedor) "
+         + "AND (:texto IS NULL "
+         + "     OR CAST(c.idCuentaPagar AS string) LIKE CONCAT('%', CAST(:texto AS string), '%') "
+         + "     OR LOWER(c.proveedor.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')) "
+         + "     OR LOWER(c.facturaCompra.numeroFacturaProveedor) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))")
+    Page<CuentaPorPagar> buscar(@Param("estado") String estado,
+                                @Param("idProveedor") Integer idProveedor,
+                                @Param("texto") String texto,
+                                Pageable pageable);
 }

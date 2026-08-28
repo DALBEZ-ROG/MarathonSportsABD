@@ -38,8 +38,9 @@ public class OrdenCompraController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String estado,
-            @RequestParam(required = false) Integer idProveedor) {
-        return ResponseEntity.ok(ordenCompraService.listar(page, size, estado, idProveedor));
+            @RequestParam(required = false) Integer idProveedor,
+            @RequestParam(required = false) String busqueda) {
+        return ResponseEntity.ok(ordenCompraService.listar(page, size, estado, idProveedor, busqueda));
     }
 
     @GetMapping("/{id}")

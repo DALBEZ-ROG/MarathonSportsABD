@@ -41,6 +41,45 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
          + "                AND d.pickingCompletado = false)")
     Page<Pedido> buscarListosParaEmpacar(Pageable pageable);
 
+    /**
+     * Listado de pedidos con TODOS los filtros en una sola consulta, incluida
+     * la busqueda por texto (F54).
+     *
+     * <p>Sustituye a las cuatro ramas if/else que tenia PedidoService.listar,
+     * que no admitian buscar: con 230.000 pedidos y 10 por pagina, encontrar
+     * uno concreto significaba pasar paginas. Cada filtro es opcional y se
+     * anula solo cuando llega a null, asi que las combinaciones no multiplican
+     * metodos.
+     *
+     * <p>El texto busca por <b>numero de pedido</b> y por <b>nombre o apellido
+     * del cliente</b>. Se puede buscar por nombre porque `nombre` y `apellido`
+     * estan en claro; los datos de contacto (correo, telefono, direccion) si
+     * estan cifrados (F41) y por eso no se buscan aqui — un LIKE sobre un
+     * bytea cifrado no encontraria nada.
+     *
+     * <p><b>Las fechas NO se anulan con IS NULL</b>, al reves que el estado y
+     * el texto: se pasan siempre, con topes por defecto que abarcan todo. Si se
+     * escribiera {@code (:desde IS NULL OR ...)}, PostgreSQL no puede deducir
+     * el tipo de un parametro nulo que solo aparece en un {@code ? IS NULL} y
+     * la consulta muere con «no se pudo determinar el tipo del parametro». Es
+     * el mismo motivo por el que {@link #findDespachados} recibe siempre sus
+     * dos fechas, y por el que el texto lleva un {@code CAST(... AS string)}:
+     * un parametro nulo necesita que alguien le diga de que tipo es.
+     */
+    @Query("SELECT p FROM Pedido p WHERE "
+         + "(:estado IS NULL OR p.estado = :estado) "
+         + "AND p.fechaPedido >= :desde "
+         + "AND p.fechaPedido <= :hasta "
+         + "AND (:texto IS NULL "
+         + "     OR CAST(p.idPedido AS string) LIKE CONCAT('%', CAST(:texto AS string), '%') "
+         + "     OR LOWER(p.cliente.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')) "
+         + "     OR LOWER(p.cliente.apellido) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))")
+    Page<Pedido> buscar(@Param("estado") String estado,
+                        @Param("desde") LocalDateTime desde,
+                        @Param("hasta") LocalDateTime hasta,
+                        @Param("texto") String texto,
+                        Pageable pageable);
+
     Page<Pedido> findByClienteIdCliente(Integer idCliente, Pageable pageable);
 
     Page<Pedido> findByClienteIdClienteAndEstado(Integer idCliente, String estado, Pageable pageable);

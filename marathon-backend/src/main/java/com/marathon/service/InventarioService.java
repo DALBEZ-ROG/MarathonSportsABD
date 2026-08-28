@@ -92,17 +92,15 @@ public class InventarioService {
         }
     }
 
-    public PageResponseDTO<InventarioResponseDTO> listar(int page, int size, Integer idBodega) {
+    public PageResponseDTO<InventarioResponseDTO> listar(int page, int size, Integer idBodega,
+                                                         String busqueda) {
         // F51 (D-41): ver la nota de BodegaService. Sin ORDER BY, la fila que
         // se acaba de tocar se cae de su pagina.
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "idInventario"));
-        Page<Inventario> result;
-
-        if (idBodega != null) {
-            result = inventarioRepository.findByBodegaIdBodega(idBodega, pageable);
-        } else {
-            result = inventarioRepository.findAll(pageable);
-        }
+        // F54: buscar por producto. Sin esto, con miles de filas, saber cuanto
+        // queda de un articulo era recorrer paginas.
+        Page<Inventario> result = inventarioRepository.buscar(
+                idBodega, Filtros.vacioComoNulo(busqueda), pageable);
 
         List<InventarioResponseDTO> content = result.getContent().stream()
                 .map(this::toInventarioDTO)

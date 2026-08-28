@@ -45,8 +45,9 @@ public class InventarioController {
     public ResponseEntity<PageResponseDTO<InventarioResponseDTO>> listar(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) Integer idBodega) {
-        return ResponseEntity.ok(inventarioService.listar(page, size, idBodega));
+            @RequestParam(required = false) Integer idBodega,
+            @RequestParam(required = false) String busqueda) {
+        return ResponseEntity.ok(inventarioService.listar(page, size, idBodega, busqueda));
     }
 
     @GetMapping("/{id}")

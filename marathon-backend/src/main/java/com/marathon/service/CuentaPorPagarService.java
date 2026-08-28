@@ -55,7 +55,8 @@ public class CuentaPorPagarService {
     }
 
     @Transactional
-    public PageResponseDTO<CuentaPorPagarResponseDTO> listar(int page, int size, String estado, Integer idProveedor) {
+    public PageResponseDTO<CuentaPorPagarResponseDTO> listar(int page, int size, String estado,
+                                                              Integer idProveedor, String busqueda) {
         // Actualizar vencidas antes de listar.
         //
         // F37: esto es un UPDATE dentro de una peticion GET. Paso inadvertido
@@ -71,20 +72,9 @@ public class CuentaPorPagarService {
         }
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "idCuentaPagar"));
-        Page<CuentaPorPagar> result;
-
-        boolean hasEstado = estado != null && !estado.isEmpty();
-        boolean hasProveedor = idProveedor != null;
-
-        if (hasEstado && hasProveedor) {
-            result = cuentaRepository.findByEstadoAndProveedorIdProveedor(estado, idProveedor, pageable);
-        } else if (hasEstado) {
-            result = cuentaRepository.findByEstado(estado, pageable);
-        } else if (hasProveedor) {
-            result = cuentaRepository.findByProveedorIdProveedor(idProveedor, pageable);
-        } else {
-            result = cuentaRepository.findAll(pageable);
-        }
+        // F54: busqueda por proveedor o numero de factura del proveedor.
+        Page<CuentaPorPagar> result = cuentaRepository.buscar(
+                Filtros.vacioComoNulo(estado), idProveedor, Filtros.vacioComoNulo(busqueda), pageable);
 
         List<CuentaPorPagarResponseDTO> content = result.getContent().stream()
                 .map(c -> toDTO(c, false))

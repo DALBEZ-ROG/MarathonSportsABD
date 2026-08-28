@@ -412,10 +412,13 @@ public class OrdenProduccionService {
     // =================================================================
     // Consultas
     // =================================================================
-    public PageResponseDTO<OrdenProduccionResponseDTO> listar(int page, int size, String estado, Integer idProducto) {
+    public PageResponseDTO<OrdenProduccionResponseDTO> listar(int page, int size, String estado,
+                                                              Integer idProducto, String busqueda) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "idOrdenProduccion"));
+        // F54: busqueda por texto, sin la cual encontrar un registro concreto
+        // entre miles era pasar paginas una a una.
         Page<OrdenProduccion> result = ordenRepository.buscar(
-                (estado != null && !estado.isEmpty()) ? estado : null, idProducto, pageable);
+                Filtros.vacioComoNulo(estado), idProducto, Filtros.vacioComoNulo(busqueda), pageable);
         List<OrdenProduccionResponseDTO> content = result.getContent().stream()
                 .map(o -> toDTO(o, false))
                 .collect(Collectors.toList());

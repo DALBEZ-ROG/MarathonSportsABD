@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { CrudService } from '../../core/services/crud.service';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 
 interface Proveedor { idProveedor: number; nombre: string; }
 interface Producto { idProducto: number; nombre: string; }
@@ -21,7 +22,7 @@ interface LineaNueva {
 @Component({
   selector: 'app-orden-compra-nueva',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AppIconComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AppIconComponent, SearchableSelectComponent],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -32,10 +33,9 @@ interface LineaNueva {
       <div class="form-card">
         <div class="form-group">
           <label>Proveedor *</label>
-          <select [(ngModel)]="idProveedor" name="idProveedor">
-            <option [ngValue]="null">-- Seleccione proveedor --</option>
-            <option *ngFor="let p of proveedores" [ngValue]="p.idProveedor">{{p.nombre}}</option>
-          </select>
+          <app-searchable-select [(ngModel)]="idProveedor" name="idProveedor"
+            [items]="proveedores" labelKey="nombre" valueKey="idProveedor"
+            placeholder="Escriba el nombre del proveedor..."/>
         </div>
 
         <h3>Agregar línea</h3>
@@ -50,19 +50,21 @@ interface LineaNueva {
         </div>
 
         <div class="form-row">
-          <div class="form-group" *ngIf="lineaTipo === 'producto'">
+          <!-- F54: se ESCRIBE, no se despliega. Con cientos de productos, un
+               <select> obliga a recorrer la lista entera para encontrar uno.
+               app-searchable-select ya existia y lo usaba la pantalla de
+               pedidos; aqui solo faltaba usarlo. -->
+          <div class="form-group flex-2" *ngIf="lineaTipo === 'producto'">
             <label>Producto</label>
-            <select [(ngModel)]="lineaIdProducto" name="lineaIdProducto">
-              <option [ngValue]="null">-- Seleccione producto --</option>
-              <option *ngFor="let p of productos" [ngValue]="p.idProducto">{{p.nombre}}</option>
-            </select>
+            <app-searchable-select [(ngModel)]="lineaIdProducto" name="lineaIdProducto"
+              [items]="productos" labelKey="nombre" valueKey="idProducto"
+              placeholder="Escriba el nombre o código del producto..."/>
           </div>
-          <div class="form-group" *ngIf="lineaTipo === 'materia_prima'">
+          <div class="form-group flex-2" *ngIf="lineaTipo === 'materia_prima'">
             <label>Materia Prima</label>
-            <select [(ngModel)]="lineaIdMateria" name="lineaIdMateria">
-              <option [ngValue]="null">-- Seleccione materia prima --</option>
-              <option *ngFor="let m of materiasPrimas" [ngValue]="m.idMateriaPrima">{{m.nombre}}</option>
-            </select>
+            <app-searchable-select [(ngModel)]="lineaIdMateria" name="lineaIdMateria"
+              [items]="materiasPrimas" labelKey="nombre" valueKey="idMateriaPrima"
+              placeholder="Escriba el nombre de la materia prima..."/>
           </div>
           <div class="form-group">
             <label>Cantidad</label>

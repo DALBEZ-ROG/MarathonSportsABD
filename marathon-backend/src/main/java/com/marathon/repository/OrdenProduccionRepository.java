@@ -12,13 +12,6 @@ import com.marathon.model.OrdenProduccion;
 
 public interface OrdenProduccionRepository extends JpaRepository<OrdenProduccion, Integer> {
 
-    @Query("SELECT o FROM OrdenProduccion o WHERE "
-        + "(:estado IS NULL OR o.estado = :estado) AND "
-        + "(:idProducto IS NULL OR o.producto.idProducto = :idProducto)")
-    Page<OrdenProduccion> buscar(@Param("estado") String estado,
-                                 @Param("idProducto") Integer idProducto,
-                                 Pageable pageable);
-
     long countByEstado(String estado);
 
     // F29 — Costo promedio de fabricación de las OP completadas de un producto.
@@ -48,4 +41,16 @@ public interface OrdenProduccionRepository extends JpaRepository<OrdenProduccion
     java.util.List<OrdenProduccion> reporteCostos(@Param("desde") java.time.LocalDateTime desde,
                                                   @Param("hasta") java.time.LocalDateTime hasta,
                                                   @Param("idProducto") Integer idProducto);
+
+    /** Listado con filtros y busqueda por numero de orden o producto (F54). */
+    @Query("SELECT o FROM OrdenProduccion o WHERE "
+         + "(:estado IS NULL OR o.estado = :estado) "
+         + "AND (:idProducto IS NULL OR o.producto.idProducto = :idProducto) "
+         + "AND (:texto IS NULL "
+         + "     OR CAST(o.idOrdenProduccion AS string) LIKE CONCAT('%', CAST(:texto AS string), '%') "
+         + "     OR LOWER(o.producto.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))")
+    Page<OrdenProduccion> buscar(@Param("estado") String estado,
+                                 @Param("idProducto") Integer idProducto,
+                                 @Param("texto") String texto,
+                                 Pageable pageable);
 }

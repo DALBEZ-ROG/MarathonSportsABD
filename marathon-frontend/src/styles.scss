@@ -2687,14 +2687,24 @@ app-root, .app-layout, .main-content,
   width: 100%;
 }
 
-/* Wide datasets stay readable without widening the whole application. */
+/* ── Ancho de las tablas ─────────────────────────────────────────────────
+   Aqui habia un `display: block` SIN media query, es decir en TODAS las
+   pantallas. Puesto sobre un <table>, `display: block` deshace la caja de
+   tabla: el ancho pasa a calcularlo una caja anonima que se encoge al
+   contenido, asi que el `width: 100%` de la regla de arriba dejaba de tener
+   efecto. Ese era el motivo de que la tabla de Compras —y la de todas las
+   demas pantallas— se quedara a media pantalla con el resto en negro.
+
+   La intencion original era buena: que una tabla ancha se desplace en vez de
+   estirar la aplicacion. Pero eso solo hace falta cuando NO cabe. En
+   escritorio la tabla es una tabla y ocupa el ancho entero; el desplazamiento
+   se activa mas abajo, en la media query de pantallas estrechas.           */
 .data-table, .detail-table, .audit-table, .tabla,
 .tabla-resultados, .top-table, .mini-table, .despacho-table {
-  display: block;
+  display: table;
+  width: 100%;
   max-width: 100%;
-  overflow-x: auto;
-  overscroll-behavior-inline: contain;
-  -webkit-overflow-scrolling: touch;
+  table-layout: auto;
 }
 
 .data-table th, .data-table td,
@@ -2780,9 +2790,17 @@ app-root, .app-layout, .main-content,
     width: 100%;
   }
 
+  /* Aqui SI: en pantalla estrecha una tabla de siete columnas no cabe de
+     ninguna manera, asi que se convierte en caja desplazable. Es lo que antes
+     estaba puesto para todas las pantallas y dejaba las tablas a medio ancho
+     en escritorio. */
   .data-table, .detail-table, .audit-table, .tabla,
   .tabla-resultados, .top-table, .mini-table, .despacho-table {
+    display: block;
     width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
     white-space: nowrap;
   }
 

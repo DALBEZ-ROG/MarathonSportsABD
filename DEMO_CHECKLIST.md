@@ -10,7 +10,7 @@ Proyecto de Administración de Bases de Datos · 32 fases · 37 tablas · 24 tri
 ## Preparación previa
 
 - [ ] Backend corriendo en `http://localhost:8080`
-- [ ] Frontend corriendo en `http://localhost:4200`
+- [ ] Frontend corriendo en `http://localhost:4300`
 - [ ] BD con `seed_marathon_sports.sql` **y** `fase31_seed_demo_bloques_nuevos.sql` aplicados
 - [ ] Una terminal `psql` abierta en `mod_venta_inve` para las pruebas de integridad en BD
 - [ ] Navegador sin sesión previa
@@ -25,7 +25,7 @@ Proyecto de Administración de Bases de Datos · 32 fases · 37 tablas · 24 tri
 - [ ] Entrar como `admin@marathon.com` / `Admin1234!` → navbar completo, todos los módulos
 - [ ] Entrar como `compras@marathon.com` / `Demo1234!` → navbar con Compras, Cuentas por Pagar y Materia Prima; **el dashboard NO muestra KPIs de ventas**, muestra los de compras
 - [ ] Entrar como `produccion@marathon.com` / `Demo1234!` → navbar con Manufactura; dashboard con KPIs de producción y accesos rápidos propios
-- [ ] **Prueba clave:** con `produccion@marathon.com` escribir a mano en la barra de direcciones `http://localhost:4200/usuarios`
+- [ ] **Prueba clave:** con `produccion@marathon.com` escribir a mano en la barra de direcciones `http://localhost:4300/usuarios`
   - El `rolGuard` bloquea y redirige a `/dashboard?acceso=denegado` con el aviso "No tienes acceso a esta sección"
 - [ ] Explicar la **doble capa**: el guard evita la pantalla, pero la defensa efectiva es `SecurityConfig` en el backend. Mostrar `MATRIZ_ROLES.md` como la auditoría de esa correspondencia.
 - [ ] Volver a `admin@marathon.com`

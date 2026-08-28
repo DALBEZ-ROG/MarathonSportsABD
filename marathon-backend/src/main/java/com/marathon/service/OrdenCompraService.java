@@ -68,22 +68,14 @@ public class OrdenCompraService {
     // ------------------------------------------------------------------
     // Listar
     // ------------------------------------------------------------------
-    public PageResponseDTO<OrdenCompraResponseDTO> listar(int page, int size, String estado, Integer idProveedor) {
+    public PageResponseDTO<OrdenCompraResponseDTO> listar(int page, int size, String estado,
+                                                          Integer idProveedor, String busqueda) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "idOrdenCompra"));
-        Page<OrdenCompra> result;
-
-        boolean hasEstado = estado != null && !estado.isEmpty();
-        boolean hasProveedor = idProveedor != null;
-
-        if (hasEstado && hasProveedor) {
-            result = ordenCompraRepository.findByEstadoAndProveedorIdProveedor(estado, idProveedor, pageable);
-        } else if (hasEstado) {
-            result = ordenCompraRepository.findByEstado(estado, pageable);
-        } else if (hasProveedor) {
-            result = ordenCompraRepository.findByProveedorIdProveedor(idProveedor, pageable);
-        } else {
-            result = ordenCompraRepository.findAll(pageable);
-        }
+        // F54: busqueda por texto. Antes solo habia desplegables, y para
+        // encontrar un registro concreto entre miles habia que pasar paginas.
+        Page<OrdenCompra> result = ordenCompraRepository.buscar(
+                Filtros.vacioComoNulo(estado), idProveedor,
+                Filtros.vacioComoNulo(busqueda), pageable);
 
         List<OrdenCompraResponseDTO> content = result.getContent().stream()
                 .map(oc -> toDTO(oc, false))

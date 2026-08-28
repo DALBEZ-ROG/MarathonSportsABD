@@ -222,16 +222,13 @@ public class DevolucionProveedorService {
     // ---------------------------------------------------------------
     // Listar, obtener
     // ---------------------------------------------------------------
-    public PageResponseDTO<DevolucionProveedorResponseDTO> listar(int page, int size, String estado, Integer idProveedor) {
+    public PageResponseDTO<DevolucionProveedorResponseDTO> listar(int page, int size, String estado,
+                                                                  Integer idProveedor, String busqueda) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "idDevolucionProv"));
-        Page<DevolucionProveedor> result;
-        boolean hasEstado = estado != null && !estado.isEmpty();
-        boolean hasProv = idProveedor != null;
-
-        if (hasEstado && hasProv) result = devolucionRepository.findByEstadoAndProveedorIdProveedor(estado, idProveedor, pageable);
-        else if (hasEstado) result = devolucionRepository.findByEstado(estado, pageable);
-        else if (hasProv) result = devolucionRepository.findByProveedorIdProveedor(idProveedor, pageable);
-        else result = devolucionRepository.findAll(pageable);
+        // F54: busqueda por texto, sin la cual encontrar un registro concreto
+        // entre miles era pasar paginas una a una.
+        Page<DevolucionProveedor> result = devolucionRepository.buscar(
+                Filtros.vacioComoNulo(estado), idProveedor, Filtros.vacioComoNulo(busqueda), pageable);
 
         List<DevolucionProveedorResponseDTO> content = result.getContent().stream()
                 .map(this::toDTO).collect(Collectors.toList());

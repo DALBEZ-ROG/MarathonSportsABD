@@ -47,8 +47,9 @@ public class OrdenProduccionController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String estado,
-            @RequestParam(required = false) Integer idProducto) {
-        return ResponseEntity.ok(ordenProduccionService.listar(page, size, estado, idProducto));
+            @RequestParam(required = false) Integer idProducto,
+            @RequestParam(required = false) String busqueda) {
+        return ResponseEntity.ok(ordenProduccionService.listar(page, size, estado, idProducto, busqueda));
     }
 
     @GetMapping("/{id}")

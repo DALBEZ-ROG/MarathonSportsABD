@@ -387,7 +387,12 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.setAllowedOrigins(Arrays.asList("http://localhost:4200"));
+        // El 4300, no el 4200. Angular toma el 4200 por defecto, y en este
+        // equipo hay otro proyecto Angular que tambien lo tomaba: el primero
+        // que arrancaba se quedaba el puerto y el navegador servia una
+        // aplicacion desde la cache de la otra. Marathon tiene el suyo fijado
+        // en angular.json para que no vuelvan a pisarse.
+        config.setAllowedOrigins(Arrays.asList("http://localhost:4300"));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type"));
 

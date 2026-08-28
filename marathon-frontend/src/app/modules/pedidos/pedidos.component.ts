@@ -25,6 +25,8 @@ interface Pedido {
       <div class="toolbar">
         <h2>Pedidos</h2>
         <div class="filters">
+          <input type="text" [(ngModel)]="busqueda" (input)="onBuscar()"
+                 placeholder="Buscar por N.° de pedido o cliente..." class="input-search"/>
           <select [(ngModel)]="filtroEstado" (change)="cargar()" class="select-filter">
             <option value="">Todos los estados</option>
             <option value="pendiente">Pendiente</option>
@@ -86,10 +88,19 @@ export class PedidosComponent implements OnInit {
 
   ngOnInit() { this.cargar(); }
 
+  /** F54: buscador por texto. Se espera 300 ms para no lanzar una consulta por tecla. */
+  busqueda = '';
+  private buscarTimeout: any;
+
+  onBuscar() {
+    clearTimeout(this.buscarTimeout);
+    this.buscarTimeout = setTimeout(() => { this.page = 0; this.cargar(); }, 300);
+  }
   cargar() {
     this.loading = true;
     const params: Record<string, string | number> = { page: this.page, size: this.size };
     if (this.filtroEstado) params['estado'] = this.filtroEstado;
+    if (this.busqueda) params['busqueda'] = this.busqueda;
     if (this.fechaDesde) params['fechaDesde'] = this.fechaDesde;
     if (this.fechaHasta) params['fechaHasta'] = this.fechaHasta;
 

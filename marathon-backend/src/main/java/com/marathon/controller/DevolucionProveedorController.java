@@ -39,7 +39,8 @@ public class DevolucionProveedorController {
     @GetMapping("/items-disponibles")
     @PreAuthorize("hasAuthority('devoluciones_proveedor:ver')")
     public ResponseEntity<List<ItemDefectuosoDisponibleDTO>> itemsDisponibles(
-            @RequestParam(required = false) Integer idProveedor) {
+            @RequestParam(required = false) Integer idProveedor,
+            @RequestParam(required = false) String busqueda) {
         return ResponseEntity.ok(service.listarItemsDefectuososDisponibles(idProveedor));
     }
 
@@ -49,8 +50,9 @@ public class DevolucionProveedorController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String estado,
-            @RequestParam(required = false) Integer idProveedor) {
-        return ResponseEntity.ok(service.listar(page, size, estado, idProveedor));
+            @RequestParam(required = false) Integer idProveedor,
+            @RequestParam(required = false) String busqueda) {
+        return ResponseEntity.ok(service.listar(page, size, estado, idProveedor, busqueda));
     }
 
     @GetMapping("/{id}")

@@ -73,29 +73,26 @@ public class PedidoService {
     }
 
     public PageResponseDTO<PedidoResponseDTO> listar(int page, int size, String estado,
-                                                      String fechaDesde, String fechaHasta) {
+                                                      String fechaDesde, String fechaHasta,
+                                                      String busqueda) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "idPedido"));
-        Page<Pedido> result;
 
-        LocalDateTime desde = null;
-        LocalDateTime hasta = null;
+        // Topes por defecto en vez de null: un parametro de fecha nulo que solo
+        // aparece en un «? IS NULL» deja a PostgreSQL sin poder deducir su tipo
+        // y la consulta falla. Es el mismo recurso que ya usa
+        // EmpaqueService.listarDespachados.
+        LocalDateTime desde = (fechaDesde != null && !fechaDesde.isEmpty())
+                ? LocalDate.parse(fechaDesde).atStartOfDay()
+                : LocalDateTime.of(1970, 1, 1, 0, 0);
+        LocalDateTime hasta = (fechaHasta != null && !fechaHasta.isEmpty())
+                ? LocalDate.parse(fechaHasta).atTime(LocalTime.MAX)
+                : LocalDateTime.of(2999, 12, 31, 23, 59);
 
-        if (fechaDesde != null && !fechaDesde.isEmpty()) {
-            desde = LocalDate.parse(fechaDesde).atStartOfDay();
-        }
-        if (fechaHasta != null && !fechaHasta.isEmpty()) {
-            hasta = LocalDate.parse(fechaHasta).atTime(LocalTime.MAX);
-        }
-
-        if (estado != null && !estado.isEmpty() && desde != null && hasta != null) {
-            result = pedidoRepository.findByEstadoAndFechaPedidoBetween(estado, desde, hasta, pageable);
-        } else if (estado != null && !estado.isEmpty()) {
-            result = pedidoRepository.findByEstado(estado, pageable);
-        } else if (desde != null && hasta != null) {
-            result = pedidoRepository.findByFechaPedidoBetween(desde, hasta, pageable);
-        } else {
-            result = pedidoRepository.findAll(pageable);
-        }
+        // F54: las cuatro ramas if/else que habia aqui no admitian buscar. Con
+        // 230.000 pedidos, encontrar uno era pasar paginas. Ahora es una sola
+        // consulta con todos los filtros opcionales.
+        Page<Pedido> result = pedidoRepository.buscar(
+                Filtros.vacioComoNulo(estado), desde, hasta, Filtros.numeroDePedido(busqueda), pageable);
 
         List<PedidoResponseDTO> content = result.getContent().stream()
                 .map(this::toDTO)
