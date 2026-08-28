@@ -4,7 +4,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -14,6 +16,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.marathon.config.Permisos;
 import com.marathon.dto.PageResponseDTO;
 import com.marathon.dto.pedido.CambioEstadoDTO;
 import com.marathon.dto.pedido.DetallePedidoItemDTO;
@@ -46,6 +49,7 @@ public class PedidoService {
     private final ProductoRepository productoRepository;
     private final LogService logService;
     private final PickingService pickingService;
+    private final ReservaStockService reservaStockService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -56,7 +60,8 @@ public class PedidoService {
                          UsuarioRepository usuarioRepository,
                          ProductoRepository productoRepository,
                          LogService logService,
-                         PickingService pickingService) {
+                         PickingService pickingService,
+                         ReservaStockService reservaStockService) {
         this.pedidoRepository = pedidoRepository;
         this.detallePedidoRepository = detallePedidoRepository;
         this.clienteRepository = clienteRepository;
@@ -64,6 +69,7 @@ public class PedidoService {
         this.productoRepository = productoRepository;
         this.logService = logService;
         this.pickingService = pickingService;
+        this.reservaStockService = reservaStockService;
     }
 
     public PageResponseDTO<PedidoResponseDTO> listar(int page, int size, String estado,
@@ -153,14 +159,69 @@ public class PedidoService {
             throw new ValidationException("El descuento no puede ser negativo");
         }
         BigDecimal subtotal = BigDecimal.ZERO;
+        Map<Integer, Producto> productos = new LinkedHashMap<>();
+        Map<Integer, Integer> demanda = new LinkedHashMap<>();
         for (DetallePedidoItemDTO item : dto.getDetalles()) {
             Producto p = productoRepository.findById(item.getIdProducto())
                     .orElseThrow(() -> new ResourceNotFoundException("Producto", item.getIdProducto()));
+
+            // D-24: no se vende un producto dado de baja. La comprobacion vivia
+            // en el bucle de abajo, el que guarda las lineas; se sube aqui
+            // porque la F47 metio en medio la comprobacion de existencias, y un
+            // articulo retirado del catalogo tiene que decir "no esta activo" y
+            // no "no hay existencias" — son dos problemas distintos y el segundo
+            // manda a quien lo lee a mirar el almacen para nada.
+            if (!"activo".equals(p.getEstado())) {
+                throw new ValidationException(
+                        "El producto '" + p.getNombre() + "' no está activo y no se puede vender");
+            }
+
             subtotal = subtotal.add(p.getPrecio().multiply(BigDecimal.valueOf(item.getCantidad())));
+            productos.putIfAbsent(p.getIdProducto(), p);
+            // Se agrupa: dos lineas de 6 del mismo articulo son una demanda de
+            // 12, no dos demandas de 6 contra el mismo disponible.
+            demanda.merge(p.getIdProducto(), item.getCantidad(), (a, b) -> a + b);
         }
         if (descuento.compareTo(subtotal) > 0) {
             throw new ValidationException("El descuento (" + descuento
                     + ") no puede superar el subtotal del pedido (" + subtotal + ")");
+        }
+
+        // --------------------------------------------------------------------
+        // F47 (D-02): crear un pedido MIRA el inventario.
+        // --------------------------------------------------------------------
+        // Hasta aqui, crear() validaba cliente y producto por id y no consultaba
+        // 'inventario' en ningun momento: se podian crear cien pedidos de un
+        // articulo con tres unidades. Ahora se comprueba el DISPONIBLE, que no es
+        // el stock: es el stock menos lo que otros pedidos ya procesados tienen
+        // comprometido (ReservaStockService).
+        //
+        // Comprobar no es reservar. Aqui no se retiene nada — la retencion es al
+        // pasar a 'procesado'—, asi que dos pedidos creados a la vez sobre las
+        // mismas unidades pasan los dos. Es deliberado: el que retiene es el que
+        // entra al almacen, y hay 16.099 pedidos viviendo en 'pendiente' que
+        // bloquearian mercancia para siempre si la creacion retuviera.
+        //
+        // EXCEPCION, los pedidos especiales. Un pedido 'personalizado' o
+        // 'corporativo' existe precisamente para prepararse o fabricarse: tiene
+        // fecha_limite_entrega y el sistema tiene ordenes de produccion para
+        // cumplirlo. Bloquearlo por falta de stock hoy romperia un flujo que
+        // funciona, asi que se crea y el deficit queda dicho en la bitacora en
+        // vez de callado.
+        boolean esEspecial = Boolean.TRUE.equals(dto.getEsPedidoEspecial());
+        if (esEspecial && (dto.getTipoEspecial() == null || dto.getTipoEspecial().trim().isEmpty())) {
+            throw new ValidationException("Debe especificar el tipo de pedido especial");
+        }
+
+        Map<Producto, Integer> faltantes = reservaStockService.faltantesDe(productos, demanda);
+        if (!faltantes.isEmpty()) {
+            String detalle = reservaStockService.describirFaltantes(faltantes);
+            if (!esEspecial) {
+                throw new ValidationException("No hay existencias disponibles para el pedido. " + detalle
+                        + ". El disponible es el stock menos lo ya comprometido por pedidos en proceso.");
+            }
+            logService.registrar(idUsuarioActual, "pedidos", "crear_sin_stock",
+                    "Pedido especial creado por encima del disponible. " + detalle, null);
         }
 
         Pedido pedido = new Pedido();
@@ -169,10 +230,6 @@ public class PedidoService {
         pedido.setEstado("pendiente");
         pedido.setDescuento(descuento);
 
-        boolean esEspecial = Boolean.TRUE.equals(dto.getEsPedidoEspecial());
-        if (esEspecial && (dto.getTipoEspecial() == null || dto.getTipoEspecial().trim().isEmpty())) {
-            throw new ValidationException("Debe especificar el tipo de pedido especial");
-        }
         pedido.setEsPedidoEspecial(esEspecial);
         pedido.setTipoEspecial(esEspecial ? dto.getTipoEspecial() : null);
         pedido.setNotaEspecial(esEspecial ? dto.getNotaEspecial() : null);
@@ -184,13 +241,8 @@ public class PedidoService {
             Producto producto = productoRepository.findById(item.getIdProducto())
                     .orElseThrow(() -> new ResourceNotFoundException("Producto", item.getIdProducto()));
 
-            // Se comprueba el estado del producto igual que arriba se comprueba
-            // el del cliente. Sin esto se podia vender un producto dado de baja
-            // (D-24).
-            if (!"activo".equals(producto.getEstado())) {
-                throw new ValidationException(
-                        "El producto '" + producto.getNombre() + "' no está activo y no se puede vender");
-            }
+            // El estado del producto (D-24) ya se comprobo en el bucle de
+            // arriba, antes de mirar existencias. No se repite aqui.
 
             DetallePedido detalle = new DetallePedido();
             detalle.setPedido(pedido);
@@ -239,6 +291,16 @@ public class PedidoService {
 
         validarTransicion(estadoActual, nuevoEstado);
 
+        // F48 (D-13): anular y cambiar de estado son dos permisos distintos, y
+        // caen en la misma llamada HTTP, asi que la distincion no cabe en un
+        // @PreAuthorize del controlador. Hasta aqui la matriz los separaba y
+        // nadie la miraba.
+        if ("anulado".equals(nuevoEstado)) {
+            Permisos.exigirSiHaySesion("pedidos:anular", "anular pedidos");
+        } else {
+            Permisos.exigirSiHaySesion("pedidos:editar", "cambiar el estado de un pedido");
+        }
+
         // La transición procesado→enviado requiere picking completo.
         // El flujo normal pasa por EmpaqueService, que valida y asigna HU/transportista.
         if ("procesado".equals(estadoActual) && "enviado".equals(nuevoEstado)) {
@@ -247,6 +309,34 @@ public class PedidoService {
                 throw new ValidationException(
                     "No se puede enviar el pedido: el picking no está completo. " +
                     "Usa el módulo de empaque para procesar el despacho correctamente.");
+            }
+        }
+
+        // --------------------------------------------------------------------
+        // F47 (D-02): aqui es donde el pedido RETIENE la mercancia.
+        // --------------------------------------------------------------------
+        // 'procesado' es el estado en el que el pedido entra al almacen: es el
+        // requisito del picking y del empaque. Reservar aqui —y no al crear— es
+        // la decision de negocio del 2026-08-27, y su motivo es que hay 16.099
+        // pedidos en 'pendiente': si la creacion retuviera, cada pedido
+        // abandonado bloquearia unidades hasta que alguien lo anulara.
+        //
+        // reservarPara() aborta la transaccion entera si alguna linea no cabe,
+        // asi que el pedido NO llega a quedar en 'procesado' sin su reserva. El
+        // orden importa: se reserva ANTES de guardar el estado nuevo.
+        if ("pendiente".equals(estadoActual) && "procesado".equals(nuevoEstado)) {
+            reservaStockService.reservarPara(pedido);
+        }
+
+        // Anular suelta lo retenido. Es el unico camino automatico de vuelta:
+        // el otro es el despacho, que la consume (EmpaqueService). Un pedido
+        // 'pendiente' anulado no tiene reservas y esto no hace nada, que es
+        // correcto y no un caso especial.
+        if ("anulado".equals(nuevoEstado)) {
+            int liberadas = reservaStockService.liberarDe(id, "Anulacion del pedido #" + id);
+            if (liberadas > 0) {
+                logService.registrar(logService.idUsuarioActual(), "pedidos", "liberar_reserva",
+                        "Pedido #" + id + " anulado: liberadas " + liberadas + " reservas de stock", null);
             }
         }
 

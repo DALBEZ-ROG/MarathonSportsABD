@@ -299,6 +299,70 @@ public class FixturaVenta {
         idsPedido.add(idPedido);
     }
 
+    // ------------------------------------------------------------------
+    // Reserva de stock (F47, D-02)
+    // ------------------------------------------------------------------
+
+    /**
+     * Pedido en {@code pendiente} con una linea, sin recoger. Es el punto de
+     * partida de las pruebas de reserva: la reserva nace en la transicion
+     * pendiente -> procesado, asi que la prueba necesita un pedido que todavia
+     * no la haya hecho.
+     */
+    public Pedido pedidoPendiente(int cantidad) {
+        Pedido pedido = new Pedido();
+        pedido.setCliente(cliente);
+        pedido.setUsuario(usuario);
+        pedido.setEstado("pendiente");
+        pedido.setDescuento(BigDecimal.ZERO);
+        pedido.setEsPedidoEspecial(false);
+        pedido = pedidoRepository.save(pedido);
+        idsPedido.add(pedido.getIdPedido());
+
+        DetallePedido detalle = new DetallePedido();
+        detalle.setPedido(pedido);
+        detalle.setProducto(producto);
+        detalle.setCantidad(cantidad);
+        detalle.setPrecioUnitario(new BigDecimal("100.00"));
+        detalle.setCantidadRecogida(0);
+        detalle.setPickingCompletado(false);
+        detallePedidoRepository.save(detalle);
+
+        return pedido;
+    }
+
+    /** Unidades activas reservadas por un pedido, leidas directamente de la base. */
+    public int reservadoActivoDe(Integer idPedido) {
+        return (int) numero(jdbc.queryForObject(
+                "select coalesce(sum(cantidad), 0) from reserva_stock "
+                + "where id_pedido = ? and estado = 'activa'",
+                Integer.class, idPedido));
+    }
+
+    /** Estados de las reservas de un pedido, en orden de creacion. */
+    public List<String> estadosReservaDe(Integer idPedido) {
+        return jdbc.queryForList(
+                "select estado from reserva_stock where id_pedido = ? order by id_reserva",
+                String.class, idPedido);
+    }
+
+    /**
+     * Retrasa la fecha de las reservas activas de un pedido, para poder probar
+     * el informe de vencidas sin esperar siete dias.
+     */
+    public void envejecerReservasDe(Integer idPedido, int dias) {
+        jdbc.update("update reserva_stock set fecha_reserva = fecha_reserva - make_interval(days => ?) "
+                + "where id_pedido = ? and estado = 'activa'", dias, idPedido);
+    }
+
+    /** Unidades activas reservadas del producto de la fixtura, sea cual sea el pedido. */
+    public int reservadoTotalDelProducto() {
+        return (int) numero(jdbc.queryForObject(
+                "select coalesce(sum(cantidad), 0) from reserva_stock "
+                + "where id_producto = ? and estado = 'activa'",
+                Integer.class, idProducto));
+    }
+
     /**
      * Borra todo lo creado, hijos primero. Llamar en el {@code @AfterEach}.
      *
@@ -308,6 +372,9 @@ public class FixturaVenta {
      */
     public void limpiar() {
         for (Integer idPedido : idsPedido) {
+            // F47: reserva_stock apunta a pedido y a producto con ON DELETE
+            // RESTRICT, asi que va antes que los dos.
+            jdbc.update("delete from reserva_stock where id_pedido = ?", idPedido);
             jdbc.update("delete from movimiento_inventario where id_pedido = ?", idPedido);
             jdbc.update("delete from comprobante_interno where id_pedido = ?", idPedido);
             jdbc.update("delete from detalle_pedido where id_pedido = ?", idPedido);

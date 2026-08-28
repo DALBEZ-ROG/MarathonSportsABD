@@ -41,6 +41,7 @@ public class EmpaqueService {
     private final UsuarioRepository usuarioRepository;
     private final PickingService pickingService;
     private final PedidoService pedidoService;
+    private final ReservaStockService reservaStockService;
     private final LogService logService;
 
     @PersistenceContext
@@ -53,6 +54,7 @@ public class EmpaqueService {
                           UsuarioRepository usuarioRepository,
                           PickingService pickingService,
                           PedidoService pedidoService,
+                          ReservaStockService reservaStockService,
                           LogService logService) {
         this.pedidoRepository = pedidoRepository;
         this.detallePedidoRepository = detallePedidoRepository;
@@ -61,6 +63,7 @@ public class EmpaqueService {
         this.usuarioRepository = usuarioRepository;
         this.pickingService = pickingService;
         this.pedidoService = pedidoService;
+        this.reservaStockService = reservaStockService;
         this.logService = logService;
     }
 
@@ -99,6 +102,12 @@ public class EmpaqueService {
             descontarLinea(detalle, idPedido, dto, usuario);
         }
 
+        // F47 (D-02): la mercancia ya salio, la reserva deja de retener. Va
+        // DESPUES de descontar: si alguna linea aborta, la transaccion revierte
+        // y la reserva se queda activa, que es lo correcto — el pedido sigue en
+        // 'procesado' esperando.
+        int consumidas = reservaStockService.consumirDe(idPedido);
+
         pedido.setNumeroHu(dto.getNumeroHu());
         pedido.setTransportista(dto.getTransportista());
         pedido.setRegionDestino(dto.getRegionDestino());
@@ -108,7 +117,8 @@ public class EmpaqueService {
 
         logService.registrar(idUsuarioActual, "empaque", "confirmar",
                 "Pedido #" + idPedido + " empacado. HU: " + dto.getNumeroHu()
-                        + ". Transportista: " + dto.getTransportista(), null);
+                        + ". Transportista: " + dto.getTransportista()
+                        + ". Reservas consumidas: " + consumidas, null);
 
         return pedidoService.obtener(idPedido);
     }
@@ -154,6 +164,34 @@ public class EmpaqueService {
         int porDescontar = detalle.getCantidad() != null ? detalle.getCantidad() : 0;
         if (porDescontar <= 0) {
             return;
+        }
+
+        // ------------------------------------------------------------------
+        // F47 (D-02): no comerse la mercancia que otro pedido tiene retenida.
+        // ------------------------------------------------------------------
+        // La comprobacion de mas abajo mira el stock fisico y basta para no
+        // dejar el inventario en negativo (L1). Pero el stock fisico incluye lo
+        // que otros pedidos ya procesados tienen reservado: sin esta linea, un
+        // despacho puede vaciar la estanteria y dejar sin respaldo la reserva de
+        // un pedido que se procesó antes. Es exactamente el choque que la
+        // reserva viene a evitar, solo que en el otro sentido.
+        //
+        // Se mide por PRODUCTO y no por bodega porque la reserva es por producto
+        // (cuando se reservo aun no habia bodega elegida; la elige el picking).
+        //
+        // El propio pedido queda fuera de la suma: sus unidades ya estan en la
+        // reserva que este mismo despacho esta a punto de consumir.
+        int reservadoAjeno = reservaStockService.reservadoPorOtrosPedidos(
+                producto.getIdProducto(), idPedido);
+        if (reservadoAjeno > 0) {
+            int stockTotal = reservaStockService.stockTotal(producto.getIdProducto());
+            if (stockTotal - reservadoAjeno < porDescontar) {
+                throw new ValidationException("No se puede despachar '" + producto.getNombre()
+                        + "': hay " + stockTotal + " unidades en existencias, pero " + reservadoAjeno
+                        + " estan reservadas por otros pedidos ya procesados, asi que solo quedan "
+                        + (stockTotal - reservadoAjeno) + " libres y se piden " + porDescontar
+                        + ". No se ha registrado nada del despacho.");
+            }
         }
 
         // ------------------------------------------------------------------
@@ -220,6 +258,9 @@ public class EmpaqueService {
 
     public PageResponseDTO<PedidoResponseDTO> listarDespachados(int page, int size, String regionDestino,
                                                                 LocalDateTime desde, LocalDateTime hasta) {
+        // F51 (D-41): sin Sort aqui A PROPOSITO. La consulta lleva su propio
+        // ORDER BY en el JPQL, con desempate por id para que la paginacion sea
+        // estable. Anadir un Sort aqui lo pisaria.
         Pageable pageable = PageRequest.of(page, size);
         String region = (regionDestino != null && !regionDestino.isEmpty()) ? regionDestino : "";
         LocalDateTime desdeFiltro = (desde != null) ? desde : LocalDateTime.of(1970, 1, 1, 0, 0);

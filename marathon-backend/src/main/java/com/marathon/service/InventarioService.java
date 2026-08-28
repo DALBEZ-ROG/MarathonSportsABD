@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +42,7 @@ public class InventarioService {
     private final ProductoRepository productoRepository;
     private final BodegaRepository bodegaRepository;
     private final UsuarioRepository usuarioRepository;
+    private final ReservaStockService reservaStockService;
 
     private final LogService logService;
     @PersistenceContext
@@ -52,6 +54,7 @@ public class InventarioService {
                              ProductoRepository productoRepository,
                              BodegaRepository bodegaRepository,
                              UsuarioRepository usuarioRepository,
+                             ReservaStockService reservaStockService,
                          LogService logService) {
         this.inventarioRepository = inventarioRepository;
         this.movimientoRepository = movimientoRepository;
@@ -59,11 +62,40 @@ public class InventarioService {
         this.productoRepository = productoRepository;
         this.bodegaRepository = bodegaRepository;
         this.usuarioRepository = usuarioRepository;
+        this.reservaStockService = reservaStockService;
         this.logService = logService;
     }
 
+    /**
+     * Impide que un movimiento manual se lleve unidades que un pedido ya
+     * procesado tiene retenidas (F47, D-02).
+     *
+     * <p>Se mide sobre el producto entero y no sobre una bodega porque ese es el
+     * grano de la reserva: cuando se reservo todavia no habia bodega elegida.
+     *
+     * @param salida unidades que el movimiento retira del total (siempre > 0)
+     * @param verbo  lo que se estaba intentando, para que el mensaje diga que
+     *               operacion se ha frenado y no solo que algo fallo
+     */
+    private void comprobarQueNoInvadeReservas(Integer idProducto, int salida, String verbo) {
+        int reservado = reservaStockService.reservado(idProducto);
+        if (reservado <= 0) {
+            return;
+        }
+        int total = reservaStockService.stockTotal(idProducto);
+        int libre = total - reservado;
+        if (libre < salida) {
+            throw new ValidationException("No se puede " + verbo + " " + salida
+                    + " unidades: de las " + total + " en existencias hay " + reservado
+                    + " reservadas por pedidos ya procesados, asi que solo quedan " + libre
+                    + " libres. Libera esas reservas o despacha esos pedidos primero.");
+        }
+    }
+
     public PageResponseDTO<InventarioResponseDTO> listar(int page, int size, Integer idBodega) {
-        Pageable pageable = PageRequest.of(page, size);
+        // F51 (D-41): ver la nota de BodegaService. Sin ORDER BY, la fila que
+        // se acaba de tocar se cae de su pagina.
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "idInventario"));
         Page<Inventario> result;
 
         if (idBodega != null) {
@@ -135,6 +167,11 @@ public class InventarioService {
                 if (inv.getStockActual() < dto.getCantidad()) {
                     throw new ValidationException("Stock insuficiente. Disponible: " + inv.getStockActual());
                 }
+                // F47 (D-02): una salida manual tampoco puede llevarse lo que un
+                // pedido ya procesado tiene reservado. La comprobacion de arriba
+                // mira una bodega; esta mira el producto entero, que es el grano
+                // de la reserva.
+                comprobarQueNoInvadeReservas(dto.getIdProducto(), dto.getCantidad(), "sacar");
                 inv.setStockActual(inv.getStockActual() - dto.getCantidad());
                 break;
             case "ajuste": {
@@ -152,6 +189,12 @@ public class InventarioService {
                     throw new ValidationException(
                             "El ajuste no cambia el stock (ya es " + anterior + ").");
                 }
+                // F47 (D-02): un ajuste A LA BAJA es una salida disfrazada de
+                // saldo. Si deja el total por debajo de lo reservado, hay
+                // pedidos procesados cuya mercancia deja de existir.
+                if (diferencia < 0) {
+                    comprobarQueNoInvadeReservas(dto.getIdProducto(), -diferencia, "ajustar a la baja");
+                }
                 inv.setStockActual(dto.getCantidad());
                 cantidadDelMovimiento = Math.abs(diferencia);
                 break;
@@ -159,6 +202,16 @@ public class InventarioService {
             case "traslado":
                 if (dto.getIdBodegaDestino() == null) {
                     throw new ValidationException("La bodega destino es requerida para traslados");
+                }
+                // Un traslado de una bodega a si misma no mueve nada, pero si
+                // deja rastro: origen y destino son LA MISMA fila de inventario,
+                // asi que el -cantidad y el +cantidad se anulan y en el kardex
+                // queda un movimiento de traslado que no traslado nada. No habia
+                // ninguno en la base (se comprobo), asi que cerrarlo no rompe
+                // historico.
+                if (dto.getIdBodegaDestino().equals(dto.getIdBodega())) {
+                    throw new ValidationException(
+                            "El traslado tiene la misma bodega de origen y destino: no movería nada.");
                 }
                 if (inv.getStockActual() < dto.getCantidad()) {
                     throw new ValidationException("Stock insuficiente. Disponible: " + inv.getStockActual());
@@ -230,7 +283,9 @@ public class InventarioService {
     }
 
     public PageResponseDTO<MovimientoResponseDTO> listarMovimientos(Integer idProducto, Integer idBodega, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
+        // F51 (D-41): un kardex se lee del movimiento mas reciente hacia atras,
+        // y sin ORDER BY salia en el orden fisico del monton.
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "idMovimiento"));
         Page<MovimientoInventario> result = movimientoRepository
                 .findByInventarioProductoIdProductoAndInventarioBodegaIdBodega(idProducto, idBodega, pageable);
 

@@ -44,6 +44,23 @@ interface Historial {
   tipoOperacion: string;
 }
 
+/**
+ * Una reserva de stock (F47, D-02). El backend ya manda `diasRetenida`
+ * calculado: la resta se hace en un solo sitio para que no haya dos respuestas
+ * a "¿cuánto lleva esto parado?".
+ */
+interface Reserva {
+  idReserva: number;
+  idPedido: number;
+  numeroPedido: string;
+  estadoPedido: string;
+  productoNombre: string;
+  cantidad: number;
+  estado: string;
+  fechaReserva: string;
+  diasRetenida: number;
+}
+
 interface PageResponse<T> {
   content: T[];
   totalElements: number;
@@ -61,6 +78,19 @@ interface PageResponse<T> {
       <!-- Stock bajo alert -->
       <div class="alert-banner" *ngIf="stockBajo.length > 0">
         <strong class="inline-icon-text"><app-icon name="warning" [size]="16"/> Alerta de Stock Bajo:</strong> {{stockBajo.length}} referencia(s) en o por debajo de su stock mínimo
+      </div>
+
+      <!--
+        Reservas vencidas (F47, D-02). Solo aparece si hay alguna: un aviso que
+        sale siempre deja de leerse. Vencer NO libera nada — la decisión de
+        negocio del 2026-08-27 es que lo suelta una persona, y este banner es
+        precisamente cómo esa persona se entera.
+      -->
+      <div class="alert-banner" *ngIf="reservasVencidas.length > 0">
+        <strong class="inline-icon-text"><app-icon name="warning" [size]="16"/> Reservas vencidas:</strong>
+        {{reservasVencidas.length}} reserva(s) llevan más de {{DIAS_VIGENCIA}} días reteniendo mercancía
+        de pedidos que siguen sin despacharse.
+        <button class="btn-link" (click)="showReservas = true">Ver y decidir</button>
       </div>
 
       <div class="toolbar">
@@ -181,11 +211,96 @@ interface PageResponse<T> {
         </div>
       </div>
 
+      <!-- Modal Reservas vencidas (F47, D-02) -->
+      <div class="modal-overlay" *ngIf="showReservas" appModalSeguro (cerrar)="showReservas=false">
+        <div class="modal-card wide" (click)="$event.stopPropagation()">
+          <h3>Reservas vencidas</h3>
+          <p class="subtitle">
+            Un pedido retiene mercancía desde que pasa a «procesado» y hasta que se despacha
+            o se anula. Estas llevan más de {{DIAS_VIGENCIA}} días. <strong>No se sueltan solas</strong>:
+            liberar una devuelve esas unidades al disponible y deja el pedido sin respaldo,
+            así que la decisión es tuya.
+          </p>
+          <!--
+            Sin columna «Estado»: una reserva activa solo existe mientras el
+            pedido está en «procesado» —el despacho la consume y la anulación la
+            libera—, así que la columna repetía el mismo valor en cada fila y
+            estrechaba a las que sí dicen algo. El nombre del producto es largo y
+            necesita ese ancho.
+          -->
+          <div class="tabla-scroll">
+            <table class="data-table tabla-reservas" *ngIf="reservasVencidas.length > 0">
+              <thead>
+                <tr><th>Pedido</th><th>Producto</th><th>Uds.</th><th>Reservada</th><th>Días</th><th></th></tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let r of reservasVencidas">
+                  <td class="nowrap">{{r.numeroPedido}}</td>
+                  <td>{{r.productoNombre}}</td>
+                  <td class="nowrap"><strong>{{r.cantidad}}</strong></td>
+                  <td class="nowrap">{{r.fechaReserva | date:'dd/MM/yyyy'}}</td>
+                  <td class="nowrap">{{r.diasRetenida}}</td>
+                  <td class="actions">
+                    <button class="btn-icon" (click)="pedirMotivo(r)" title="Liberar esta reserva">
+                      <app-icon name="warning" [size]="16"/>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p *ngIf="reservasVencidas.length === 0" class="empty-text">No hay reservas vencidas.</p>
+
+          <div class="form-group" *ngIf="reservaALiberar">
+            <label>Motivo para liberar {{reservaALiberar.cantidad}} unidades de
+              «{{reservaALiberar.productoNombre}}» del pedido {{reservaALiberar.numeroPedido}} *</label>
+            <input type="text" [(ngModel)]="motivoLiberacion" name="motivoLiberacion"
+                   placeholder="Ej.: el cliente desistió, confirmado por teléfono"/>
+            <small class="error" *ngIf="reservaError">{{reservaError}}</small>
+            <div class="modal-actions">
+              <button type="button" class="btn-cancel" (click)="reservaALiberar=null">Cancelar</button>
+              <button type="button" class="btn-save" [disabled]="liberando" (click)="liberarReserva()">
+                {{liberando ? 'Liberando...' : 'Liberar reserva'}}
+              </button>
+            </div>
+          </div>
+
+          <div class="modal-actions" *ngIf="!reservaALiberar">
+            <button class="btn-cancel" (click)="showReservas=false">Cerrar</button>
+          </div>
+        </div>
+      </div>
+
       <div class="toast" *ngIf="toast" [class.error]="toastError">{{toast}}</div>
     </div>
   `,
   styles: [`
     /* Inherits global dark theme from styles.scss */
+
+    /* Enlace de accion dentro de un banner de aviso (F47). No existe en
+       styles.scss y solo lo usa esta pantalla, asi que vive aqui en vez de
+       engordar la hoja global. */
+    .btn-link {
+      background: none;
+      border: none;
+      padding: 0 0 0 .5rem;
+      color: inherit;
+      font: inherit;
+      font-weight: 600;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .btn-link:hover { opacity: .8; }
+
+    /* Tabla de reservas vencidas (F47).
+       Las cabeceras se pintan en mayúsculas y con letra estrecha, y dentro del
+       modal se partían por la mitad —«PEDID O», «UNID ADES»—. Se les prohíbe
+       partir, y lo que cede es el nombre del producto, que es lo único que
+       admite dos líneas sin quedar ilegible. Si aun así no cabe, la tabla
+       desplaza en horizontal en vez de deformar el modal. */
+    .tabla-scroll { overflow-x: auto; }
+    .tabla-reservas th { white-space: nowrap; }
+    .tabla-reservas td.nowrap { white-space: nowrap; }
   `]
 })
 export class InventarioComponent implements OnInit {
@@ -217,6 +332,17 @@ export class InventarioComponent implements OnInit {
   historialData: Historial[] = [];
   historialProducto = '';
 
+  // --- Reservas de stock (F47, D-02) ---------------------------------------
+  /** Días que aguanta una reserva antes de salir en el informe. Igual que
+   *  ReservaStockService.DIAS_VIGENCIA en el backend, que es quien decide. */
+  readonly DIAS_VIGENCIA = 7;
+  reservasVencidas: Reserva[] = [];
+  showReservas = false;
+  reservaALiberar: Reserva | null = null;
+  motivoLiberacion = '';
+  reservaError = '';
+  liberando = false;
+
   toast = '';
   toastError = false;
 
@@ -228,6 +354,50 @@ export class InventarioComponent implements OnInit {
     this.cargar();
     this.cargarBodegas();
     this.cargarStockBajo();
+    this.cargarReservasVencidas();
+  }
+
+  /**
+   * Reservas que llevan demasiado tiempo reteniendo stock (F47, D-02).
+   *
+   * <p>Un 403 aquí no es un fallo que enseñar: significa que este rol no tiene
+   * 'inventario:ver' y sencillamente no le toca ver el informe. Se traga en
+   * silencio y el banner no aparece, en vez de pintar un error rojo por algo
+   * que está funcionando como debe.
+   */
+  cargarReservasVencidas() {
+    this.http.get<Reserva[]>(`${this.apiUrl}/inventario/reservas/vencidas`).subscribe({
+      next: res => { this.reservasVencidas = res; },
+      error: () => { this.reservasVencidas = []; }
+    });
+  }
+
+  pedirMotivo(r: Reserva) {
+    this.reservaALiberar = r;
+    this.motivoLiberacion = '';
+    this.reservaError = '';
+  }
+
+  liberarReserva() {
+    if (!this.reservaALiberar) { return; }
+    if (!this.motivoLiberacion.trim()) {
+      this.reservaError = 'Escribe por qué se libera: sin motivo no se puede auditar después.';
+      return;
+    }
+    this.liberando = true;
+    this.http.post(`${this.apiUrl}/inventario/reservas/${this.reservaALiberar.idReserva}/liberar`,
+                   { motivo: this.motivoLiberacion.trim() }).subscribe({
+      next: () => {
+        this.liberando = false;
+        this.reservaALiberar = null;
+        this.cargarReservasVencidas();
+        this.mostrarToast('Reserva liberada. Las unidades vuelven al disponible.');
+      },
+      error: (err) => {
+        this.liberando = false;
+        this.reservaError = err.error?.message || 'No se pudo liberar la reserva.';
+      }
+    });
   }
 
   cargar() {

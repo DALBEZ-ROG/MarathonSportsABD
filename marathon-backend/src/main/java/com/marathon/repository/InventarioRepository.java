@@ -63,11 +63,23 @@ public interface InventarioRepository extends JpaRepository<Inventario, Integer>
      * reponer?»— tenia dos respuestas segun donde se mirara: 116 en Inventario
      * y 220 en el tablero.
      */
-    @Query("SELECT i FROM Inventario i WHERE i.stockActual <= i.stockMinimo AND i.stockMinimo > 0")
+    @Query("SELECT i FROM Inventario i WHERE i.stockActual <= i.stockMinimo AND i.stockMinimo > 0 "
+         + "ORDER BY i.producto.nombre ASC, i.bodega.nombre ASC")
     List<Inventario> findBajoMinimo();
 
     @Query("SELECT i FROM Inventario i WHERE i.bodega.idBodega = :idBodega AND i.stockActual <= :umbral")
     List<Inventario> findStockBajoByBodega(@Param("idBodega") Integer idBodega, @Param("umbral") int umbral);
+
+    /**
+     * Existencias totales de un producto sumando todas las bodegas.
+     *
+     * <p>Es el numerador del disponible que usa la reserva (F47, D-02):
+     * disponible = stockTotalDe(p) - reservas activas de p. Se suma en la base
+     * y no en memoria porque quien pregunta esto —crear un pedido, procesarlo—
+     * no necesita las filas, solo el total.
+     */
+    @Query("SELECT COALESCE(SUM(i.stockActual), 0) FROM Inventario i WHERE i.producto.idProducto = :idProducto")
+    int stockTotalDe(@Param("idProducto") Integer idProducto);
 
     @Query("SELECT COUNT(i) FROM Inventario i WHERE i.stockActual <= i.stockMinimo AND i.stockMinimo > 0")
     Long contarProductosStockBajo();

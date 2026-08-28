@@ -36,6 +36,10 @@ class TopeDineroTest {
     @BeforeEach
     void prepararDatos() {
         fixtura.empezar();
+        // F47 (D-02): desde que crear() comprueba el disponible, un pedido sin
+        // existencias detras se rechaza. Esta prueba no va de stock, asi que se
+        // le pone holgura de sobra y sigue midiendo lo suyo.
+        fixtura.bodegaConStock("A", 1000);
     }
 
     @AfterEach
