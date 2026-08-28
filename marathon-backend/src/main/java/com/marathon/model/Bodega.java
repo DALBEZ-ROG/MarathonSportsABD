@@ -31,6 +31,16 @@ public class Bodega {
     @Column(name = "direccion")
     private String direccion;
 
+    /**
+     * Persona que responde de la bodega (F50, D-40).
+     *
+     * <p>El campo existia en el DTO, en el formulario y en la cabecera de la
+     * tabla desde siempre; lo unico que faltaba era esto y su columna, asi que
+     * escribir un responsable daba "guardada correctamente" y no guardaba nada.
+     */
+    @Column(name = "responsable", length = 120)
+    private String responsable;
+
     @Column(name = "estado", nullable = false)
     private String estado;
 
@@ -50,6 +60,9 @@ public class Bodega {
 
     public String getDireccion() { return direccion; }
     public void setDireccion(String direccion) { this.direccion = direccion; }
+
+    public String getResponsable() { return responsable; }
+    public void setResponsable(String responsable) { this.responsable = responsable; }
 
     public String getEstado() { return estado; }
     public void setEstado(String estado) { this.estado = estado; }
