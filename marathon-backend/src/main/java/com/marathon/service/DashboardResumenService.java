@@ -49,6 +49,26 @@ import com.marathon.repository.DashboardConsultas.Par;
  * las demas se pintan igual. Lo que <i>no</i> se hace nunca es devolver cero:
  * un cero se lee como «no hay nada», y «no se pudo calcular» no es «no hay
  * nada».
+ *
+ * <p><b>El ultimo argumento de cada indicador es una RUTA DEL FRONTEND</b>, la
+ * del enlace «Ver detalle» de su tarjeta. No es la ruta de la API, y confundir
+ * las dos es facil porque se parecen: cinco de las catorce estaban puestas con
+ * el nombre del endpoint y llevaban a una pantalla que no existe (F53, D-43).
+ * El resultado era un «Ver detalle» que dejaba al usuario en el inicio:
+ *
+ * <pre>
+ *   API (aqui)                pantalla (app.routes.ts)
+ *   /api/ordenes-compra       ->  /compras
+ *   /api/ordenes-produccion   ->  /produccion
+ *   /api/analisis-costos      ->  /produccion/costos
+ *   /api/recepciones          ->  /compras       (no hay pantalla de recepciones
+ *                                                 suelta: se entra desde la orden)
+ *   —                         ->  /pedidos/especiales, no /pedidos-especiales
+ * </pre>
+ *
+ * <p>Antes de anadir un indicador nuevo, comprueba su ruta contra
+ * {@code marathon-frontend/src/app/app.routes.ts}. Nada en el compilador lo
+ * comprueba por ti.
  */
 @Service
 public class DashboardResumenService {
@@ -184,7 +204,7 @@ public class DashboardResumenService {
                         "pedidos", consultas.especialesAbiertos(), AHORA,
                         "es_pedido_especial y estado pendiente o procesado — el tablero anterior "
                                 + "contaba «distinto de anulado» e incluía los ya entregados",
-                        "/pedidos-especiales")));
+                        "/pedidos/especiales")));
         return is;
     }
 
@@ -232,13 +252,13 @@ public class DashboardResumenService {
         is.add(intentar("oc_pendientes", "Órdenes pendientes de aprobación",
                 () -> IndicadorDTO.ok("oc_pendientes", "Órdenes pendientes de aprobación",
                         "órdenes", consultas.ordenesPendientesAprobacion(), AHORA,
-                        "orden_compra en estado pendiente_aprobacion", "/ordenes-compra")));
+                        "orden_compra en estado pendiente_aprobacion", "/compras")));
 
         is.add(intentar("oc_sin_recibir", "Aprobadas sin recibir",
                 () -> IndicadorDTO.ok("oc_sin_recibir", "Aprobadas sin recibir", "órdenes",
                         consultas.ordenesAprobadasSinRecibir(), AHORA,
                         "orden_compra en estado aprobada: ya comprometidas y aún sin mercancía",
-                        "/recepciones")));
+                        "/compras")));
 
         is.add(cuentasVencidas());
 
@@ -269,7 +289,7 @@ public class DashboardResumenService {
                     p.valor(), p.denominador(), AHORA,
                     "orden_produccion en en_proceso, sobre el total de abiertas "
                             + "(planificadas + en proceso)",
-                    "/ordenes-produccion");
+                    "/produccion");
         }));
 
         is.add(intentar("op_sin_material", "Planificadas sin material suficiente",
@@ -277,7 +297,7 @@ public class DashboardResumenService {
                         "órdenes", consultas.ordenesSinMaterial(), AHORA,
                         "órdenes planificadas con alguna materia prima de su lista por debajo de "
                                 + "lo que exige la cantidad planificada",
-                        "/ordenes-produccion")));
+                        "/produccion")));
 
         is.add(intentar("mp_bajo_minimo", "Materia prima bajo mínimo", () -> {
             Par p = consultas.materiaPrimaBajoMinimo();
@@ -294,7 +314,7 @@ public class DashboardResumenService {
                     p.valor(), p.denominador(), v.etiqueta,
                     "media de costo_total de las órdenes completadas en el período, sobre el "
                             + "número de órdenes — un promedio sin su n no se puede interpretar",
-                    "/analisis-costos");
+                    "/produccion/costos");
         }));
 
         is.add(intentar("merma_media", "Merma media", () -> {
@@ -303,7 +323,7 @@ public class DashboardResumenService {
                     p.valor(), p.denominador(), v.etiqueta,
                     "media de (planificado − producido) / planificado en las órdenes completadas "
                             + "del período, sobre el número de órdenes",
-                    "/ordenes-produccion");
+                    "/produccion");
         }));
         return is;
     }
