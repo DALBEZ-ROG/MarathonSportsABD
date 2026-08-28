@@ -21,6 +21,7 @@ import com.marathon.model.OrdenCompra;
 import com.marathon.model.Usuario;
 import com.marathon.repository.CuentaPorPagarRepository;
 import com.marathon.repository.FacturaCompraRepository;
+import com.marathon.repository.OrdenCompraDetalleRepository;
 import com.marathon.repository.OrdenCompraRepository;
 import com.marathon.repository.RecepcionMercanciaRepository;
 import com.marathon.repository.UsuarioRepository;
@@ -35,6 +36,7 @@ public class FacturaCompraService {
     private final CuentaPorPagarRepository cuentaRepository;
     private final OrdenCompraRepository ordenCompraRepository;
     private final RecepcionMercanciaRepository recepcionRepository;
+    private final OrdenCompraDetalleRepository ordenCompraDetalleRepository;
     private final UsuarioRepository usuarioRepository;
     private final LogService logService;
 
@@ -45,12 +47,14 @@ public class FacturaCompraService {
                                 CuentaPorPagarRepository cuentaRepository,
                                 OrdenCompraRepository ordenCompraRepository,
                                 RecepcionMercanciaRepository recepcionRepository,
+                                OrdenCompraDetalleRepository ordenCompraDetalleRepository,
                                 UsuarioRepository usuarioRepository,
                                 LogService logService) {
         this.facturaRepository = facturaRepository;
         this.cuentaRepository = cuentaRepository;
         this.ordenCompraRepository = ordenCompraRepository;
         this.recepcionRepository = recepcionRepository;
+        this.ordenCompraDetalleRepository = ordenCompraDetalleRepository;
         this.usuarioRepository = usuarioRepository;
         this.logService = logService;
     }
@@ -82,6 +86,40 @@ public class FacturaCompraService {
 
         Usuario usuario = usuarioRepository.findById(idUsuarioActual)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario", idUsuarioActual));
+
+        // 4-bis. El importe de la factura NO se contrasta con lo recibido.
+        //
+        // Se comprueba que la orden exista, que tenga recepciones, que el numero
+        // no se repita y que las fechas sean coherentes — pero el subtotal lo
+        // pone quien registra la factura y nadie lo compara con la mercancia que
+        // de verdad entro. Una factura de 50.000 sobre una orden de la que se
+        // recibieron 500 se acepta, y genera una cuenta por pagar de 50.000.
+        //
+        // No se BLOQUEA aqui, y es deliberado: decidir si el subtotal puede
+        // llevar flete u otros cargos por encima de lo recibido, y con que
+        // tolerancia, es una decision de negocio, no de codigo — la misma clase
+        // de decision que PENDIENTE.md exigia tomar antes de tocar D-02. Ademas,
+        // 1.649 de las 2.287 facturas que hay en la base estan por encima de lo
+        // recibido (casi todas del poblado masivo de la F38), asi que un bloqueo
+        // duro tampoco se puede contrastar contra el historico.
+        //
+        // Lo que si se hace es dejar de callarlo: el descuadre queda en la
+        // bitacora, con las dos cifras, para que se pueda medir cuanto ocurre de
+        // verdad ANTES de decidir la regla. Ver docs/PENDIENTE.md, D-36.
+        java.math.BigDecimal valorRecibido = ordenCompraDetalleRepository
+                .findByOrdenCompraIdOrdenCompra(orden.getIdOrdenCompra()).stream()
+                .map(d -> d.getPrecioUnitario().multiply(
+                        java.math.BigDecimal.valueOf(
+                                d.getCantidadRecibida() != null ? d.getCantidadRecibida() : 0)))
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+
+        if (dto.getSubtotal() != null && dto.getSubtotal().compareTo(valorRecibido) > 0) {
+            logService.registrar(idUsuarioActual, "compras", "factura_descuadre",
+                    "Factura '" + dto.getNumeroFacturaProveedor() + "' de la OC #"
+                            + orden.getIdOrdenCompra() + ": subtotal " + dto.getSubtotal()
+                            + " por encima del valor recibido " + valorRecibido
+                            + " (diferencia " + dto.getSubtotal().subtract(valorRecibido) + ")", null);
+        }
 
         // 5. Insertar factura (total es GENERATED — no se asigna)
         FacturaCompra factura = new FacturaCompra();

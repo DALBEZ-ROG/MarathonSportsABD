@@ -101,8 +101,17 @@ public class SolicitudDevolucionService {
             if (!dp.getPedido().getIdPedido().equals(pedido.getIdPedido())) {
                 throw new ValidationException("La linea " + item.getIdDetallePedido() + " no pertenece al pedido #" + pedido.getIdPedido());
             }
-            if (item.getCantidadDevuelta() > dp.getCantidad()) {
-                throw new ValidationException("La cantidad a devolver supera lo comprado en esa linea (maximo: " + dp.getCantidad() + ")");
+            // Lo comprado se compara contra el ACUMULADO de devoluciones, no
+            // contra esta solicitud sola. Sin esto, dos solicitudes seguidas
+            // sobre el mismo pedido devolvian cada una las 10 unidades de una
+            // linea de 10 y las dos pasaban, porque cada una se miraba sola.
+            int yaDevuelto = detalleRepository.devueltoAcumuladoDe(dp.getIdDetalle());
+            int disponibleParaDevolver = dp.getCantidad() - yaDevuelto;
+            if (item.getCantidadDevuelta() > disponibleParaDevolver) {
+                throw new ValidationException("La cantidad a devolver supera lo comprado en esa linea: "
+                        + "se compraron " + dp.getCantidad()
+                        + (yaDevuelto > 0 ? ", ya hay " + yaDevuelto + " en devoluciones anteriores" : "")
+                        + ", asi que quedan " + Math.max(disponibleParaDevolver, 0) + " por devolver.");
             }
         }
 
