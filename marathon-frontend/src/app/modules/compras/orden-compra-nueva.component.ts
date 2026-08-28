@@ -35,7 +35,8 @@ interface LineaNueva {
           <label>Proveedor *</label>
           <app-searchable-select [(ngModel)]="idProveedor" name="idProveedor"
             [items]="proveedores" labelKey="nombre" valueKey="idProveedor"
-            placeholder="Escriba el nombre del proveedor..."/>
+            placeholder="Escriba el nombre del proveedor..."
+            (ngModelChange)="onProveedorElegido()"/>
         </div>
 
         <h3>Agregar línea</h3>
@@ -58,8 +59,20 @@ interface LineaNueva {
             <label>Producto</label>
             <app-searchable-select [(ngModel)]="lineaIdProducto" name="lineaIdProducto"
               [items]="productos" labelKey="nombre" valueKey="idProducto"
-              placeholder="Escriba el nombre o código del producto..."
+              [placeholder]="idProveedor ? 'Escriba el nombre o código del producto...' : 'Elija primero el proveedor'"
+              [disabled]="!idProveedor"
               (ngModelChange)="onItemElegido()"/>
+            <!-- F57: se dice CUANTOS hay y de quien. Una lista corta sin
+                 explicacion se lee como «faltan productos». -->
+            <small class="ayuda" *ngIf="idProveedor">
+              {{productos.length}} producto(s) de {{nombreProveedor()}}.
+              <span *ngIf="productos.length === 0">
+                Este proveedor no tiene productos asignados: asígnaselos en Datos maestros → Productos.
+              </span>
+            </small>
+            <small class="ayuda" *ngIf="!idProveedor">
+              Elija el proveedor y aquí saldrán solo los productos que él vende.
+            </small>
           </div>
           <div class="form-group flex-2" *ngIf="lineaTipo === 'materia_prima'">
             <label>Materia Prima</label>
@@ -128,6 +141,8 @@ interface LineaNueva {
     .radio-group label { display: flex; align-items: center; gap: .4rem; font-weight: 400; }
     .total-preview { display: flex; justify-content: flex-end; gap: 1rem; align-items: center; padding: .75rem 0; font-size: 1.05rem; }
     .total-preview strong { color: #C9A84C; }
+    /* Texto de apoyo bajo un campo: dice por qué la lista es la que es. */
+    .ayuda { display: block; margin-top: .35rem; font-size: .75rem; color: rgba(255,255,255,.5); }
   `]
 })
 export class OrdenCompraNuevaComponent implements OnInit {
@@ -155,8 +170,37 @@ export class OrdenCompraNuevaComponent implements OnInit {
 
   ngOnInit() {
     this.crud.listar<Proveedor>('proveedores', { page: 0, size: 1000, estado: 'activo' }).subscribe({ next: r => this.proveedores = r.content });
-    this.crud.listar<Producto>('productos', { page: 0, size: 1000, estado: 'activo' }).subscribe({ next: r => this.productos = r.content });
+    // Los productos NO se cargan aqui: dependen del proveedor (F57).
     this.crud.listar<MateriaPrima>('materia-prima', { page: 0, size: 1000, estado: 'activo' }).subscribe({ next: r => this.materiasPrimas = r.content });
+  }
+
+  /**
+   * F57: los productos que se ofrecen son los DE ESE PROVEEDOR.
+   *
+   * Antes se cargaba el catálogo entero y se ofrecían los 108 productos
+   * activos aunque la orden fuera para Nike, que vende 20. Comprarle a un
+   * proveedor algo que no vende no es un pedido: es un error de tecleo
+   * esperando a ocurrir.
+   *
+   * Se filtra en la base (`idProveedor` en /api/productos) y no aquí, para no
+   * traer un catálogo entero por cada orden.
+   *
+   * Cambiar de proveedor vacía el producto elegido y su precio: lo que había
+   * seleccionado pertenecía al proveedor anterior.
+   */
+  onProveedorElegido() {
+    this.lineaIdProducto = null;
+    this.lineaPrecio = null;
+    this.productos = [];
+    if (!this.idProveedor) { return; }
+    this.crud.listar<Producto>('productos', {
+      page: 0, size: 1000, estado: 'activo', idProveedor: this.idProveedor
+    }).subscribe({ next: r => this.productos = r.content });
+  }
+
+  nombreProveedor(): string {
+    const p = this.proveedores.find(x => x.idProveedor === this.idProveedor);
+    return p ? p.nombre : '';
   }
 
   onTipoChange() {

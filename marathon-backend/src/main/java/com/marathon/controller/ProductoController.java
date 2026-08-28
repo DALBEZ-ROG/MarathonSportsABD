@@ -38,8 +38,9 @@ public class ProductoController {
             @RequestParam(required = false) String nombre,
             @RequestParam(required = false) String estado,
             @RequestParam(required = false) Integer idCategoria,
-            @RequestParam(required = false) String origen) {
-        return ResponseEntity.ok(productoService.listar(page, size, nombre, estado, idCategoria, origen));
+            @RequestParam(required = false) String origen,
+            @RequestParam(required = false) Integer idProveedor) {
+        return ResponseEntity.ok(productoService.listar(page, size, nombre, estado, idCategoria, origen, idProveedor));
     }
 
     @GetMapping("/{id}")

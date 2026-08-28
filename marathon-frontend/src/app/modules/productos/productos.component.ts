@@ -275,6 +275,9 @@ interface Producto {
     </div>
   `,
   styles: [`
+    /* Texto de apoyo bajo un campo. */
+    .ayuda { display: block; margin-top: .35rem; font-size: .75rem; color: rgba(255,255,255,.5); }
+
     .bom-section, .costo-est {
       border: 1px solid var(--ms-border);
       border-radius: var(--ms-radius-sm);

@@ -59,52 +59,27 @@ public class ProductoService {
         this.logService = logService;
     }
 
-    public PageResponseDTO<ProductoResponseDTO> listar(int page, int size, String nombre, String estado, Integer idCategoria, String origen) {
-        // F51 (D-41): el ORDEN es obligatorio en una lista paginada.
-        // Sin ORDER BY, PostgreSQL devuelve las filas en el orden del monton, y
-        // un UPDATE reescribe la fila al final: la que acabas de editar
-        // desaparece de su pagina. Ademas, dos paginas consecutivas pueden
-        // repetir una fila y esconder otra.
+    public PageResponseDTO<ProductoResponseDTO> listar(int page, int size, String nombre, String estado,
+                                                       Integer idCategoria, String origen,
+                                                       Integer idProveedor) {
+        // F51 (D-41): el ORDEN es obligatorio en una lista paginada. Sin ORDER
+        // BY, un UPDATE reescribe la fila al final del monton y la que acabas
+        // de editar desaparece de su pagina.
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "idProducto"));
-        Page<Producto> result;
 
-        boolean hasNombre = nombre != null && !nombre.isEmpty();
-        boolean hasEstado = estado != null && !estado.isEmpty();
-        boolean hasCategoria = idCategoria != null;
-        boolean hasOrigen = origen != null && !origen.isEmpty();
-
-        // Cuando se filtra por origen (F27) se usa el query unificado, que
-        // cubre cualquier combinacion de filtros.
-        if (hasOrigen) {
-            result = productoRepository.buscarConFiltros(
-                    hasNombre ? nombre : null,
-                    hasEstado ? estado : null,
-                    hasCategoria ? idCategoria : null,
-                    origen, pageable);
-            List<ProductoResponseDTO> contentOrigen = result.getContent().stream()
-                    .map(this::toDTO)
-                    .collect(Collectors.toList());
-            return new PageResponseDTO<>(contentOrigen, result.getTotalElements(),
-                    result.getTotalPages(), result.getNumber(), result.getSize());
-        }
-
-        if (hasNombre && hasEstado && hasCategoria) {
-            result = productoRepository.findByNombreContainingIgnoreCaseAndEstadoAndCategoriaIdCategoria(nombre, estado, idCategoria, pageable);
-        } else if (hasNombre && hasCategoria) {
-            result = productoRepository.findByNombreContainingIgnoreCaseAndCategoriaIdCategoria(nombre, idCategoria, pageable);
-        } else if (hasEstado && hasCategoria) {
-            result = productoRepository.findByEstadoAndCategoriaIdCategoria(estado, idCategoria, pageable);
-        } else if (hasNombre && hasEstado) {
-            result = productoRepository.findByNombreContainingIgnoreCaseAndEstado(nombre, estado, pageable);
-        } else if (hasNombre) {
-            result = productoRepository.findByNombreContainingIgnoreCase(nombre, pageable);
-        } else if (hasEstado) {
-            result = productoRepository.findByEstado(estado, pageable);
-        } else if (hasCategoria) {
-            result = productoRepository.findByCategoriaIdCategoria(idCategoria, pageable);
-        } else {
-            result = productoRepository.findAll(pageable);
-        }
+        // F57: UNA consulta con todos los filtros opcionales, en vez de las
+        // ocho ramas if/else que habia aqui. Aquella cadena solo cubria las
+        // combinaciones previstas —y por eso el filtro por origen ya se habia
+        // tenido que salir de ella por un lado—, asi que anadir un filtro mas
+        // significaba duplicar otra vez las ramas. Ahora un filtro se anade
+        // poniendo un parametro, no multiplicando caminos.
+        Page<Producto> result = productoRepository.buscarConFiltros(
+                Filtros.vacioComoNulo(nombre),
+                Filtros.vacioComoNulo(estado),
+                idCategoria,
+                Filtros.vacioComoNulo(origen),
+                idProveedor,
+                pageable);
 
         List<ProductoResponseDTO> content = result.getContent().stream()
                 .map(this::toDTO)

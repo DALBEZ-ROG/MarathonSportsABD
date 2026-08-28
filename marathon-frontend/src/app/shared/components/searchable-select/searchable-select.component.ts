@@ -43,7 +43,13 @@ export class SearchableSelectComponent implements ControlValueAccessor {
   @Input() limite = 40;
   busqueda = '';
   abierto = false;
-  disabled = false;
+  /**
+   * F57: ademas de por setDisabledState (que usa Angular Forms), se puede
+   * desactivar desde la plantilla. La orden de compra lo necesita: hasta que
+   * no hay proveedor no hay lista de productos que ofrecer, y un buscador
+   * activo sobre una lista vacia solo invita a escribir en balde.
+   */
+  @Input() disabled = false;
   indiceActivo = -1;
   private onChange: (value: any) => void = () => {};
   private onTouched: () => void = () => {};

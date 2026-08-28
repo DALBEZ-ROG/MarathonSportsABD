@@ -39,11 +39,20 @@ public interface ProductoRepository extends JpaRepository<Producto, Integer> {
         + "(CAST(:nombre AS string) IS NULL OR LOWER(p.nombre) LIKE LOWER(CONCAT('%', CAST(:nombre AS string), '%'))) AND "
         + "(CAST(:estado AS string) IS NULL OR p.estado = CAST(:estado AS string)) AND "
         + "(:idCategoria IS NULL OR p.categoria.idCategoria = :idCategoria) AND "
-        + "(CAST(:origen AS string) IS NULL OR p.origen = CAST(:origen AS string))")
+        + "(CAST(:origen AS string) IS NULL OR p.origen = CAST(:origen AS string)) AND "
+        // F57: productos DE UN PROVEEDOR. Al levantar una orden de compra a
+        // Nike no tiene sentido ofrecer el catalogo entero: se compra a quien
+        // lo vende. El EXISTS va contra producto_proveedor, que es la tabla que
+        // guarda esa relacion (N:M en el esquema; hoy, un proveedor por
+        // producto en los 105 que lo tienen asignado).
+        + "(:idProveedor IS NULL OR EXISTS ("
+        + "     SELECT 1 FROM ProductoProveedor pp "
+        + "     WHERE pp.producto = p AND pp.proveedor.idProveedor = :idProveedor))")
     Page<Producto> buscarConFiltros(@Param("nombre") String nombre,
                                     @Param("estado") String estado,
                                     @Param("idCategoria") Integer idCategoria,
                                     @Param("origen") String origen,
+                                    @Param("idProveedor") Integer idProveedor,
                                     Pageable pageable);
 
     // F27: conteo de productos fabricados (para dashboard)
