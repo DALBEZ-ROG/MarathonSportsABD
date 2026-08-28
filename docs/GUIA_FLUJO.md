@@ -229,9 +229,28 @@ En los dos casos se crea automáticamente la **cuenta por pagar**.
 
 ### 2.6 · Pagar — *Encargado de Compras*
 
-**Cuentas por pagar → la cuenta → Registrar pago**
+**Cuentas por pagar → la cuenta**
 
-No deja pagar más del saldo pendiente. Admite pagos parciales.
+La pantalla está partida en dos: a la izquierda **lo que se revisa**, a la
+derecha **lo que se hace**.
+
+- **Izquierda:** cuánto va pagado con su barra de avance, **el detalle de lo que
+  se está pagando** (las líneas de la orden, con lo pedido frente a lo recibido)
+  y los pagos ya registrados.
+- **Derecha:** el saldo, el importe con atajos de «todo el saldo» y «la mitad»,
+  el método, la referencia bancaria y las observaciones. El panel **se queda
+  fijo** al bajar, para que el saldo no se pierda de vista mientras repasas.
+
+Según escribes el importe te dice **cuánto quedará pendiente**, y si te pasas del
+saldo bloquea el botón y dice de cuánto te has pasado.
+
+> **Un pago no se puede corregir.** Es un asiento contable: se registra, no se
+> edita. La pantalla lo advierte antes de confirmar, y el sistema lo respalda —
+> el Encargado de Compras no tiene permiso para modificar un pago ya hecho.
+
+Si la factura cubre solo parte de la orden —porque la recepción fue parcial— el
+detalle lo cuadra a la vista: valor recibido de la orden, lo documentado en otras
+facturas, y el total de esta.
 
 ### 2.7 · Si llegó algo defectuoso — *Encargado de Compras*
 
