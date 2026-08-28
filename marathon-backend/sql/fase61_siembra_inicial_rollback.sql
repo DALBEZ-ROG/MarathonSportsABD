@@ -1,0 +1,25 @@
+-- =============================================================================
+-- Fase 61 — REVERSION
+-- =============================================================================
+-- NO se revierte borrando los roles: de ellos cuelgan `rol_permiso` y
+-- `usuario_rol`, y borrarlos dejaria a todo el mundo sin acceso. Los roles son
+-- estructura, no datos de una fase.
+--
+-- Lo que se revierte es la DECISION: volver a dejar que la aplicacion siembre.
+-- Es un cambio de configuracion, no de esquema:
+--
+--   DATOS_DEMO=true      (variable de entorno, o app.datos-demo.enabled)
+--
+-- Y hay que saber lo que eso reactiva: `DataInitializer` volveria a crear los
+-- cinco usuarios de demostracion en cada arranque, y en una base vacia
+-- repartiria la matriz de permisos VIEJA (49) por encima de la de la F48 (94).
+--
+-- Si aun asi hace falta deshacer la siembra en una base recien creada y sin
+-- usar —y solo en ese caso—:
+--   DELETE FROM rol WHERE nombre IN ('Administrador','Supervisor E-Commerce',
+--       'Operador de Bodega','Operador de Pedidos','Encargado de Compras',
+--       'Encargado de Producción');
+-- Fallara, y debe fallar, si algo cuelga de ellos.
+-- =============================================================================
+
+\echo 'La F61 no tiene reversion de esquema. Lee el encabezado de este fichero.'
