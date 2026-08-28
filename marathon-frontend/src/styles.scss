@@ -2687,6 +2687,30 @@ app-root, .app-layout, .main-content,
   width: 100%;
 }
 
+/* ── La lista de un buscador no puede quedar por detrás ──────────────────
+   Síntoma: al desplegar el cliente en «Nuevo pedido», la lista salía DEBAJO
+   del recuadro siguiente. Lo mismo con el producto.
+
+   La causa no es el z-index de la lista —tiene 1200— sino que `.form-section`
+   lleva `backdrop-filter`, y `backdrop-filter` **crea un contexto de
+   apilamiento**. Dentro de él, 1200 solo compite con sus hermanos; la sección
+   de abajo es otro contexto que viene después en el documento y gana siempre,
+   valga lo que valga el z-index de dentro. Subirle el z-index a la lista no
+   arregla nada: hay que levantar la CAJA ENTERA que la contiene.
+
+   `:has()` permite hacerlo sin tocar TypeScript y solo mientras hay una lista
+   abierta, de modo que dos secciones no se pelean por estar arriba. Se aplica
+   a los contenedores que crean contexto y que albergan formularios.          */
+.form-section:has(.search-select.open),
+.form-card:has(.search-select.open),
+.card:has(.search-select.open),
+.form-row:has(.search-select.open),
+.modal-card:has(.search-select.open),
+.modal:has(.search-select.open) {
+  position: relative;
+  z-index: 60;
+}
+
 /* ── Ancho de las tablas ─────────────────────────────────────────────────
    Aqui habia un `display: block` SIN media query, es decir en TODAS las
    pantallas. Puesto sobre un <table>, `display: block` deshace la caja de

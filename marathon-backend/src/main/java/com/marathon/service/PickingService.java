@@ -61,7 +61,16 @@ public class PickingService {
     }
 
     public PageResponseDTO<PickingPedidoDTO> listarPedidosParaPicking(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("fechaPedido").ascending());
+        // F55: del MAS RECIENTE al mas antiguo, a peticion del dueño del
+        // proyecto. Antes era al reves, por criterio FIFO —lo que lleva mas
+        // esperando se atiende primero—, que es la convencion de almacen. Con
+        // 19.059 pedidos en 'procesado', casi todos del poblado masivo y de
+        // meses atras, esa cola no era una cola de trabajo: era un archivo, y
+        // dejaba el pedido de hoy a 1.900 paginas de distancia.
+        //
+        // Si algun dia hace falta atender por antiguedad, el sitio es esta
+        // linea y el buscador de la pantalla cubre el resto.
+        Pageable pageable = PageRequest.of(page, size, Sort.by("fechaPedido").descending());
         Page<Pedido> result = pedidoRepository.findByEstado("procesado", pageable);
 
         List<PickingPedidoDTO> content = result.getContent().stream().map(pedido -> {

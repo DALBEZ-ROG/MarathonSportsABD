@@ -7,6 +7,7 @@ import { ModalSeguroDirective } from '../../../shared/directives/modal-seguro.di
 
 interface PickingPedido {
   idPedido: number;
+  numeroPedido: string;
   clienteNombre: string;
   clienteApellido: string;
   fechaPedido: string;
@@ -36,22 +37,27 @@ interface PageResponse<T> {
 
       <div class="spinner" *ngIf="loading">Cargando...</div>
 
-      <div class="cards" *ngIf="!loading">
-        <div class="card" *ngFor="let p of pedidos">
-          <div class="card-header">
-            <span class="pedido-num"># Pedido {{p.idPedido}}</span>
-            <span class="estado-badge">PICKING COMPLETO</span>
-          </div>
-          <div class="card-body">
-            <p class="cliente">{{p.clienteNombre}} {{p.clienteApellido}}</p>
-            <p class="lineas">{{p.lineasCompletadas}} / {{p.totalLineas}} líneas recogidas</p>
-          </div>
-          <div class="card-footer">
-            <button class="btn-empacar" (click)="abrirModal(p)">Confirmar empaque</button>
-          </div>
-        </div>
-        <div class="empty" *ngIf="pedidos.length === 0">No hay pedidos con picking completo</div>
-      </div>
+      <!-- F55: lista, no tarjetas — igual que picking, y por el mismo motivo:
+           en tabla entran diez pedidos por pantalla en vez de tres. El más
+           reciente primero, que es el que acabas de recoger (F52, D-42). -->
+      <table class="data-table" *ngIf="!loading && pedidos.length > 0">
+        <thead>
+          <tr><th>Pedido</th><th>Cliente</th><th>Fecha</th><th>Líneas</th><th>Estado</th><th></th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of pedidos">
+            <td class="nowrap"><strong>{{p.numeroPedido || ('# ' + p.idPedido)}}</strong></td>
+            <td>{{p.clienteNombre}} {{p.clienteApellido}}</td>
+            <td class="nowrap">{{p.fechaPedido | date:'dd/MM/yyyy HH:mm'}}</td>
+            <td class="nowrap">{{p.lineasCompletadas}} / {{p.totalLineas}} recogidas</td>
+            <td><span class="estado-badge">PICKING COMPLETO</span></td>
+            <td class="actions">
+              <button class="btn-empacar" (click)="abrirModal(p)">Confirmar empaque</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="empty" *ngIf="!loading && pedidos.length === 0">No hay pedidos con picking completo</div>
 
       <!-- Modal -->
       <div class="modal-overlay" *ngIf="modalAbierto && seleccionado" appModalSeguro (cerrar)="cerrarModal()">

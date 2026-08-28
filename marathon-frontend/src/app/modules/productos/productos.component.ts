@@ -7,6 +7,7 @@ import { environment } from '../../../environments/environment';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
 import { ModalSeguroDirective } from '../../shared/directives/modal-seguro.directive';
 import { EstadoListaComponent } from '../../shared/components/estado-lista/estado-lista.component';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 
 interface Categoria {
   idCategoria: number;
@@ -65,7 +66,7 @@ interface Producto {
 @Component({
   selector: 'app-productos',
   standalone: true,
-  imports: [CommonModule, FormsModule, AppIconComponent, ModalSeguroDirective, EstadoListaComponent],
+  imports: [CommonModule, FormsModule, AppIconComponent, ModalSeguroDirective, EstadoListaComponent, SearchableSelectComponent],
   template: `
     <div class="crud-container">
       <div class="toolbar">
@@ -232,15 +233,22 @@ interface Producto {
               <p class="costo-adv" *ngIf="costoEst.advertencia">{{costoEst.advertencia}}</p>
             </div>
 
+            <!-- F55: UN proveedor, y se escribe.
+                 Era una lista de casillas que permitia marcar varios. En la
+                 base ninguno de los 105 productos con proveedor tiene mas de
+                 uno (maximo comprobado: 1), asi que la lista ofrecia una
+                 posibilidad que nadie usa y obligaba a recorrer todos los
+                 proveedores con la vista.
+                 La TABLA producto_proveedor sigue siendo N:M y no se ha tocado:
+                 lo que cambia es lo que la pantalla ofrece. Por eso se sigue
+                 enviando un array, solo que con un elemento. -->
             <div class="form-group">
-              <label>Proveedores</label>
-              <div class="proveedor-list">
-                <label *ngFor="let p of proveedores" class="checkbox-item">
-                  <input type="checkbox" [checked]="form.proveedorIds.includes(p.idProveedor)" (change)="toggleProveedor(p.idProveedor)"/>
-                  {{p.nombre}} <small *ngIf="p.ruc">({{p.ruc}})</small>
-                </label>
-                <span *ngIf="proveedores.length===0" class="no-items">No hay proveedores disponibles</span>
-              </div>
+              <label>Proveedor</label>
+              <app-searchable-select [(ngModel)]="proveedorSeleccionado" name="proveedor"
+                [ngModelOptions]="{standalone: true}"
+                [items]="proveedores" labelKey="nombre" valueKey="idProveedor"
+                placeholder="Escriba el nombre del proveedor..."/>
+              <small class="ayuda" *ngIf="proveedores.length===0">No hay proveedores activos.</small>
             </div>
             <small class="error" *ngIf="formError">{{formError}}</small>
             <div class="modal-actions">
@@ -470,13 +478,19 @@ export class ProductosComponent implements OnInit {
 
   cerrarModal() { this.showModal = false; }
 
-  toggleProveedor(id: number) {
-    const idx = this.form.proveedorIds.indexOf(id);
-    if (idx > -1) {
-      this.form.proveedorIds.splice(idx, 1);
-    } else {
-      this.form.proveedorIds.push(id);
-    }
+  /**
+   * F55: el proveedor del producto, uno solo.
+   *
+   * La tabla producto_proveedor es N:M y no se ha tocado; lo que se enviaba
+   * era un array y se sigue enviando un array. Este campo es la cara visible:
+   * null cuando no hay proveedor, y su id cuando hay uno.
+   */
+  get proveedorSeleccionado(): number | null {
+    return this.form.proveedorIds.length ? this.form.proveedorIds[0] : null;
+  }
+
+  set proveedorSeleccionado(id: number | null) {
+    this.form.proveedorIds = (id === null || id === undefined) ? [] : [id];
   }
 
   guardar() {

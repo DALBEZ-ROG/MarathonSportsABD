@@ -102,15 +102,23 @@ interface ExcelImportPendiente {
           <div class="form-group flex-2">
             <label>Producto</label>
             <app-searchable-select [(ngModel)]="selectedProducto" name="producto" [items]="productos"
-              labelKey="nombre" placeholder="Escriba el nombre del producto..."/>
+              labelKey="nombre" placeholder="Escriba el nombre del producto..."
+              (ngModelChange)="onProductoElegido()"/>
           </div>
           <div class="form-group flex-1">
             <label>Cantidad</label>
             <input type="number" [(ngModel)]="cantidadAgregar" name="cantidad" min="1"/>
           </div>
+          <!-- F55: el precio se carga solo al elegir el producto, y NO se
+               escribe. Era un campo editable cuyo valor el backend descarta
+               desde la L3 (D-34): el precio de la linea lo pone el catalogo,
+               precisamente para que un POST con "precioUnitario": 0.01 no cree
+               un pedido de 0,01. Dejarlo escribible invitaba a teclear un
+               importe que no se iba a usar. -->
           <div class="form-group flex-1">
             <label>Precio Unit.</label>
-            <input type="number" [(ngModel)]="precioAgregar" name="precio" step="0.01" min="0.01"/>
+            <input type="number" [ngModel]="precioAgregar" name="precio" readonly
+                   title="Es el precio del catálogo. Para cambiarlo, edita el producto."/>
           </div>
           <div class="form-group btn-group">
             <label>&nbsp;</label>
@@ -402,6 +410,17 @@ export class PedidoNuevoComponent implements OnInit {
 
   get totalImportPreview(): number {
     return this.importPendiente?.detalles.reduce((sum, d) => sum + d.subtotal, 0) ?? 0;
+  }
+
+  /**
+   * F55: al elegir un producto se trae su precio de catalogo.
+   *
+   * Antes la casilla quedaba vacia y habia que teclearlo — y lo tecleado se
+   * descartaba, porque desde la L3 (D-34) el precio de la linea lo pone el
+   * catalogo. Ahora se ve el precio que de verdad se va a aplicar.
+   */
+  onProductoElegido() {
+    this.precioAgregar = this.selectedProducto ? this.selectedProducto.precioVenta : 0;
   }
 
   agregarLinea() {
