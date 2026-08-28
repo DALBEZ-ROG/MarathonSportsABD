@@ -29,7 +29,7 @@ las fases **47** (reserva de stock), **48** (matriz de permisos), **49** (D-39) 
 repaso de flujos que encontro tres huecos mas.
 
 Se han encontrado **43 defectos** y se han cerrado **los 43**. Las pruebas
-pasaron de **0 → 105 → 131 → 148**, todas en verde. La compilación de producción
+pasaron de **0 → 105 → 131 → 154**, todas en verde. La compilación de producción
 del frontend funciona.
 
 A las fases 47-59 se suman ahora:
@@ -41,6 +41,7 @@ A las fases 47-59 se suman ahora:
 | **F62** | La pantalla de inicio pasa a ser **el flujo del sistema**: ocho pasos en orden, con sus opciones y con quién es responsable de cada uno |
 | **F63** | Tres cosas que salieron de **recorrer el flujo entero con cada rol**, no solo con el administrador |
 | **F64** | El Administrador queda **exento** de la separación de funciones al aprobar órdenes de compra |
+| **F65** | Compras y Producción **no podían terminar su parte del flujo**: dos GRANT que nunca se concedieron y un guardado de más |
 
 ---
 
@@ -408,6 +409,57 @@ nadie afloje esa mitad sin darse cuenta.
 **Comprobado sobre la aplicación en marcha**, no solo en pruebas: el admin creó
 una orden, la mandó a aprobación y la aprobó él mismo.
 
+### F65 · Compras y Producción no podían terminar su parte del flujo
+
+El dueño del proyecto aprobó una orden, entró a registrar la recepción y leyó:
+
+> «Tu rol no tiene permisos sobre estos datos»
+
+**El mensaje engañaba.** Apunta a la matriz de permisos, y la matriz estaba
+bien: `recepciones:registrar` lo tiene el Encargado de Compras desde la F48.
+Quien denegaba era PostgreSQL. Tres cosas distintas, encontradas tirando del
+hilo:
+
+**1. `movimiento_inventario` sin SELECT (Compras y Producción).** Los dos tenían
+INSERT pero no SELECT, y la clave primaria es IDENTITY: Hibernate emite
+`INSERT … RETURNING id_movimiento`, y **RETURNING exige SELECT**. Con INSERT a
+secas PostgreSQL rechaza la sentencia entera. Es la misma trampa ya documentada
+en `LogService.registrar`, resuelta allí al revés —con un INSERT nativo— porque
+allí se quería escribir en la bitácora sin poder leerla. **Producción tenía el
+mismo hueco y nadie lo había visto**, porque nadie había llegado a completar una
+orden con ese rol.
+
+**2. `orden_produccion_consumo.costo_unitario_snapshot` sin UPDATE.** Producción
+tenía INSERT en esa columna y UPDATE en `cantidad_real`, pero no en el snapshot
+— y ese UPDATE es deliberado: la F29 fotografía el costo del insumo **al
+iniciar**, no al planificar. Caso de manual de la regla 4: una tabla que se
+llena por etapas necesita el UPDATE de las columnas de cada etapa posterior. La
+F34 concedió la etapa 1 y la 3 y se saltó la 2.
+
+**3. El pago a proveedor se guardaba dos veces.** Insertaba, y volvía a guardar
+solo para escribir la referencia `PAG-000123`, que necesita el id recién
+generado. Ese segundo guardado emitía un UPDATE sobre `pago_proveedor`, donde
+Compras no tiene UPDATE — **y está bien que no lo tenga**: un pago es un asiento
+contable. Por eso **no** se concedió el privilegio; se arregló el código para
+escribir una sola vez. La referencia se deriva del id y `toDTO()` ya la
+calculaba sola cuando venía vacía. De paso dejó de pisarse la referencia que
+manda quien registra el pago.
+
+> **Por qué no lo vio nada de lo anterior, que es lo que más importa.** Es la
+> misma trampa que escondió D-39 desde la F37. El perfil de pruebas usa un solo
+> pool (`app.datasource.roles.enabled=false`), así que el arnés **nunca** se
+> conecta como `rol_encargado_compras`. Y el barrido de la F63 recorrió 128
+> pantallas **solo con GET**: cargar la pantalla de recepción funciona; lo que
+> falla es enviarla.
+>
+> Se corrigieron las dos cosas. `PrivilegiosDelFlujoTest` (6 pruebas) lee los
+> privilegios reales de PostgreSQL con `aclexplode()` y comprueba que están los
+> que el código necesita — y también que **no** se concedió de más: nadie salvo
+> el administrador puede corregir un movimiento ni un pago. Y se hizo un
+> **barrido de escritura** recorriendo la cadena de venta entera cambiando de
+> rol en cada paso (pedido → picking → empaque → comprobante → entrega →
+> devolución → inspección): **cero fallos**.
+
 ---
 
 ## 4. Lo que queda abierto
@@ -418,7 +470,9 @@ cosas que conviene saber antes de tocar nada.
 ### Deuda que sigue ahí, y que no es un defecto
 
 - **`scripts/fase37_pruebas_endpoints.ps1` sigue probando solo lecturas.** Es la
-  tarea pendiente más importante que queda. Es lo que dejó a D-39 escondido
+  tarea pendiente más importante que queda, y la F65 lo confirmó por segunda
+  vez: dos pasos del flujo estaban rotos para sus propios roles y ni las 148
+  pruebas ni un barrido de 128 pantallas lo vieron, porque ninguno escribía. Es lo que dejó a D-39 escondido
   desde la F37: 66 pruebas en verde, todas GET, mientras tres roles no podían
   hacer un POST. Mientras siga así, el próximo defecto de ese tipo tampoco se
   verá. **Probar siempre un POST por rol con la aplicación en marcha.**
@@ -524,7 +578,7 @@ Se aplican a cualquier cosa que se añada, y no son negociables:
 ## 7. Cómo comprobar que no se rompió nada
 
 ```bash
-# Backend — 148 pruebas, deben quedar todas en verde
+# Backend — 154 pruebas, deben quedar todas en verde
 cd marathon-backend
 mvn test                     # necesita TEST_DB_PASSWORD en el entorno
 
@@ -533,9 +587,9 @@ cd marathon-frontend
 npx ng build --configuration production
 ```
 
-Si `mvn test` baja de 148 pruebas o alguna falla, **algo se rompió**.
+Si `mvn test` baja de 154 pruebas o alguna falla, **algo se rompió**.
 
-**Y con la aplicación levantada, la comprobación que faltaba.** Las 148 pruebas
+**Y con la aplicación levantada, la comprobación que faltaba.** Las 154 pruebas
 usan un solo pool (`app.datasource.roles.enabled=false`), así que **no ven** los
 privilegios por rol. D-39 pasó por ahí. Con el backend en marcha:
 

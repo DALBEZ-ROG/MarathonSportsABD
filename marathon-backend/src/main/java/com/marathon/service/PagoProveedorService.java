@@ -65,15 +65,34 @@ public class PagoProveedorService {
         Usuario usuario = usuarioRepository.findById(idUsuarioActual)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario", idUsuarioActual));
 
-        // 3. Insertar pago
+        // 3. Insertar pago. UNA sola escritura (F65).
+        //
+        // Antes habia dos: se insertaba, y despues se volvia a guardar solo para
+        // escribir la referencia "PAG-000123", que necesita el id que acababa de
+        // generar la base. Ese segundo guardado emitia un UPDATE sobre
+        // pago_proveedor, y ahi rompia:
+        //
+        //   ERROR: permiso denegado a la tabla pago_proveedor
+        //   [update pago_proveedor set ... where id_pago=?]
+        //
+        // El Encargado de Compras tiene INSERT y SELECT sobre pago_proveedor,
+        // pero NO UPDATE. Y esta bien que no lo tenga: un pago es un asiento
+        // contable —se registra, no se corrige—, asi que la respuesta correcta
+        // NO era conceder UPDATE. Habria dejado a Compras cambiar el importe de
+        // un pago ya registrado.
+        //
+        // La referencia no hace falta persistirla: se deriva del id, y toDTO()
+        // ya la calculaba sola cuando venia vacia —esa rama existia desde
+        // siempre y no la usaba nadie—. Si quien registra el pago manda su
+        // propia referencia (la del banco, por ejemplo), ahora se respeta en vez
+        // de pisarse, que era otro efecto de aquel segundo guardado.
         PagoProveedor pago = new PagoProveedor();
         pago.setCuentaPorPagar(cuenta);
         pago.setUsuarioRegistro(usuario);
         pago.setMonto(dto.getMonto());
         pago.setMetodoPago(dto.getMetodoPago());
         pago.setObservaciones(dto.getObservaciones());
-        pago = pagoRepository.save(pago);
-        pago.setReferencia(String.format("PAG-%06d", pago.getIdPago()));
+        pago.setReferencia(dto.getReferencia());
         pago = pagoRepository.save(pago);
 
         // 4. Flush para que el trigger recalcule monto_pagado y estado
