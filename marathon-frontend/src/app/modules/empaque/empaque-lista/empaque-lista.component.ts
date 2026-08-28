@@ -96,6 +96,14 @@ interface PageResponse<T> {
         </div>
       </div>
 
+      <!-- F52 (D-42): sin esta paginacion la pantalla solo enseñaba los
+           primeros pedidos y el resto era inalcanzable. -->
+      <div class="pagination" *ngIf="totalPages > 1">
+        <button (click)="cambiarPagina(page-1)" [disabled]="page===0">← Anterior</button>
+        <span>Página {{page+1}} de {{totalPages}} · {{totalElements}} pedidos listos para empacar</span>
+        <button (click)="cambiarPagina(page+1)" [disabled]="page>=totalPages-1">Siguiente →</button>
+      </div>
+
       <div class="toast" *ngIf="toast" [class.error]="toastError">{{toast}}</div>
     </div>
   `,
@@ -106,6 +114,10 @@ interface PageResponse<T> {
 export class EmpaqueListaComponent implements OnInit {
   pedidos: PickingPedido[] = [];
   loading = false;
+  page = 0;
+  size = 10;
+  totalPages = 0;
+  totalElements = 0;
   modalAbierto = false;
   seleccionado: PickingPedido | null = null;
   enviando = false;
@@ -117,16 +129,37 @@ export class EmpaqueListaComponent implements OnInit {
 
   ngOnInit() { this.cargar(); }
 
+  /**
+   * Cola de empaque (F52, D-42).
+   *
+   * Antes esto pedía los 100 primeros pedidos *procesados* a
+   * `/api/picking/pedidos` y filtraba aquí los que tenían el picking completo.
+   * Con 19.059 pedidos en «procesado» ordenados del más antiguo, un pedido
+   * recién recogido quedaba el último de la cola y **no aparecía nunca**: quien
+   * lo recogía no podía empacarlo.
+   *
+   * Ahora el filtro lo hace la base (`/api/empaque/pedidos/listos`), la lista
+   * llega del más reciente al más antiguo —que es lo que busca quien acaba de
+   * recoger— y hay paginación de verdad.
+   */
   cargar() {
     this.loading = true;
-    const params = new HttpParams().set('page', 0).set('size', 100);
-    this.http.get<PageResponse<PickingPedido>>(`${environment.apiUrl}/picking/pedidos`, { params }).subscribe({
+    const params = new HttpParams().set('page', this.page).set('size', this.size);
+    this.http.get<PageResponse<PickingPedido>>(`${environment.apiUrl}/empaque/pedidos/listos`, { params }).subscribe({
       next: res => {
-        this.pedidos = res.content.filter(p => p.estadoPicking === 'completo');
+        this.pedidos = res.content;
+        this.totalPages = res.totalPages;
+        this.totalElements = res.totalElements;
         this.loading = false;
       },
       error: () => { this.loading = false; }
     });
+  }
+
+  cambiarPagina(p: number) {
+    if (p < 0 || p >= this.totalPages) { return; }
+    this.page = p;
+    this.cargar();
   }
 
   abrirModal(p: PickingPedido) {

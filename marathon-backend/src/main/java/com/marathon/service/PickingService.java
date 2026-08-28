@@ -73,6 +73,37 @@ public class PickingService {
                 result.getTotalPages(), result.getNumber(), result.getSize());
     }
 
+    /**
+     * Pedidos listos para EMPACAR (F52, D-42).
+     *
+     * <p>Dos diferencias con la cola de picking, y las dos importan:
+     *
+     * <ul>
+     *   <li><b>Filtra en la base</b>, no en el navegador. La pantalla de Empaque
+     *       pedia los 100 primeros pedidos procesados y descartaba en el cliente
+     *       los que no tenian el picking completo; todo lo que estuviera mas
+     *       alla del pedido 100 era invisible.</li>
+     *   <li><b>Ordena del mas RECIENTE al mas antiguo</b>, al reves que la cola
+     *       de picking. La cola de picking es trabajo por hacer y se atiende por
+     *       orden de llegada; el empaque es lo que <i>acabas</i> de recoger, y lo
+     *       que buscas es lo ultimo. Con el orden antiguo, un pedido recogido
+     *       hace un minuto quedaba el ultimo de 9.002 y no habia forma de
+     *       llegar a el.</li>
+     * </ul>
+     */
+    public PageResponseDTO<PickingPedidoDTO> listarPedidosParaEmpacar(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("fechaPedido").descending());
+        Page<Pedido> result = pedidoRepository.buscarListosParaEmpacar(pageable);
+
+        List<PickingPedidoDTO> content = result.getContent().stream().map(pedido -> {
+            List<DetallePedido> detalles = detallePedidoRepository.findByPedidoIdPedidoOrderByIdDetalleAsc(pedido.getIdPedido());
+            return toPedidoDTO(pedido, detalles);
+        }).collect(Collectors.toList());
+
+        return new PageResponseDTO<>(content, result.getTotalElements(),
+                result.getTotalPages(), result.getNumber(), result.getSize());
+    }
+
     @Transactional
     public PickingLineaDTO actualizarLinea(Integer idPedido, PickingUpdateDTO dto, Integer idUsuarioActual) {
         Pedido pedido = pedidoRepository.findById(idPedido)

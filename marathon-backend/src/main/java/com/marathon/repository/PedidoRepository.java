@@ -18,6 +18,29 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
 
     Page<Pedido> findByEstado(String estado, Pageable pageable);
 
+    /**
+     * Pedidos listos para empacar: en {@code procesado} y con el picking
+     * COMPLETO (F52, D-42).
+     *
+     * <p>La pantalla de Empaque pedia los 100 primeros pedidos procesados y
+     * filtraba en el navegador los que tenian el picking completo. Con 19.059
+     * pedidos en {@code procesado} ordenados del mas antiguo, un pedido que se
+     * acaba de recoger queda el ultimo de la cola: estaba en la posicion 19.059
+     * de una lista de la que solo se traian 100, asi que <b>no aparecia
+     * nunca</b>. Quien recogia un pedido no podia empacarlo.
+     *
+     * <p>Ahora el filtro lo hace la base y la pantalla pagina de verdad.
+     *
+     * <p>El {@code EXISTS} no sobra: sin el, un pedido <i>sin lineas</i>
+     * cumpliria el {@code NOT EXISTS} por vacuidad y saldria listado como listo
+     * para empacar.
+     */
+    @Query("SELECT p FROM Pedido p WHERE p.estado = 'procesado' "
+         + "AND EXISTS (SELECT 1 FROM DetallePedido d WHERE d.pedido = p) "
+         + "AND NOT EXISTS (SELECT 1 FROM DetallePedido d WHERE d.pedido = p "
+         + "                AND d.pickingCompletado = false)")
+    Page<Pedido> buscarListosParaEmpacar(Pageable pageable);
+
     Page<Pedido> findByClienteIdCliente(Integer idCliente, Pageable pageable);
 
     Page<Pedido> findByClienteIdClienteAndEstado(Integer idCliente, String estado, Pageable pageable);
@@ -38,7 +61,7 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
             + "AND (:region = '' OR p.regionDestino = :region) "
             + "AND p.fechaEmpaque >= :desde "
             + "AND p.fechaEmpaque <= :hasta "
-            + "ORDER BY p.fechaEmpaque DESC")
+            + "ORDER BY p.fechaEmpaque DESC, p.idPedido DESC")
     Page<Pedido> findDespachados(@Param("region") String region,
                                  @Param("desde") LocalDateTime desde,
                                  @Param("hasta") LocalDateTime hasta,
