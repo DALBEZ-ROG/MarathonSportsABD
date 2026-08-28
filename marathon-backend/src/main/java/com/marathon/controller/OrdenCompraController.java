@@ -3,6 +3,7 @@ package com.marathon.controller;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,6 +33,7 @@ public class OrdenCompraController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('compras:ver')")
     public ResponseEntity<PageResponseDTO<OrdenCompraResponseDTO>> listar(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -41,11 +43,13 @@ public class OrdenCompraController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('compras:ver')")
     public ResponseEntity<OrdenCompraResponseDTO> obtener(@PathVariable Integer id) {
         return ResponseEntity.ok(ordenCompraService.obtener(id));
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('compras:crear')")
     public ResponseEntity<OrdenCompraResponseDTO> crear(@Valid @RequestBody OrdenCompraRequestDTO dto,
                                                         Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
@@ -60,6 +64,7 @@ public class OrdenCompraController {
      * @PutMapping no importa porque las rutas no se solapan.
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('compras:crear')")
     public ResponseEntity<OrdenCompraResponseDTO> actualizar(
             @PathVariable Integer id,
             @Valid @RequestBody OrdenCompraRequestDTO dto,

@@ -6,6 +6,7 @@ import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,12 +37,14 @@ public class DevolucionProveedorController {
     }
 
     @GetMapping("/items-disponibles")
+    @PreAuthorize("hasAuthority('devoluciones_proveedor:ver')")
     public ResponseEntity<List<ItemDefectuosoDisponibleDTO>> itemsDisponibles(
             @RequestParam(required = false) Integer idProveedor) {
         return ResponseEntity.ok(service.listarItemsDefectuososDisponibles(idProveedor));
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('devoluciones_proveedor:ver')")
     public ResponseEntity<PageResponseDTO<DevolucionProveedorResponseDTO>> listar(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -51,11 +54,13 @@ public class DevolucionProveedorController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('devoluciones_proveedor:ver')")
     public ResponseEntity<DevolucionProveedorResponseDTO> obtener(@PathVariable Integer id) {
         return ResponseEntity.ok(service.obtener(id));
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('devoluciones_proveedor:crear')")
     public ResponseEntity<DevolucionProveedorResponseDTO> crear(
             @Valid @RequestBody DevolucionProveedorRequestDTO dto,
             Authentication authentication) {
@@ -65,6 +70,7 @@ public class DevolucionProveedorController {
     }
 
     @PutMapping("/{id}/estado")
+    @PreAuthorize("hasAuthority('devoluciones_proveedor:resolver')")
     public ResponseEntity<DevolucionProveedorResponseDTO> cambiarEstado(
             @PathVariable Integer id,
             @RequestBody Map<String, String> body,
@@ -74,6 +80,7 @@ public class DevolucionProveedorController {
     }
 
     @PostMapping("/{id}/resolver")
+    @PreAuthorize("hasAuthority('devoluciones_proveedor:resolver')")
     public ResponseEntity<DevolucionProveedorResponseDTO> resolver(
             @PathVariable Integer id,
             @Valid @RequestBody ResolucionDevolucionDTO dto,

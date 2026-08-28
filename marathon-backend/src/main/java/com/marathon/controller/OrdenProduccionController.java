@@ -3,6 +3,7 @@ package com.marathon.controller;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,6 +34,7 @@ public class OrdenProduccionController {
     }
 
     @GetMapping("/verificar-disponibilidad")
+    @PreAuthorize("hasAuthority('produccion:ver')")
     public ResponseEntity<VerificacionDisponibilidadDTO> verificarDisponibilidad(
             @RequestParam Integer idProducto,
             @RequestParam Integer cantidad) {
@@ -40,6 +42,7 @@ public class OrdenProduccionController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('produccion:ver')")
     public ResponseEntity<PageResponseDTO<OrdenProduccionResponseDTO>> listar(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -49,11 +52,13 @@ public class OrdenProduccionController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('produccion:ver')")
     public ResponseEntity<OrdenProduccionResponseDTO> obtener(@PathVariable Integer id) {
         return ResponseEntity.ok(ordenProduccionService.obtener(id));
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('produccion:crear')")
     public ResponseEntity<OrdenProduccionResponseDTO> crear(
             @Valid @RequestBody OrdenProduccionRequestDTO dto,
             Authentication authentication) {
@@ -63,6 +68,7 @@ public class OrdenProduccionController {
     }
 
     @PutMapping("/{id}/iniciar")
+    @PreAuthorize("hasAuthority('produccion:iniciar')")
     public ResponseEntity<OrdenProduccionResponseDTO> iniciar(
             @PathVariable Integer id, Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
@@ -70,6 +76,7 @@ public class OrdenProduccionController {
     }
 
     @PutMapping("/{id}/completar")
+    @PreAuthorize("hasAuthority('produccion:completar')")
     public ResponseEntity<OrdenProduccionResponseDTO> completar(
             @PathVariable Integer id,
             @Valid @RequestBody CompletarProduccionDTO dto,
@@ -79,6 +86,7 @@ public class OrdenProduccionController {
     }
 
     @PutMapping("/{id}/cancelar")
+    @PreAuthorize("hasAuthority('produccion:cancelar')")
     public ResponseEntity<OrdenProduccionResponseDTO> cancelar(
             @PathVariable Integer id, Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();

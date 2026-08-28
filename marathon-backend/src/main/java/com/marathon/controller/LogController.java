@@ -5,6 +5,7 @@ import com.marathon.dto.log.LogAccionResponseDTO;
 import com.marathon.service.LogService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -21,6 +22,7 @@ public class LogController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('logs:ver')")
     public ResponseEntity<PageResponseDTO<LogAccionResponseDTO>> listar(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -32,6 +34,7 @@ public class LogController {
     }
 
     @GetMapping("/modulos")
+    @PreAuthorize("hasAuthority('logs:ver')")
     public ResponseEntity<List<String>> listarModulos() {
         return ResponseEntity.ok(logService.listarModulos());
     }

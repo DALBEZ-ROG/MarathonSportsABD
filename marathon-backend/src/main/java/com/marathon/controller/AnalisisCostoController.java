@@ -1,6 +1,7 @@
 package com.marathon.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,11 +24,13 @@ public class AnalisisCostoController {
     }
 
     @GetMapping("/fabricar-vs-comprar/{idProducto}")
+    @PreAuthorize("hasAuthority('analisis_costos:ver')")
     public ResponseEntity<AnalisisFabricarVsComprarDTO> fabricarVsComprar(@PathVariable Integer idProducto) {
         return ResponseEntity.ok(analisisCostoService.analizarFabricarVsComprar(idProducto));
     }
 
     @GetMapping("/productos-fabricados")
+    @PreAuthorize("hasAuthority('analisis_costos:ver')")
     public ResponseEntity<PageResponseDTO<CostoProductoFabricadoDTO>> productosFabricados(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {

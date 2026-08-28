@@ -3,6 +3,7 @@ package com.marathon.controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -56,33 +57,39 @@ public class DashboardController {
 
     /** F30 — Resumen del dashboard de manufactura. */
     @GetMapping("/manufactura")
+    @PreAuthorize("hasAuthority('produccion:ver')")
     public ResponseEntity<ResumenManufacturaDTO> getResumenManufactura() {
         return ResponseEntity.ok(reporteManufacturaService.resumenManufactura());
     }
 
     @GetMapping("/kpis")
+    @PreAuthorize("hasAuthority('dashboard:ver')")
     public ResponseEntity<DashboardKpisDTO> getKpis() {
         return ResponseEntity.ok(dashboardService.getKpis());
     }
 
     @GetMapping("/ventas-por-dia")
+    @PreAuthorize("hasAuthority('dashboard:ver')")
     public ResponseEntity<List<VentaDiaDTO>> getVentasPorDia(
             @RequestParam(defaultValue = "7") int dias) {
         return ResponseEntity.ok(dashboardService.getVentasPorDia(dias));
     }
 
     @GetMapping("/pedidos-por-estado")
+    @PreAuthorize("hasAuthority('dashboard:ver')")
     public ResponseEntity<List<EstadoPedidoDTO>> getPedidosPorEstado() {
         return ResponseEntity.ok(dashboardService.getPedidosPorEstado());
     }
 
     @GetMapping("/top-productos")
+    @PreAuthorize("hasAuthority('dashboard:ver')")
     public ResponseEntity<List<TopProductoDTO>> getTopProductos(
             @RequestParam(defaultValue = "5") int limite) {
         return ResponseEntity.ok(dashboardService.getTopProductos(limite));
     }
 
     @GetMapping("/movimientos-hoy")
+    @PreAuthorize("hasAuthority('dashboard:ver')")
     public ResponseEntity<List<MovimientoResumenDTO>> getMovimientosHoy() {
         return ResponseEntity.ok(dashboardService.getMovimientosHoy());
     }

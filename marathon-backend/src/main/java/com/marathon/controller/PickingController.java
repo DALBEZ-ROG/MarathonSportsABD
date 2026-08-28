@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -33,6 +34,7 @@ public class PickingController {
     }
 
     @GetMapping("/pedidos")
+    @PreAuthorize("hasAuthority('picking:ver')")
     public ResponseEntity<PageResponseDTO<PickingPedidoDTO>> listarPedidos(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
@@ -40,11 +42,13 @@ public class PickingController {
     }
 
     @GetMapping("/pedidos/{idPedido}")
+    @PreAuthorize("hasAuthority('picking:ver')")
     public ResponseEntity<PickingPedidoDTO> obtenerPedido(@PathVariable Integer idPedido) {
         return ResponseEntity.ok(pickingService.obtenerPickingPedido(idPedido));
     }
 
     @PutMapping("/pedidos/{idPedido}/lineas")
+    @PreAuthorize("hasAuthority('picking:ejecutar')")
     public ResponseEntity<PickingLineaDTO> actualizarLinea(@PathVariable Integer idPedido,
                                                            @Valid @RequestBody PickingUpdateDTO dto) {
         Usuario usuario = (Usuario) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -52,6 +56,7 @@ public class PickingController {
     }
 
     @GetMapping("/pedidos/{idPedido}/estado")
+    @PreAuthorize("hasAuthority('picking:ver')")
     public ResponseEntity<Map<String, Object>> verificarEstado(@PathVariable Integer idPedido) {
         PickingPedidoDTO pedido = pickingService.obtenerPickingPedido(idPedido);
 

@@ -8,6 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -46,11 +47,13 @@ public class ReporteManufacturaController {
 
     // ===================== CONSUMO DE MATERIA PRIMA =====================
     @PostMapping("/consumo-materia-prima/preview")
+    @PreAuthorize("hasAuthority('reportes:manufactura')")
     public ResponseEntity<List<ReporteConsumoMateriaPrimaDTO>> previewConsumo(@RequestBody FiltroReporteDTO filtro) {
         return ResponseEntity.ok(reporteManufacturaService.consumoMateriaPrima(filtro));
     }
 
     @PostMapping("/consumo-materia-prima/excel")
+    @PreAuthorize("hasAuthority('reportes:manufactura')")
     public ResponseEntity<byte[]> excelConsumo(@RequestBody FiltroReporteDTO filtro) {
         List<ReporteConsumoMateriaPrimaDTO> datos = reporteManufacturaService.consumoMateriaPrima(filtro);
         byte[] archivo = excelService.exportarConsumoMateriaPrimaExcel(datos, filtro);
@@ -58,6 +61,7 @@ public class ReporteManufacturaController {
     }
 
     @PostMapping("/consumo-materia-prima/pdf")
+    @PreAuthorize("hasAuthority('reportes:manufactura')")
     public ResponseEntity<byte[]> pdfConsumo(@RequestBody FiltroReporteDTO filtro) {
         List<ReporteConsumoMateriaPrimaDTO> datos = reporteManufacturaService.consumoMateriaPrima(filtro);
         byte[] archivo = pdfReporteService.exportarConsumoMateriaPrimaPDF(datos, filtro, nombreUsuario());
@@ -66,11 +70,13 @@ public class ReporteManufacturaController {
 
     // ===================== EFICIENCIA DE PRODUCCIÓN =====================
     @PostMapping("/eficiencia-produccion/preview")
+    @PreAuthorize("hasAuthority('reportes:manufactura')")
     public ResponseEntity<List<ReporteEficienciaProduccionDTO>> previewEficiencia(@RequestBody FiltroReporteDTO filtro) {
         return ResponseEntity.ok(reporteManufacturaService.eficienciaProduccion(filtro));
     }
 
     @PostMapping("/eficiencia-produccion/excel")
+    @PreAuthorize("hasAuthority('reportes:manufactura')")
     public ResponseEntity<byte[]> excelEficiencia(@RequestBody FiltroReporteDTO filtro) {
         List<ReporteEficienciaProduccionDTO> datos = reporteManufacturaService.eficienciaProduccion(filtro);
         byte[] archivo = excelService.exportarEficienciaProduccionExcel(datos, filtro);
@@ -78,6 +84,7 @@ public class ReporteManufacturaController {
     }
 
     @PostMapping("/eficiencia-produccion/pdf")
+    @PreAuthorize("hasAuthority('reportes:manufactura')")
     public ResponseEntity<byte[]> pdfEficiencia(@RequestBody FiltroReporteDTO filtro) {
         List<ReporteEficienciaProduccionDTO> datos = reporteManufacturaService.eficienciaProduccion(filtro);
         byte[] archivo = pdfReporteService.exportarEficienciaProduccionPDF(datos, filtro, nombreUsuario());

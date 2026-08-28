@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -28,6 +29,7 @@ public class IAController {
     }
 
     @PostMapping("/consultar")
+    @PreAuthorize("hasAuthority('ia:consultar')")
     public ResponseEntity<IAResponseDTO> consultar(@RequestBody IAConsultaRequestDTO request) {
         // Interruptor de la L2. Con app.ia.enabled=false ni siquiera se llama a
         // Anthropic ni se toca la base: el modulo esta apagado y lo dice.
@@ -45,6 +47,7 @@ public class IAController {
     }
 
     @GetMapping("/ejemplos")
+    @PreAuthorize("hasAuthority('ia:consultar')")
     public ResponseEntity<List<String>> ejemplos() {
         List<String> ejemplos = List.of(
             "¿Cuántos pedidos están pendientes hoy?",

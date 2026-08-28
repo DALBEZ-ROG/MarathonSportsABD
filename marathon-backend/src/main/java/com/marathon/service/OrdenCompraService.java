@@ -11,6 +11,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.marathon.config.Permisos;
 import com.marathon.dto.PageResponseDTO;
 import com.marathon.dto.ordencompra.CambioEstadoOrdenCompraDTO;
 import com.marathon.dto.ordencompra.OrdenCompraDetalleItemDTO;
@@ -37,16 +38,12 @@ import jakarta.persistence.PersistenceContext;
 @Service
 public class OrdenCompraService {
 
-    private static final String ROL_ADMIN = "Administrador";
-    private static final String ROL_COMPRAS = "Encargado de Compras";
-
     private final OrdenCompraRepository ordenCompraRepository;
     private final OrdenCompraDetalleRepository detalleRepository;
     private final ProveedorRepository proveedorRepository;
     private final ProductoRepository productoRepository;
     private final MateriaPrimaRepository materiaPrimaRepository;
     private final UsuarioRepository usuarioRepository;
-    private final UsuarioDetailsService usuarioDetailsService;
     private final LogService logService;
 
     @PersistenceContext
@@ -58,7 +55,6 @@ public class OrdenCompraService {
                               ProductoRepository productoRepository,
                               MateriaPrimaRepository materiaPrimaRepository,
                               UsuarioRepository usuarioRepository,
-                              UsuarioDetailsService usuarioDetailsService,
                               LogService logService) {
         this.ordenCompraRepository = ordenCompraRepository;
         this.detalleRepository = detalleRepository;
@@ -66,7 +62,6 @@ public class OrdenCompraService {
         this.productoRepository = productoRepository;
         this.materiaPrimaRepository = materiaPrimaRepository;
         this.usuarioRepository = usuarioRepository;
-        this.usuarioDetailsService = usuarioDetailsService;
         this.logService = logService;
     }
 
@@ -259,10 +254,20 @@ public class OrdenCompraService {
         OrdenCompra orden = ordenCompraRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Orden de compra", id));
 
-        List<String> roles = usuarioDetailsService.getRoles(idUsuarioActual);
-        boolean esAdmin = roles.contains(ROL_ADMIN);
-        boolean esCompras = roles.contains(ROL_COMPRAS);
-
+        // ------------------------------------------------------------------
+        // F48 (D-13): quien puede hacer que, decidido por la MATRIZ.
+        // ------------------------------------------------------------------
+        // Antes esto era roles.contains("Administrador") escrito a mano. El
+        // reparto era correcto —y de el sale la matriz de fase48—, pero estaba
+        // grabado en el codigo: cambiarlo exigia recompilar, y la pantalla de
+        // roles, que existe justamente para editarlo, no pintaba nada.
+        //
+        // Las cuatro transiciones caen en el mismo endpoint, asi que la
+        // comprobacion no cabe en un @PreAuthorize del controlador y vive aqui.
+        //
+        // La separacion de funciones (quien solicita no aprueba) NO se convierte
+        // en permiso y se queda debajo tal cual: no depende de quien seas sino de
+        // que orden sea, y eso ningun permiso lo puede expresar.
         String actual = orden.getEstado();
         String nuevo = dto.getEstado();
 
@@ -271,9 +276,7 @@ public class OrdenCompraService {
                 if (!"borrador".equals(actual)) {
                     throw transicionInvalida(actual, nuevo);
                 }
-                if (!(esCompras || esAdmin)) {
-                    throw new ValidationException("Solo el Encargado de Compras o el Administrador pueden enviar la orden a aprobación");
-                }
+                Permisos.exigirSiHaySesion("compras:crear", "enviar una orden de compra a aprobación");
                 orden.setEstado(nuevo);
                 break;
 
@@ -282,9 +285,9 @@ public class OrdenCompraService {
                 if (!"pendiente_aprobacion".equals(actual)) {
                     throw transicionInvalida(actual, nuevo);
                 }
-                if (!esAdmin) {
-                    throw new ValidationException("Solo el Administrador puede aprobar o rechazar órdenes de compra");
-                }
+                Permisos.exigirSiHaySesion(
+                        "aprobada".equals(nuevo) ? "compras:aprobar" : "compras:rechazar",
+                        "aprobada".equals(nuevo) ? "aprobar órdenes de compra" : "rechazar órdenes de compra");
                 // Separación de funciones: quien solicita no puede aprobar su propia orden
                 if (orden.getUsuarioSolicitante() != null
                         && orden.getUsuarioSolicitante().getIdUsuario().equals(idUsuarioActual)) {
@@ -303,9 +306,7 @@ public class OrdenCompraService {
                 if (!("borrador".equals(actual) || "pendiente_aprobacion".equals(actual) || "aprobada".equals(actual))) {
                     throw transicionInvalida(actual, nuevo);
                 }
-                if (!(esCompras || esAdmin)) {
-                    throw new ValidationException("Solo el Encargado de Compras o el Administrador pueden cancelar órdenes de compra");
-                }
+                Permisos.exigirSiHaySesion("compras:cancelar", "cancelar órdenes de compra");
                 validarSinRecepciones(id);
                 orden.setEstado(nuevo);
                 break;

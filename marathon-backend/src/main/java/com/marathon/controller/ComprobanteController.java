@@ -4,6 +4,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,6 +28,7 @@ public class ComprobanteController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('comprobantes:ver')")
     public ResponseEntity<PageResponseDTO<ComprobanteResponseDTO>> listar(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -35,16 +37,19 @@ public class ComprobanteController {
     }
 
     @GetMapping("/pedido/{idPedido}")
+    @PreAuthorize("hasAuthority('comprobantes:ver')")
     public ResponseEntity<ComprobanteResponseDTO> obtenerPorPedido(@PathVariable Integer idPedido) {
         return ResponseEntity.ok(comprobanteService.obtenerPorPedido(idPedido));
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('comprobantes:ver')")
     public ResponseEntity<ComprobanteResponseDTO> obtener(@PathVariable Integer id) {
         return ResponseEntity.ok(comprobanteService.obtener(id));
     }
 
     @GetMapping("/{id}/pdf")
+    @PreAuthorize("hasAuthority('comprobantes:ver')")
     public ResponseEntity<byte[]> descargarPDF(@PathVariable Integer id) {
         ComprobanteResponseDTO comprobante = comprobanteService.obtener(id);
         byte[] pdf = comprobanteService.descargarPDF(id);
@@ -58,12 +63,14 @@ public class ComprobanteController {
     }
 
     @PostMapping("/pedido/{idPedido}/generar")
+    @PreAuthorize("hasAuthority('comprobantes:emitir')")
     public ResponseEntity<ComprobanteResponseDTO> generar(@PathVariable Integer idPedido) {
         Usuario usuario = (Usuario) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return ResponseEntity.ok(comprobanteService.generarComprobante(idPedido, usuario.getIdUsuario()));
     }
 
     @PostMapping("/{id}/anular")
+    @PreAuthorize("hasAuthority('comprobantes:anular')")
     public ResponseEntity<ComprobanteResponseDTO> anular(@PathVariable Integer id) {
         Usuario usuario = (Usuario) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return ResponseEntity.ok(comprobanteService.anular(id, usuario.getIdUsuario()));

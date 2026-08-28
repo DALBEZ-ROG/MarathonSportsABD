@@ -3,6 +3,7 @@ package com.marathon.controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -45,6 +46,7 @@ public class PermisoController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('roles:ver')")
     public ResponseEntity<List<PermisoResponseDTO>> listar(@RequestParam(required = false) String modulo) {
         if (modulo != null && !modulo.isEmpty()) {
             return ResponseEntity.ok(permisoService.listarPorModulo(modulo));

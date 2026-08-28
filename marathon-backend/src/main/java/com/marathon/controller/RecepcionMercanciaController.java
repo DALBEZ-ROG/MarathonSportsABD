@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,6 +31,7 @@ public class RecepcionMercanciaController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('recepciones:registrar')")
     public ResponseEntity<RecepcionMercanciaResponseDTO> crear(@Valid @RequestBody RecepcionMercanciaRequestDTO dto,
                                                                Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
@@ -38,6 +40,7 @@ public class RecepcionMercanciaController {
     }
 
     @GetMapping("/orden/{idOrdenCompra}")
+    @PreAuthorize("hasAuthority('recepciones:ver')")
     public ResponseEntity<List<RecepcionMercanciaResponseDTO>> listarPorOrden(@PathVariable Integer idOrdenCompra) {
         return ResponseEntity.ok(recepcionService.listarPorOrden(idOrdenCompra));
     }

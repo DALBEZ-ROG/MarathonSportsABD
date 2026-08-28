@@ -2,6 +2,7 @@ package com.marathon.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,6 +34,7 @@ public class UsuarioController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('usuarios:ver')")
     public ResponseEntity<PageResponseDTO<UsuarioResponseDTO>> listar(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -42,16 +44,19 @@ public class UsuarioController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('usuarios:ver')")
     public ResponseEntity<UsuarioResponseDTO> obtener(@PathVariable Integer id) {
         return ResponseEntity.ok(usuarioService.obtener(id));
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('usuarios:crear')")
     public ResponseEntity<UsuarioResponseDTO> crear(@Valid @RequestBody UsuarioRequestDTO dto) {
         return new ResponseEntity<>(usuarioService.crear(dto), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('usuarios:editar')")
     public ResponseEntity<UsuarioResponseDTO> actualizar(@PathVariable Integer id,
                                                           @Valid @RequestBody UsuarioUpdateDTO dto) {
         return ResponseEntity.ok(usuarioService.actualizar(id, dto));
@@ -70,6 +75,7 @@ public class UsuarioController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('usuarios:eliminar')")
     public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
         usuarioService.eliminar(id);
         return ResponseEntity.noContent().build();

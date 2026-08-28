@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -37,6 +38,7 @@ public class BomController {
 
     // GET /api/productos/{idProducto}/bom
     @GetMapping("/bom")
+    @PreAuthorize("hasAuthority('bom:ver')")
     public ResponseEntity<List<ListaMaterialesResponseDTO>> obtenerBom(
             @PathVariable Integer idProducto) {
         return ResponseEntity.ok(listaMaterialesService.obtenerBomDeProducto(idProducto));
@@ -44,6 +46,7 @@ public class BomController {
 
     // PUT /api/productos/{idProducto}/bom  (reemplazo completo del BOM)
     @PutMapping("/bom")
+    @PreAuthorize("hasAuthority('bom:editar')")
     public ResponseEntity<List<ListaMaterialesResponseDTO>> definirBom(
             @PathVariable Integer idProducto,
             @Valid @RequestBody ListaMaterialesItemDTO dto,
@@ -55,12 +58,14 @@ public class BomController {
 
     // GET /api/productos/{idProducto}/costo-estimado  (F29)
     @GetMapping("/costo-estimado")
+    @PreAuthorize("hasAuthority('analisis_costos:ver')")
     public ResponseEntity<CostoProduccionEstimadoDTO> costoEstimado(@PathVariable Integer idProducto) {
         return ResponseEntity.ok(listaMaterialesService.calcularCostoEstimado(idProducto));
     }
 
     // PUT /api/productos/{idProducto}/origen  (cambiar origen comprado <-> fabricado)
     @PutMapping("/origen")
+    @PreAuthorize("hasAuthority('bom:editar')")
     public ResponseEntity<ProductoResponseDTO> cambiarOrigen(
             @PathVariable Integer idProducto,
             @RequestBody Map<String, String> body,

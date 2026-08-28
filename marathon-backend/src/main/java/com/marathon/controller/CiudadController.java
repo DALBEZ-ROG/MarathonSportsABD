@@ -2,6 +2,7 @@ package com.marathon.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,6 +31,7 @@ public class CiudadController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('ciudades:ver')")
     public ResponseEntity<PageResponseDTO<CiudadResponseDTO>> listar(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -39,22 +41,26 @@ public class CiudadController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('ciudades:ver')")
     public ResponseEntity<CiudadResponseDTO> obtener(@PathVariable Integer id) {
         return ResponseEntity.ok(ciudadService.obtener(id));
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('ciudades:crear')")
     public ResponseEntity<CiudadResponseDTO> crear(@Valid @RequestBody CiudadRequestDTO dto) {
         return new ResponseEntity<>(ciudadService.crear(dto), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('ciudades:editar')")
     public ResponseEntity<CiudadResponseDTO> actualizar(@PathVariable Integer id,
                                                          @Valid @RequestBody CiudadRequestDTO dto) {
         return ResponseEntity.ok(ciudadService.actualizar(id, dto));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('ciudades:eliminar')")
     public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
         ciudadService.eliminar(id);
         return ResponseEntity.noContent().build();

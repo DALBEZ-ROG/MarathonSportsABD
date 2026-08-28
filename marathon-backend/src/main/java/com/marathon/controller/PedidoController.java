@@ -3,6 +3,7 @@ package com.marathon.controller;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,6 +33,7 @@ public class PedidoController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('pedidos:ver')")
     public ResponseEntity<PageResponseDTO<PedidoResponseDTO>> listar(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -42,6 +44,7 @@ public class PedidoController {
     }
 
     @GetMapping("/especiales")
+    @PreAuthorize("hasAuthority('pedidos:ver')")
     public ResponseEntity<PageResponseDTO<PedidoResponseDTO>> listarEspeciales(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -50,11 +53,13 @@ public class PedidoController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('pedidos:ver')")
     public ResponseEntity<PedidoResponseDTO> obtener(@PathVariable Integer id) {
         return ResponseEntity.ok(pedidoService.obtener(id));
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('pedidos:crear')")
     public ResponseEntity<PedidoResponseDTO> crear(@Valid @RequestBody PedidoRequestDTO dto,
                                                     Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();

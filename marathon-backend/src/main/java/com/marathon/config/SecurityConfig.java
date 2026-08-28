@@ -24,8 +24,40 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.marathon.service.UsuarioDetailsService;
 
+/**
+ * Autorizacion del sistema. Desde la F48 son <b>dos</b> capas, mas la base:
+ *
+ * <ol>
+ *   <li><b>Por rol, aqui</b>: la reja gruesa. Dice que familia de rutas puede
+ *       tocar cada rol. Es la que existia y funciona.</li>
+ *   <li><b>Por permiso, en cada metodo de controlador</b>
+ *       ({@code @PreAuthorize("hasAuthority('modulo:accion')")}): la reja fina,
+ *       y la que se puede editar desde la pantalla de roles sin tocar codigo.
+ *       Es lo que cierra D-13, el defecto de tener 49 permisos que no consultaba
+ *       nadie.</li>
+ *   <li><b>Los GRANT de PostgreSQL</b> (F34/F37) siguen teniendo la ultima
+ *       palabra, porque cada rol se conecta con su propio usuario de base.</li>
+ * </ol>
+ *
+ * <p><b>Las tres dicen lo mismo a proposito.</b> La matriz de permisos de
+ * {@code fase48_matriz_permisos.sql} esta derivada de las reglas por rol de este
+ * archivo, asi que encender la comprobacion no le quito el acceso a nadie. Lo
+ * que cambia es que ahora la matriz <i>decide</i>: quitarle {@code pedidos:crear}
+ * al Operador de Pedidos en la pantalla de roles se lo quita de verdad, y en la
+ * siguiente peticion — las authorities se releen de la base en cada una
+ * ({@code JwtAuthenticationFilter} -> {@code UsuarioDetailsService}), no del
+ * claim del token, asi que no hace falta volver a entrar.
+ *
+ * <p><b>Dos endpoints quedan deliberadamente sin permiso</b>, y por el mismo
+ * motivo los dos: son de todos.
+ * {@code GET /api/dashboard/resumen} (cada rol ve solo sus indicadores) y
+ * {@code PUT /api/usuarios/{id}/password} (cada uno cambia la suya). Ponerles un
+ * permiso obligaria a darselo a los seis roles, que es una forma complicada de
+ * escribir "cualquiera con sesion".
+ */
 @Configuration
 @EnableWebSecurity
+@org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -160,6 +192,17 @@ public class SecurityConfig {
                 // --- Inventario (movimientos): Administrador u Operador de Bodega ---
                 .requestMatchers(org.springframework.http.HttpMethod.POST,
                     "/api/inventario/movimiento"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_OPERADOR DE BODEGA")
+
+                // --- Liberar una reserva de stock (F47, D-02) ---
+                //   Soltar una reserva devuelve unidades al disponible y por
+                //   tanto deja despachar mercancia que otro pedido tenia
+                //   apartada: es una decision de almacen, no una consulta. Se
+                //   restringe a los mismos que mueven stock. Sin esta regla
+                //   caeria en el .anyRequest().authenticated() del final y la
+                //   podria disparar cualquiera con sesion.
+                .requestMatchers(org.springframework.http.HttpMethod.POST,
+                    "/api/inventario/reservas/*/liberar"
                 ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_OPERADOR DE BODEGA")
 
                 // --- Cambio de contraseña: cualquier usuario autenticado (solo la propia) ---

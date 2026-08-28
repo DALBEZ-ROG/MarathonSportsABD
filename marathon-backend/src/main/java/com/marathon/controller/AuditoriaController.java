@@ -6,6 +6,7 @@ import com.marathon.dto.auditoria.ResumenHistorialDTO;
 import com.marathon.service.AuditoriaService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -21,6 +22,7 @@ public class AuditoriaController {
     }
 
     @GetMapping("/inventario")
+    @PreAuthorize("hasAuthority('auditoria:ver')")
     public ResponseEntity<PageResponseDTO<AuditoriaHistorialDTO>> listarHistorial(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -32,6 +34,7 @@ public class AuditoriaController {
     }
 
     @GetMapping("/inventario/resumen")
+    @PreAuthorize("hasAuthority('auditoria:ver')")
     public ResponseEntity<ResumenHistorialDTO> resumen(@RequestParam Integer idProducto) {
         return ResponseEntity.ok(auditoriaService.resumenProducto(idProducto));
     }

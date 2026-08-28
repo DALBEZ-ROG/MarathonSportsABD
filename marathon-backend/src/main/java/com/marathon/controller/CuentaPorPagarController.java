@@ -1,6 +1,7 @@
 package com.marathon.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,6 +23,7 @@ public class CuentaPorPagarController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('cuentas_por_pagar:ver')")
     public ResponseEntity<PageResponseDTO<CuentaPorPagarResponseDTO>> listar(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -31,11 +33,13 @@ public class CuentaPorPagarController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('cuentas_por_pagar:ver')")
     public ResponseEntity<CuentaPorPagarResponseDTO> obtener(@PathVariable Integer id) {
         return ResponseEntity.ok(cuentaService.obtener(id));
     }
 
     @GetMapping("/resumen-proveedor/{idProveedor}")
+    @PreAuthorize("hasAuthority('cuentas_por_pagar:ver')")
     public ResponseEntity<CuentaPorPagarService.ResumenProveedorDTO> resumenPorProveedor(
             @PathVariable Integer idProveedor) {
         return ResponseEntity.ok(cuentaService.resumenPorProveedor(idProveedor));

@@ -133,29 +133,30 @@ public class DataInitializer implements CommandLineRunner {
 
     /**
      * Fase 21 — Compras. Idempotente: crea (si no existen) los roles
-     * 'Encargado de Compras' y 'Encargado de Producción', los permisos del
-     * módulo 'compras' y las asignaciones rol_permiso para Encargado de
-     * Compras y Administrador. Se ejecuta en cada arranque.
+     * 'Encargado de Compras' y 'Encargado de Producción' y los permisos del
+     * módulo 'compras'. Se ejecuta en cada arranque.
+     *
+     * <p><b>F48 (D-13): ya no asigna esos permisos a ningún rol.</b> Hasta la
+     * F48 este método volvía a colgar los cinco permisos de 'compras' —incluidos
+     * {@code aprobar} y {@code rechazar}— del Encargado de Compras en cada
+     * arranque. Eso contradecía a {@code OrdenCompraService.cambiarEstado()},
+     * que exige Administrador para aprobar o rechazar, y ahora que los permisos
+     * <i>deciden</i> deshacía la matriz de {@code fase48_matriz_permisos.sql} en
+     * el siguiente reinicio.
+     *
+     * <p>El reparto vive en ese script, y ahí es donde se toca. Los permisos
+     * sí se siguen creando aquí porque el script los da por existentes cuando
+     * ya están, y así un arranque en limpio no depende del orden.
      */
     private void ensureComprasFase21() {
-        Rol encargadoCompras = ensureRol("Encargado de Compras",
+        ensureRol("Encargado de Compras",
                 "Gestiona órdenes de compra, recepciones, facturas y cuentas por pagar");
         ensureRol("Encargado de Producción",
                 "Gestiona materia prima, BOM y órdenes de producción");
 
-        Rol admin = rolRepository.findByNombre("Administrador").orElse(null);
-
         String[] acciones = {"ver", "crear", "aprobar", "rechazar", "cancelar"};
-        List<Permiso> comprasPermisos = new ArrayList<>();
         for (String accion : acciones) {
-            comprasPermisos.add(ensurePermiso("compras", accion));
-        }
-
-        for (Permiso p : comprasPermisos) {
-            ensureRolPermiso(encargadoCompras, p);
-            if (admin != null) {
-                ensureRolPermiso(admin, p);
-            }
+            ensurePermiso("compras", accion);
         }
     }
 
@@ -173,15 +174,6 @@ public class DataInitializer implements CommandLineRunner {
     private Permiso ensurePermiso(String modulo, String accion) {
         return permisoRepository.findByModuloAndAccion(modulo, accion)
                 .orElseGet(() -> permisoRepository.save(new Permiso(modulo, accion, modulo + ":" + accion)));
-    }
-
-    private void ensureRolPermiso(Rol rol, Permiso permiso) {
-        List<RolPermiso> existentes = rolPermisoRepository.findByRolIdRol(rol.getIdRol());
-        boolean yaAsignado = existentes.stream()
-                .anyMatch(rp -> rp.getPermiso().getIdPermiso().equals(permiso.getIdPermiso()));
-        if (!yaAsignado) {
-            rolPermisoRepository.save(new RolPermiso(rol, permiso));
-        }
     }
 
     private Rol crearRol(String nombre, String descripcion) {

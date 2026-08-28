@@ -8,6 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -44,11 +45,13 @@ public class ReporteController {
 
     // ===================== PEDIDOS =====================
     @PostMapping("/pedidos/preview")
+    @PreAuthorize("hasAuthority('reportes:ver')")
     public ResponseEntity<List<ReportePedidosItemDTO>> previewPedidos(@RequestBody FiltroReporteDTO filtro) {
         return ResponseEntity.ok(reporteService.generarReportePedidos(filtro));
     }
 
     @PostMapping("/pedidos/excel")
+    @PreAuthorize("hasAuthority('reportes:exportar')")
     public ResponseEntity<byte[]> excelPedidos(@RequestBody FiltroReporteDTO filtro) {
         List<ReportePedidosItemDTO> datos = reporteService.generarReportePedidos(filtro);
         byte[] archivo = excelService.exportarPedidosExcel(datos, filtro);
@@ -56,6 +59,7 @@ public class ReporteController {
     }
 
     @PostMapping("/pedidos/pdf")
+    @PreAuthorize("hasAuthority('reportes:exportar')")
     public ResponseEntity<byte[]> pdfPedidos(@RequestBody FiltroReporteDTO filtro) {
         List<ReportePedidosItemDTO> datos = reporteService.generarReportePedidos(filtro);
         byte[] archivo = pdfReporteService.exportarPedidosPDF(datos, filtro, nombreUsuario());
@@ -64,11 +68,13 @@ public class ReporteController {
 
     // ===================== VENTAS POR PRODUCTO =====================
     @PostMapping("/ventas-producto/preview")
+    @PreAuthorize("hasAuthority('reportes:ver')")
     public ResponseEntity<List<ReporteVentasProductoItemDTO>> previewVentas(@RequestBody FiltroReporteDTO filtro) {
         return ResponseEntity.ok(reporteService.generarReporteVentasProducto(filtro));
     }
 
     @PostMapping("/ventas-producto/excel")
+    @PreAuthorize("hasAuthority('reportes:exportar')")
     public ResponseEntity<byte[]> excelVentas(@RequestBody FiltroReporteDTO filtro) {
         List<ReporteVentasProductoItemDTO> datos = reporteService.generarReporteVentasProducto(filtro);
         byte[] archivo = excelService.exportarVentasProductoExcel(datos, filtro);
@@ -76,6 +82,7 @@ public class ReporteController {
     }
 
     @PostMapping("/ventas-producto/pdf")
+    @PreAuthorize("hasAuthority('reportes:exportar')")
     public ResponseEntity<byte[]> pdfVentas(@RequestBody FiltroReporteDTO filtro) {
         List<ReporteVentasProductoItemDTO> datos = reporteService.generarReporteVentasProducto(filtro);
         byte[] archivo = pdfReporteService.exportarVentasProductoPDF(datos, filtro, nombreUsuario());
@@ -84,11 +91,13 @@ public class ReporteController {
 
     // ===================== MOVIMIENTOS =====================
     @PostMapping("/movimientos/preview")
+    @PreAuthorize("hasAuthority('reportes:ver')")
     public ResponseEntity<List<ReporteMovimientosItemDTO>> previewMovimientos(@RequestBody FiltroReporteDTO filtro) {
         return ResponseEntity.ok(reporteService.generarReporteMovimientos(filtro));
     }
 
     @PostMapping("/movimientos/excel")
+    @PreAuthorize("hasAuthority('reportes:exportar')")
     public ResponseEntity<byte[]> excelMovimientos(@RequestBody FiltroReporteDTO filtro) {
         List<ReporteMovimientosItemDTO> datos = reporteService.generarReporteMovimientos(filtro);
         byte[] archivo = excelService.exportarMovimientosExcel(datos, filtro);
@@ -96,6 +105,7 @@ public class ReporteController {
     }
 
     @PostMapping("/movimientos/pdf")
+    @PreAuthorize("hasAuthority('reportes:exportar')")
     public ResponseEntity<byte[]> pdfMovimientos(@RequestBody FiltroReporteDTO filtro) {
         List<ReporteMovimientosItemDTO> datos = reporteService.generarReporteMovimientos(filtro);
         byte[] archivo = pdfReporteService.exportarMovimientosPDF(datos, filtro, nombreUsuario());
@@ -104,11 +114,13 @@ public class ReporteController {
 
     // ===================== COSTOS DE PRODUCCIÓN (F29) =====================
     @PostMapping("/costos-produccion/preview")
+    @PreAuthorize("hasAuthority('reportes:ver')")
     public ResponseEntity<List<ReporteCostosProduccionItemDTO>> previewCostosProduccion(@RequestBody FiltroReporteDTO filtro) {
         return ResponseEntity.ok(reporteService.generarReporteCostosProduccion(filtro));
     }
 
     @PostMapping("/costos-produccion/excel")
+    @PreAuthorize("hasAuthority('reportes:exportar')")
     public ResponseEntity<byte[]> excelCostosProduccion(@RequestBody FiltroReporteDTO filtro) {
         List<ReporteCostosProduccionItemDTO> datos = reporteService.generarReporteCostosProduccion(filtro);
         byte[] archivo = excelService.exportarCostosProduccionExcel(datos, filtro);
@@ -116,6 +128,7 @@ public class ReporteController {
     }
 
     @PostMapping("/costos-produccion/pdf")
+    @PreAuthorize("hasAuthority('reportes:exportar')")
     public ResponseEntity<byte[]> pdfCostosProduccion(@RequestBody FiltroReporteDTO filtro) {
         List<ReporteCostosProduccionItemDTO> datos = reporteService.generarReporteCostosProduccion(filtro);
         byte[] archivo = pdfReporteService.exportarCostosProduccionPDF(datos, filtro, nombreUsuario());

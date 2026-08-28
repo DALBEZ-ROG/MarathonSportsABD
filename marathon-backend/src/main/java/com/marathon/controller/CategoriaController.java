@@ -2,6 +2,7 @@ package com.marathon.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,6 +31,7 @@ public class CategoriaController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('categorias:ver')")
     public ResponseEntity<PageResponseDTO<CategoriaResponseDTO>> listar(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -38,22 +40,26 @@ public class CategoriaController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('categorias:ver')")
     public ResponseEntity<CategoriaResponseDTO> obtener(@PathVariable Integer id) {
         return ResponseEntity.ok(categoriaService.obtener(id));
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('categorias:crear')")
     public ResponseEntity<CategoriaResponseDTO> crear(@Valid @RequestBody CategoriaRequestDTO dto) {
         return new ResponseEntity<>(categoriaService.crear(dto), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('categorias:editar')")
     public ResponseEntity<CategoriaResponseDTO> actualizar(@PathVariable Integer id,
                                                             @Valid @RequestBody CategoriaRequestDTO dto) {
         return ResponseEntity.ok(categoriaService.actualizar(id, dto));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('categorias:eliminar')")
     public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
         categoriaService.eliminar(id);
         return ResponseEntity.noContent().build();

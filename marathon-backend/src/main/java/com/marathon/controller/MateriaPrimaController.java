@@ -3,6 +3,7 @@ package com.marathon.controller;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,6 +35,7 @@ public class MateriaPrimaController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('materia_prima:ver')")
     public ResponseEntity<PageResponseDTO<MateriaPrimaResponseDTO>> listar(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -43,22 +45,26 @@ public class MateriaPrimaController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('materia_prima:ver')")
     public ResponseEntity<MateriaPrimaResponseDTO> obtener(@PathVariable Integer id) {
         return ResponseEntity.ok(materiaPrimaService.obtener(id));
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('materia_prima:crear')")
     public ResponseEntity<MateriaPrimaResponseDTO> crear(@Valid @RequestBody MateriaPrimaRequestDTO dto) {
         return new ResponseEntity<>(materiaPrimaService.crear(dto), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('materia_prima:editar')")
     public ResponseEntity<MateriaPrimaResponseDTO> actualizar(@PathVariable Integer id,
                                                               @Valid @RequestBody MateriaPrimaRequestDTO dto) {
         return ResponseEntity.ok(materiaPrimaService.actualizar(id, dto));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('materia_prima:eliminar')")
     public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
         materiaPrimaService.eliminar(id);
         return ResponseEntity.noContent().build();
@@ -67,6 +73,7 @@ public class MateriaPrimaController {
     // ---- F26: Kardex de movimientos ----
 
     @PostMapping("/movimiento")
+    @PreAuthorize("hasAuthority('materia_prima:movimiento')")
     public ResponseEntity<MovimientoMateriaPrimaResponseDTO> registrarMovimiento(
             @Valid @RequestBody MovimientoMateriaPrimaRequestDTO dto,
             Authentication authentication) {
@@ -75,6 +82,7 @@ public class MateriaPrimaController {
     }
 
     @GetMapping("/{id}/movimientos")
+    @PreAuthorize("hasAuthority('materia_prima:ver')")
     public ResponseEntity<PageResponseDTO<MovimientoMateriaPrimaResponseDTO>> listarMovimientos(
             @PathVariable Integer id,
             @RequestParam(defaultValue = "0") int page,
@@ -83,11 +91,13 @@ public class MateriaPrimaController {
     }
 
     @GetMapping("/stock-bajo")
+    @PreAuthorize("hasAuthority('materia_prima:ver')")
     public ResponseEntity<java.util.List<MateriaPrimaResponseDTO>> stockBajo() {
         return ResponseEntity.ok(materiaPrimaService.listarStockBajo());
     }
 
     @PutMapping("/{id}/stock-minimo")
+    @PreAuthorize("hasAuthority('materia_prima:editar')")
     public ResponseEntity<MateriaPrimaResponseDTO> actualizarStockMinimo(
             @PathVariable Integer id,
             @RequestBody java.util.Map<String, java.math.BigDecimal> body) {

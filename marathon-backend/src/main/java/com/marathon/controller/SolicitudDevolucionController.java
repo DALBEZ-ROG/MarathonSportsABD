@@ -3,6 +3,7 @@ package com.marathon.controller;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,6 +34,7 @@ public class SolicitudDevolucionController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('devoluciones:ver')")
     public ResponseEntity<PageResponseDTO<SolicitudDevolucionResponseDTO>> listar(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -42,11 +44,13 @@ public class SolicitudDevolucionController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('devoluciones:ver')")
     public ResponseEntity<SolicitudDevolucionResponseDTO> obtener(@PathVariable Integer id) {
         return ResponseEntity.ok(service.obtener(id));
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('devoluciones:crear')")
     public ResponseEntity<SolicitudDevolucionResponseDTO> crear(
             @Valid @RequestBody SolicitudDevolucionRequestDTO dto,
             Authentication authentication) {
@@ -56,6 +60,7 @@ public class SolicitudDevolucionController {
     }
 
     @PutMapping("/{id}/iniciar-inspeccion")
+    @PreAuthorize("hasAuthority('devoluciones:inspeccionar')")
     public ResponseEntity<SolicitudDevolucionResponseDTO> iniciarInspeccion(
             @PathVariable Integer id, Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
@@ -63,6 +68,7 @@ public class SolicitudDevolucionController {
     }
 
     @PutMapping("/{id}/inspeccionar")
+    @PreAuthorize("hasAuthority('devoluciones:inspeccionar')")
     public ResponseEntity<SolicitudDevolucionResponseDTO> inspeccionar(
             @PathVariable Integer id,
             @Valid @RequestBody InspeccionRequestDTO dto,
@@ -72,6 +78,7 @@ public class SolicitudDevolucionController {
     }
 
     @PostMapping("/{id}/reembolso")
+    @PreAuthorize("hasAuthority('devoluciones:reembolsar')")
     public ResponseEntity<SolicitudDevolucionResponseDTO> registrarReembolso(
             @PathVariable Integer id,
             @Valid @RequestBody ReembolsoRequestDTO dto,
