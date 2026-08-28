@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { AuthService } from '../../core/services/auth.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
@@ -350,7 +351,19 @@ export class InventarioComponent implements OnInit {
 
   private apiUrl = environment.apiUrl;
 
-  constructor(private http: HttpClient) {}
+  /**
+   * Roles a los que les toca ver las reservas vencidas (F63).
+   *
+   * <p>Son los que pueden leer `pedido`, porque el informe une cada reserva con
+   * el pedido que la retiene. **Esta lista tiene que decir lo mismo que la regla
+   * de `SecurityConfig` para GET /api/inventario/reservas/**.** Si allí cambia,
+   * aquí también, o volveremos a pedir algo que siempre va a fallar.
+   */
+  private static readonly ROLES_CON_RESERVAS = [
+    'Administrador', 'Operador de Bodega', 'Operador de Pedidos', 'Supervisor E-Commerce'
+  ];
+
+  constructor(private http: HttpClient, private auth: AuthService) {}
 
   ngOnInit() {
     this.cargar();
@@ -362,14 +375,37 @@ export class InventarioComponent implements OnInit {
   /**
    * Reservas que llevan demasiado tiempo reteniendo stock (F47, D-02).
    *
-   * <p>Un 403 aquí no es un fallo que enseñar: significa que este rol no tiene
-   * 'inventario:ver' y sencillamente no le toca ver el informe. Se traga en
-   * silencio y el banner no aparece, en vez de pintar un error rojo por algo
-   * que está funcionando como debe.
+   * <p>Un 403 aquí no es un fallo que enseñar: significa que a este rol no le
+   * toca ver el informe. Se traga en silencio y el banner no aparece, en vez de
+   * pintar un error rojo por algo que funciona como debe.
+   *
+   * <p><b>Ojo con la causa, porque este comentario la tenía mal.</b> Decía que
+   * el 403 venía de no tener `inventario:ver`, y no es eso: el Encargado de
+   * Compras **sí** lo tiene. Lo que no tiene es SELECT sobre `pedido` —
+   * deliberado desde la F34, quien compra no lee los pedidos de los clientes—
+   * y este informe une las reservas con el pedido que las retiene. Desde la
+   * F63 la regla está escrita en `SecurityConfig` en vez de depender de que
+   * PostgreSQL diga que no.
    */
   cargarReservasVencidas() {
+    // No se pide lo que se sabe que van a denegar. El Encargado de Compras
+    // entra a esta pantalla con todo el derecho -necesita ver existencias para
+    // saber que comprar- pero no le toca ver reservas de pedidos de clientes,
+    // asi que pedirlas era un 403 garantizado en cada carga.
+    //
+    // Se quito porque una llamada que SIEMPRE falla es ruido, y el ruido acaba
+    // tapando los fallos de verdad: este mismo se encontro barriendo el flujo
+    // rol por rol, entre 84 comprobaciones.
+    const rol = this.auth.getCurrentUser()?.rol;
+    if (!InventarioComponent.ROLES_CON_RESERVAS.includes(rol)) {
+      this.reservasVencidas = [];
+      return;
+    }
+
     this.http.get<Reserva[]>(`${this.apiUrl}/inventario/reservas/vencidas`).subscribe({
       next: res => { this.reservasVencidas = res; },
+      // Se conserva la red de seguridad: si la regla del servidor cambia y esta
+      // lista se queda atras, la pantalla sigue funcionando sin pintar un error.
       error: () => { this.reservasVencidas = []; }
     });
   }

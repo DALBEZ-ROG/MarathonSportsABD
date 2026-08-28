@@ -113,4 +113,32 @@ class ErroresTest {
 
         assertThat(respuesta.getStatusCode().value()).isEqualTo(400);
     }
+
+    // ---------------------------------------------------------------- F63 ---
+
+    @Test
+    @DisplayName("una dirección que no existe es 404, no 500")
+    void unaRutaInexistenteEs404() {
+        // Apareció recorriendo el flujo en el navegador: pedir una URL de API
+        // que no existe devolvía «Error interno del servidor» y dejaba en el
+        // registro un ERROR «Error no controlado» con su traza entera.
+        //
+        // Lo segundo es lo que de verdad estorba: un registro lleno de errores
+        // que no son errores es un registro que nadie mira, y el día que caiga
+        // un 500 de los de verdad estará enterrado entre ellos.
+        var respuesta = manejador.handleRutaInexistente(
+                new org.springframework.web.servlet.resource.NoResourceFoundException(
+                        org.springframework.http.HttpMethod.GET, "api/picking/pendientes"));
+
+        assertThat(respuesta.getStatusCode().value())
+                .as("la dirección es lo que está mal, no el servidor")
+                .isEqualTo(404);
+
+        ErrorResponse cuerpo = respuesta.getBody();
+        assertThat(cuerpo).isNotNull();
+        assertThat(cuerpo.getMessage()).doesNotContain("Referencia:");
+        assertThat(cuerpo.getMessage())
+                .as("y no debe seguir diciendo que el fallo es interno del servidor")
+                .doesNotContainIgnoringCase("interno del servidor");
+    }
 }

@@ -169,6 +169,37 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Una URL que no existe es un 404, no un 500 (F63).
+     *
+     * <p>Sin este manejador, {@code NoResourceFoundException} caía en el cajón de
+     * sastre de abajo y salía por dos sitios a la vez: al cliente le llegaba
+     * <b>«Error interno del servidor»</b> —haciéndole creer que el fallo es del
+     * servidor cuando el fallo es la dirección que pidió— y al registro le caía
+     * un {@code ERROR "Error no controlado"} con su traza entera, por cada
+     * enlace roto y cada rastreador que pasara por ahí.
+     *
+     * <p>Eso segundo es lo que de verdad importa: un registro lleno de errores
+     * que no son errores es un registro que nadie mira, y el día que aparezca un
+     * 500 de los de verdad estará enterrado entre ellos.
+     *
+     * <p>Se registra a nivel {@code debug}: la dirección equivocada sigue
+     * quedando, pero sin disfrazarse de avería.
+     */
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleRutaInexistente(
+            org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+        log.debug("Ruta inexistente: {}", ex.getResourcePath());
+
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                "Not Found",
+                "La dirección solicitada no existe",
+                LocalDateTime.now()
+        );
+        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+    }
+
+    /**
      * Ultimo recurso (L9, D-12).
      *
      * <p>Antes devolvia {@code "Error interno del servidor: " + ex.getMessage()}.

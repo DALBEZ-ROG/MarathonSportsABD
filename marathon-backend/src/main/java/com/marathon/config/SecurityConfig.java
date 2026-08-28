@@ -112,6 +112,32 @@ public class SecurityConfig {
                 //   ofrece y la base rechaza.
                 //   La matriz de la que sale este bloque esta en MATRIZ_ROLES.md.
 
+                // --- Reservas de stock: solo quien puede leer pedidos (F63) ---
+                //   Tiene que ir ANTES de la regla general de /api/inventario/**,
+                //   o se la come el .authenticated() de abajo.
+                //
+                //   El informe de reservas vencidas une reserva_stock con pedido,
+                //   y sobre `pedido` solo tienen SELECT el administrador, bodega,
+                //   pedidos y el supervisor. El Encargado de Compras NO, y es
+                //   deliberado desde la F34: quien compra no lee los pedidos de
+                //   los clientes.
+                //
+                //   Hasta la F63 esto NO estaba escrito aqui: caia en el
+                //   .authenticated() de abajo, la consulta llegaba a PostgreSQL,
+                //   PostgreSQL la denegaba y el 403 salia de ahi. Funcionaba,
+                //   pero por accidente — el limite lo ponia un GRANT, no una
+                //   regla— y quien leyera este fichero no podia saberlo. Se hace
+                //   explicito para que las dos capas digan lo mismo, que es justo
+                //   lo que promete el comentario de arriba.
+                //
+                //   Encontrado recorriendo el flujo con cada rol: como Encargado
+                //   de Compras, /inventario pedia este informe y se comia un 403
+                //   en cada carga.
+                .requestMatchers(org.springframework.http.HttpMethod.GET,
+                    "/api/inventario/reservas", "/api/inventario/reservas/**"
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_OPERADOR DE BODEGA",
+                                  "ROLE_OPERADOR DE PEDIDOS", "ROLE_SUPERVISOR E-COMMERCE")
+
                 //   Catalogos e inventario: los seis roles tienen SELECT.
                 .requestMatchers(org.springframework.http.HttpMethod.GET,
                     "/api/ciudades", "/api/ciudades/**",
@@ -292,9 +318,22 @@ public class SecurityConfig {
                 // --- Materia Prima (F21 + F26) ---
                 //   Lectura: Encargado de Compras, Encargado de Produccion y Administrador
                 //   Escritura/movimientos: Encargado de Produccion y Administrador
+                //   F63: entra el Supervisor E-Commerce, y no es un permiso
+                //   nuevo que nadie hubiera pensado: `rol_supervisor` YA tenia
+                //   SELECT sobre materia_prima en la base desde la F34. Las dos
+                //   capas se contradecian, y ganaba la de aplicacion.
+                //
+                //   La consecuencia se veia: el supervisor puede ejecutar el
+                //   informe de consumo de materia prima, pero su filtro de
+                //   materias primas salia VACIO porque la llamada que lo llena
+                //   devolvia 403. Podia pedir el informe y no podia acotarlo.
+                //
+                //   Sigue sin poder escribir: crear, editar, borrar y registrar
+                //   movimientos siguen siendo de Produccion y Administrador.
                 .requestMatchers(org.springframework.http.HttpMethod.GET,
                     "/api/materia-prima", "/api/materia-prima/**"
-                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE COMPRAS", "ROLE_ENCARGADO DE PRODUCCIÓN")
+                ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE COMPRAS",
+                                  "ROLE_ENCARGADO DE PRODUCCIÓN", "ROLE_SUPERVISOR E-COMMERCE")
                 .requestMatchers(org.springframework.http.HttpMethod.POST,
                     "/api/materia-prima/movimiento"
                 ).hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ENCARGADO DE PRODUCCIÓN")

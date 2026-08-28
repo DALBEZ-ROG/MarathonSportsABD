@@ -29,7 +29,7 @@ las fases **47** (reserva de stock), **48** (matriz de permisos), **49** (D-39) 
 repaso de flujos que encontro tres huecos mas.
 
 Se han encontrado **43 defectos** y se han cerrado **los 43**. Las pruebas
-pasaron de **0 → 105 → 131 → 142**, todas en verde. La compilación de producción
+pasaron de **0 → 105 → 131 → 143**, todas en verde. La compilación de producción
 del frontend funciona.
 
 A las fases 47-59 se suman ahora:
@@ -39,6 +39,7 @@ A las fases 47-59 se suman ahora:
 | **F60** | D-36 (la factura se contrasta con lo recibido), D-23 (revocación real de sesión) y D-27 (el token sale de `localStorage` a una cookie `HttpOnly`) |
 | **F61** | D-26 (los datos demo dejan de crearse solos) **y un defecto latente que nadie había visto**: una instalación nueva nacía con la matriz de permisos vieja, de 49, en vez de la de la F48, de 94 |
 | **F62** | La pantalla de inicio pasa a ser **el flujo del sistema**: ocho pasos en orden, con sus opciones y con quién es responsable de cada uno |
+| **F63** | Tres cosas que salieron de **recorrer el flujo entero con cada rol**, no solo con el administrador |
 
 ---
 
@@ -329,6 +330,53 @@ lateral agrupa por módulo, no por secuencia.
   Es la lección de los desplegables que se veían por detrás de las tarjetas de
   más abajo: lo que no flota no puede quedar debajo de nada.
 
+### F63 · Lo que salió de recorrer el flujo con cada rol
+
+Se recorrieron **44 pantallas como administrador** y **84 comprobaciones más
+repartidas entre los otros cinco roles**, recogiendo respuestas 4xx/5xx, errores
+de consola, redirecciones y paneles de error. Salieron tres cosas.
+
+**1. Una dirección que no existe devolvía 500.** `NoResourceFoundException` caía
+en el cajón de sastre del manejador global, así que al cliente le llegaba
+«Error interno del servidor» —culpando al servidor de una dirección mal
+escrita— y al registro le caía un `ERROR "Error no controlado"` con su traza
+entera, por cada enlace roto y cada rastreador que pasara. Eso segundo es lo
+que de verdad importa: **un registro lleno de errores que no son errores es un
+registro que nadie mira**, y el día que caiga un 500 de verdad estará enterrado.
+
+**2. El Encargado de Compras se comía un 403 en cada carga de `/inventario`.**
+La pantalla pedía el informe de reservas vencidas, que une `reserva_stock` con
+`pedido` — y sobre `pedido` Compras no tiene SELECT, deliberadamente desde la
+F34: quien compra no lee los pedidos de los clientes.
+
+> **Lo interesante es *por qué* se denegaba.** No estaba escrito en ninguna
+> regla: la petición caía en el `.authenticated()` general, llegaba a
+> PostgreSQL, y PostgreSQL decía que no. **Funcionaba por accidente**, y quien
+> leyera `SecurityConfig` no podía saberlo. Ahora la regla está escrita, y la
+> pantalla directamente no pide lo que sabe que le van a denegar.
+
+**3. El Supervisor E-Commerce tenía el filtro de materias primas vacío.** Podía
+ejecutar el informe de consumo de materia prima pero no acotarlo, porque la
+llamada que llena el filtro devolvía 403.
+
+> **Y aquí las dos capas se contradecían:** `rol_supervisor` **ya tenía** SELECT
+> sobre `materia_prima` en la base desde la F34, mientras `SecurityConfig` y la
+> matriz de la F48 decían que no. Ganaba la de aplicación. Se alineó la
+> aplicación con la base —que es la capa que este proyecto trata como la más
+> deliberada— y no al revés: **no se tocó ningún GRANT**. Sigue sin poder
+> escribir: crear, editar, borrar y mover materia prima siguen siendo de
+> Producción y Administrador.
+
+**Un falso positivo que conviene no volver a investigar.** `/pedidos/:id` provoca
+un `404 /api/comprobantes/pedido/:id` cuando el pedido no tiene comprobante.
+**Está bien así:** el API responde lo correcto, la pantalla lo traga y muestra
+«Este pedido aún no tiene comprobante». Son 19.932 de 24.370 pedidos enviados,
+todos del poblado masivo.
+
+**Dónde mirarlo:** `sql/fase63_supervisor_lee_materia_prima.sql`,
+`GlobalExceptionHandler.handleRutaInexistente`, la regla de
+`/api/inventario/reservas/**` en `SecurityConfig`, y `ErroresTest`.
+
 ---
 
 ## 4. Lo que queda abierto
@@ -407,6 +455,10 @@ Recortes deliberados. Deshacerlos sin querer rompe trabajo que sí está bien:
   `Secure` no viaja por `http://localhost`, así que la sesión dejaría de
   funcionar sin decir por qué. En producción, con HTTPS, tiene que estar en
   `true`.
+- **No amplíes `ROLES_CON_RESERVAS` de `inventario.component.ts` sin tocar
+  también `SecurityConfig`.** Esa lista existe para no pedir lo que va a ser
+  denegado; si se desincroniza de la regla del servidor, vuelve el 403 en cada
+  carga. Lo mismo vale para los roles de `flujo.model.ts` y `app.routes.ts`.
 - **No metas Flyway ni Liquibase ahora.** Está anotado como deuda.
 - **No añadas librerías nuevas** si con lo que ya usa el proyecto alcanza. Las
   pruebas de permisos se hicieron sin `spring-security-test`, poniendo la
@@ -438,7 +490,7 @@ Se aplican a cualquier cosa que se añada, y no son negociables:
 ## 7. Cómo comprobar que no se rompió nada
 
 ```bash
-# Backend — 142 pruebas, deben quedar todas en verde
+# Backend — 143 pruebas, deben quedar todas en verde
 cd marathon-backend
 mvn test                     # necesita TEST_DB_PASSWORD en el entorno
 
@@ -447,9 +499,9 @@ cd marathon-frontend
 npx ng build --configuration production
 ```
 
-Si `mvn test` baja de 142 pruebas o alguna falla, **algo se rompió**.
+Si `mvn test` baja de 143 pruebas o alguna falla, **algo se rompió**.
 
-**Y con la aplicación levantada, la comprobación que faltaba.** Las 142 pruebas
+**Y con la aplicación levantada, la comprobación que faltaba.** Las 143 pruebas
 usan un solo pool (`app.datasource.roles.enabled=false`), así que **no ven** los
 privilegios por rol. D-39 pasó por ahí. Con el backend en marcha:
 
