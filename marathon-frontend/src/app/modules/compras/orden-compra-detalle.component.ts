@@ -130,10 +130,16 @@ interface Recepcion {
         <button *ngIf="(oc.estado === 'aprobada' || oc.estado === 'recibida_parcial') && esCompras"
                 class="btn-save" [routerLink]="['/compras', oc.idOrdenCompra, 'recepcion']">Registrar recepción</button>
 
-        <button *ngIf="(oc.estado === 'recibida_parcial' || oc.estado === 'recibida_completa') && esCompras && !oc.esReposicion"
+        <button *ngIf="puedeDocumentar()"
                 class="btn-save factura-btn" [disabled]="documentando"
                 (click)="documentarCompra()">
-          {{ documentando ? 'Generando documento…' : 'Documentar compra y abrir PDF' }}
+          {{ documentando ? 'Generando documento…' : (documentos.length ? 'Documentar lo que falta' : 'Documentar compra') }}
+        </button>
+
+        <button *ngFor="let d of documentos" class="btn-save ver-pdf-btn"
+                [disabled]="abriendo === d.idFacturaCompra"
+                (click)="abrirPdf(d.idFacturaCompra)">
+          {{ abriendo === d.idFacturaCompra ? 'Abriendo…' : 'Ver PDF · ' + d.numeroFacturaProveedor }}
         </button>
 
         <button *ngIf="oc.estado === 'borrador' && esCompras"
@@ -168,6 +174,10 @@ interface Recepcion {
                  line-height: 1.6; color: rgba(255,255,255,0.7); }
     .rep-aviso strong { color: rgba(255,255,255,0.92); }
     .rep-aviso a { color: #79C4D2; }
+    .ver-pdf-btn { background: rgba(255,255,255,0.04) !important;
+                   border-color: rgba(255,255,255,0.14) !important;
+                   color: rgba(255,255,255,0.75) !important; }
+    .ver-pdf-btn:hover:not(:disabled) { border-color: #C9A84C !important; color: #C9A84C !important; }
     .factura-btn { background: rgba(201,168,76,0.15) !important; border-color: rgba(201,168,76,0.4) !important; color: #C9A84C !important; }
     .pendiente-cero { color: #81C784; font-weight: 600; }
   `]
@@ -181,6 +191,11 @@ export class OrdenCompraDetalleComponent implements OnInit {
   toast = '';
   toastError = false;
   documentando = false;
+
+  /** Los documentos ya emitidos de esta orden. */
+  documentos: any[] = [];
+  /** El id del documento que se está abriendo, para no dejar dos clics sueltos. */
+  abriendo: number | null = null;
 
   private etiquetas: Record<string, string> = {
     borrador: 'Borrador',
@@ -213,6 +228,7 @@ export class OrdenCompraDetalleComponent implements OnInit {
       next: res => { this.recepciones = res; },
       error: () => { /* silencioso: puede no haber recepciones */ }
     });
+    this.cargarDocumentos();
   }
 
   totalRecibido(r: Recepcion): number {
@@ -229,6 +245,59 @@ export class OrdenCompraDetalleComponent implements OnInit {
     this.api.put<OrdenCompra>(`ordenes-compra/${this.id}/estado`, { estado }).subscribe({
       next: res => { this.oc = res; this.mostrarToast('Estado actualizado a ' + this.etiqueta(estado)); },
       error: (err) => { this.mostrarToast(err.error?.message || 'Error al cambiar estado', true); }
+    });
+  }
+
+  private cargarDocumentos() {
+    this.api.get<any[]>(`facturas-compra/orden/${this.id}`).subscribe({
+      next: res => { this.documentos = (res || []).filter(d => d.estado !== 'anulada'); },
+      error: () => { this.documentos = []; }
+    });
+  }
+
+  /**
+   * ¿Queda algo por documentar? (F70)
+   *
+   * Antes el botón hacía dos cosas —documentar y abrir el PDF— y por eso, una
+   * vez documentada la orden, **no había forma de volver a abrir el PDF solo
+   * para mirarlo**: el botón seguía ahí, pero al pulsarlo intentaba documentar
+   * otra vez y el servidor lo rechazaba, con razón.
+   *
+   * Ahora son dos botones. Este aparece solo si de verdad queda algo pendiente:
+   * lo recibido menos lo ya documentado. Con recepciones parciales eso importa,
+   * porque una orden puede documentarse dos veces —una por tanda— y el botón
+   * tiene que seguir estando entre una y otra.
+   */
+  puedeDocumentar(): boolean {
+    if (!this.oc || !this.esCompras || this.oc.esReposicion) { return false; }
+    if (this.oc.estado !== 'recibida_parcial' && this.oc.estado !== 'recibida_completa') { return false; }
+    return this.pendientePorDocumentar() > 0.005;
+  }
+
+  /** Lo recibido menos lo ya documentado. Es la misma resta que hace el servidor. */
+  private pendientePorDocumentar(): number {
+    const recibido = (this.oc?.detalles || [])
+      .reduce((s, d) => s + (d.cantidadRecibida || 0) * (d.precioUnitario || 0), 0);
+    const documentado = this.documentos
+      .reduce((s, d) => s + Number(d.subtotal || 0), 0);
+    return recibido - documentado;
+  }
+
+  /** Abre un documento ya emitido, sin volver a crear nada. */
+  abrirPdf(idFactura: number) {
+    if (this.abriendo) { return; }
+    this.abriendo = idFactura;
+    this.api.getBlob(`facturas-compra/${idFactura}/pdf`).subscribe({
+      next: (pdf: Blob) => {
+        this.abriendo = null;
+        const url = URL.createObjectURL(pdf);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      },
+      error: () => {
+        this.abriendo = null;
+        this.mostrarToast('No se pudo abrir el documento', true);
+      }
     });
   }
 
@@ -254,30 +323,12 @@ export class OrdenCompraDetalleComponent implements OnInit {
         this.mostrarToast('Documento ' + factura.numeroFacturaProveedor + ' registrado');
         this.abrirPdf(factura.idFacturaCompra);
         this.cargar();
+        this.cargarDocumentos();
       },
       error: err => {
         this.documentando = false;
         this.mostrarToast(err.error?.message || 'No se pudo documentar la compra', true);
       }
-    });
-  }
-
-  /**
-   * Abre el PDF en otra pestaña.
-   *
-   * Se pide con `withCredentials` y se abre como blob en vez de apuntar la
-   * pestaña a la URL de la API: desde la F60 la sesión va en una cookie, y una
-   * pestaña nueva hacia otro origen no la lleva — saldría un 401 en blanco.
-   */
-  private abrirPdf(idFactura: number) {
-    this.api.getBlob(`facturas-compra/${idFactura}/pdf`).subscribe({
-      next: (pdf: Blob) => {
-        const url = URL.createObjectURL(pdf);
-        window.open(url, '_blank');
-        // Se suelta el objeto cuando el navegador ya lo ha tomado.
-        setTimeout(() => URL.revokeObjectURL(url), 60000);
-      },
-      error: () => this.mostrarToast('El documento se registró, pero no se pudo abrir el PDF', true)
     });
   }
 

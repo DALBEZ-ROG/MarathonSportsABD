@@ -46,6 +46,7 @@ A las fases 47-59 se suman ahora:
 | **F67** | La pantalla de pago se parte en dos: a la izquierda lo que se revisa, a la derecha lo que se hace |
 | **F68** | La devolución a proveedor **explica de dónde nace**, en qué punto está y qué toca hacer |
 | **F69** | Si el proveedor repone, se crea una orden de compra **que no se puede facturar** |
+| **F70** | La recepción de mercancía rehecha, el botón del PDF partido en dos, y el aire que les faltaba a las pantallas de detalle |
 
 ---
 
@@ -503,6 +504,36 @@ despliegue.
 URL del API. Desde la F60 la sesión va en una cookie, y una pestaña nueva hacia
 otro origen no la lleva: saldría un 401 en blanco.
 
+### F70 · Recepción rehecha, el botón del PDF partido, y el aire que faltaba
+
+Tres cosas que pidió el dueño el 2026-08-28, después de usar el sistema.
+
+**1. La pantalla de recepción, que quedaba pendiente desde la F68.** Era una
+tabla de campos sueltos que no decía a dónde iba el stock, ni cuánto se estaba
+recibiendo, ni qué pasaba con lo defectuoso. Y sobre eso último **mentía**:
+ponía «devolución a proveedor (próximamente)» cuando ese circuito funciona desde
+la F68. Ahora está partida —lo que llega a la izquierda, la confirmación a la
+derecha— con resumen en vivo de unidades, defectuosas e importe, el estado en
+que quedará la orden, y el aviso de que confirmar mueve stock y no se deshace.
+
+**2. El botón hacía dos cosas y por eso se atascaba.** «Documentar compra y abrir
+PDF» seguía ahí después de documentar, pero al pulsarlo intentaba documentar otra
+vez y el servidor lo rechazaba — con razón. **No había forma de volver a abrir el
+PDF solo para mirarlo.** Ahora son dos: «Documentar» aparece solo si queda algo
+pendiente (lo recibido menos lo ya documentado, la misma resta que hace el
+servidor), y sale un «Ver PDF» por documento emitido. Con recepciones parciales
+conviven los dos, que es justo lo que hacía falta.
+
+Hizo falta un endpoint nuevo, `GET /api/facturas-compra/orden/{id}`, para que la
+pantalla sepa qué documentos existen.
+
+**3. Las pantallas de detalle salían pegadas al borde.** Las de las F67 y F68
+traen su propio contenedor (`.cxp`, `.dvp`) en vez de `.crud-container`, así que
+se quedaron **sin el `padding` que este daba**. Y el botón de volver era una
+flecha fina con un texto, sin caja ni área donde pinchar. Las dos cosas se
+arreglan en `styles.scss`, en un sitio y no en cada componente: `.btn-volver` es
+ahora un botón con borde, relleno y foco visible. **No cambia lo que hace.**
+
 ---
 
 ## 4. Lo que queda abierto
@@ -557,14 +588,6 @@ devolución → reposición → orden #2679 creada → recibida (**el stock subi
 factura rechazada por las dos vías.
 
 ---
-
-### Lo que el dueño dejó pedido y sin hacer
-
-- **La pantalla de recepción de mercancía (`/compras/:id/recepcion`) está sin
-  rehacer.** Pedido el 2026-08-28, aplazado a propósito por él mismo mientras se
-  arreglaba la de devoluciones a proveedor. Es la misma clase de trabajo que la
-  F67 y la F68: la pantalla funciona, pero no explica lo que hace. **Es la
-  siguiente de la lista.**
 
 ### Deuda que sigue ahí, y que no es un defecto
 

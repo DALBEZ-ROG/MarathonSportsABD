@@ -68,7 +68,9 @@ interface LineaOrden {
       <!-- ── Cabecera ─────────────────────────────────────────── -->
       <header class="cab">
         <div class="cab-txt">
-          <button class="volver" routerLink="/cuentas-por-pagar">← Cuentas por pagar</button>
+          <button class="btn-volver" routerLink="/cuentas-por-pagar">
+            <span class="flecha" aria-hidden="true">←</span> Cuentas por pagar
+          </button>
           <h1>
             {{ c.numeroFacturaProveedor }}
             <span class="pill" [ngClass]="'e-' + c.estado">{{ c.estado | uppercase }}</span>
@@ -283,14 +285,10 @@ interface LineaOrden {
     </div>
   `,
   styles: [`
-    .cxp { max-width: 1500px; margin: 0 auto; padding-bottom: 3rem; }
 
     /* ── Cabecera ─────────────────────────────────────────────── */
     .cab { display: flex; justify-content: space-between; align-items: flex-start;
            gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.75rem; }
-    .volver { background: transparent; border: none; color: var(--ms-text-muted);
-              cursor: pointer; font-size: .85rem; padding: 0 0 .5rem; }
-    .volver:hover { color: var(--ms-gold); }
     .cab h1 { margin: 0 0 .3rem; font-size: 1.6rem; color: var(--ms-text);
               display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
     .prov { margin: 0; color: var(--ms-text-muted); font-size: .92rem; }

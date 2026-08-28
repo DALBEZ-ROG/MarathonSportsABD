@@ -38,7 +38,9 @@ import { AuthService } from '../../core/services/auth.service';
 
       <header class="cab">
         <div>
-          <button class="volver" routerLink="/devoluciones-proveedor">← Devoluciones a proveedor</button>
+          <button class="btn-volver" routerLink="/devoluciones-proveedor">
+            <span class="flecha" aria-hidden="true">←</span> Devoluciones a proveedor
+          </button>
           <h1>
             Devolución #{{ dev.idDevolucionProv }}
             <span class="pill" [ngClass]="'e-' + dev.estado">{{ etiquetaEstado(dev.estado) }}</span>
@@ -256,12 +258,8 @@ import { AuthService } from '../../core/services/auth.service';
     </div>
   `,
   styles: [`
-    .dvp { max-width: 1500px; margin: 0 auto; padding-bottom: 3rem; }
 
     .cab { margin-bottom: 1.5rem; }
-    .volver { background: transparent; border: none; color: var(--ms-text-muted);
-              cursor: pointer; font-size: .85rem; padding: 0 0 .5rem; }
-    .volver:hover { color: var(--ms-gold); }
     .cab h1 { margin: 0 0 .3rem; font-size: 1.55rem; color: var(--ms-text);
               display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
     .sub { margin: 0; color: var(--ms-text-muted); font-size: .9rem; }

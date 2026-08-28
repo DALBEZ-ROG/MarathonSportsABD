@@ -161,11 +161,25 @@ Al aprobar, el sistema guarda **quién aprobó y cuándo**.
 > No está en el menú. Se entra **desde la orden**, y es el orden correcto: no se
 > puede recibir lo que no se ha aprobado.
 
-- Solo desde `aprobada` o `recibida_parcial`.
-- **No deja recibir más de lo pedido.**
-- Indicas la bodega: **ahí es donde entra el stock**.
-- Si falta algo, la orden queda en `recibida_parcial` y puedes volver; si llega
-  todo, pasa a `recibida_completa`.
+La pantalla está partida: a la izquierda **lo que llega**, a la derecha **la
+confirmación**, en un panel que se queda fijo al bajar.
+
+- Solo desde `aprobada` o `recibida_parcial`. Si la orden está en otro estado, lo
+  dice y no deja seguir.
+- Por cada línea ves **pedido, ya recibido y pendiente**, y escribes lo que entra
+  ahora. Hay un atajo «todo» para lo pendiente.
+- **La bodega es obligatoria y va arriba del panel:** ahí es donde sube el stock.
+- Mientras escribes, el panel te dice **cuántas unidades entran, cuántas son
+  defectuosas, cuánto valen** y **en qué estado quedará la orden**.
+- **No deja recibir más de lo pendiente**, ni marcar más defectuosas de las que
+  llegaron. Los dos mensajes dicen la cifra concreta.
+
+> **Lo defectuoso entra al stock igual** —llegó— pero queda apuntado en la
+> bandeja de **Ítems defectuosos** para reclamárselo al proveedor (paso 2.7). La
+> pantalla lo explica en cuanto marcas una.
+
+> **Confirmar no se puede deshacer.** Mueve el stock y deja su asiento en el
+> kardex. La pantalla lo avisa antes del clic, que es cuando sirve.
 
 ### 2.5 · Documentar la compra — *Encargado de Compras*
 
@@ -173,6 +187,12 @@ Al aprobar, el sistema guarda **quién aprobó y cuándo**.
 
 Un solo clic: el sistema registra el documento y **abre el PDF en otra pestaña**.
 No hay formulario que rellenar.
+
+> **Son dos botones, no uno.** «Documentar compra» aparece solo si queda algo
+> por documentar; una vez emitido, sale un **«Ver PDF»** por cada documento, para
+> poder abrirlo cuantas veces haga falta sin volver a registrar nada. Con
+> recepciones parciales pueden convivir los dos: uno para ver lo ya emitido y
+> otro para documentar lo que acaba de llegar.
 
 | Dato | De dónde sale |
 |---|---|

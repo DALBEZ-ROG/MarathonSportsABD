@@ -72,6 +72,14 @@ public class FacturaCompraController {
                 .body(facturaService.crearDesdeRecepcion(idOrdenCompra, usuario.getIdUsuario()));
     }
 
+    /** Los documentos ya emitidos de una orden (F70). */
+    @GetMapping("/orden/{idOrdenCompra}")
+    @PreAuthorize("hasAuthority('facturas_compra:ver')")
+    public ResponseEntity<java.util.List<FacturaCompraResponseDTO>> deLaOrden(
+            @PathVariable Integer idOrdenCompra) {
+        return ResponseEntity.ok(facturaService.deLaOrden(idOrdenCompra));
+    }
+
     /** El documento en PDF, listo para imprimir o archivar. */
     @GetMapping("/{id}/pdf")
     @PreAuthorize("hasAuthority('facturas_compra:ver')")

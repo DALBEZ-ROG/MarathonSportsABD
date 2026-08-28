@@ -2875,3 +2875,54 @@ app-root, .app-layout, .main-content,
 
   .tabs > *, .tab-buttons > * { flex: 0 0 auto; }
 }
+
+/* ── El aire de arriba, y un botón de volver decente (F70) ───────────────────
+   Las pantallas de detalle que se hicieron en las F67 y F68 traen su propio
+   contenedor (.cxp, .dvp) en vez de .crud-container, asi que se quedaron SIN el
+   padding que este daba: el titulo salia pegado al borde de la pestaña. Se les
+   da el mismo aire aqui, en un sitio, y no en cada componente.
+
+   Y el boton de volver: era una flecha fina con el nombre de la pantalla
+   anterior, sin caja ni area donde pinchar. Ahora es un boton de verdad, con su
+   borde, su relleno y su estado de foco. Cambia como se ve, no lo que hace. */
+.cxp,
+.dvp {
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: clamp(1rem, 3vw, 2.5rem);
+  padding-bottom: 3rem;
+}
+
+.btn-volver {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--ms-border);
+  color: var(--ms-text-muted);
+  padding: .5rem .9rem .5rem .75rem;
+  border-radius: var(--ms-radius-sm);
+  font-size: .85rem;
+  font-family: inherit;
+  cursor: pointer;
+  margin-bottom: 1rem;
+  transition: all .15s ease;
+}
+.btn-volver:hover {
+  border-color: var(--ms-gold);
+  color: var(--ms-gold);
+  background: var(--ms-gold-dim);
+}
+.btn-volver:focus-visible {
+  outline: 2px solid var(--ms-gold);
+  outline-offset: 2px;
+}
+/* La flecha se separa del texto y engorda un poco: era lo que la hacia parecer
+   un renglon suelto en vez de un control. */
+.btn-volver .flecha {
+  font-size: 1rem;
+  line-height: 1;
+  transition: transform .15s ease;
+}
+.btn-volver:hover .flecha { transform: translateX(-2px); }

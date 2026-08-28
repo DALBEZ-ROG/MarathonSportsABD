@@ -369,6 +369,23 @@ public class FacturaCompraService {
         return crear(dto, idUsuarioActual);
     }
 
+    /**
+     * Los documentos ya emitidos de una orden.
+     *
+     * <p>Lo pide la pantalla de la orden para saber que ensenar: si no hay
+     * ninguno, el boton documenta; si los hay, ademas ofrece verlos. Antes el
+     * boton hacia las dos cosas a la vez y, una vez documentada la orden, no
+     * habia forma de volver a abrir el PDF solo para mirarlo.
+     */
+    @Transactional(readOnly = true)
+    public java.util.List<FacturaCompraResponseDTO> deLaOrden(Integer idOrdenCompra) {
+        return facturaRepository.findByOrdenCompraIdOrdenCompra(idOrdenCompra).stream()
+                .map(fc -> toDTO(fc, cuentaRepository
+                        .findByFacturaCompraIdFacturaCompra(fc.getIdFacturaCompra())
+                        .orElse(null)))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
     /** El PDF de un documento ya registrado. */
     @Transactional(readOnly = true)
     public byte[] pdf(Integer idFactura) {
