@@ -13,24 +13,31 @@ hacer un agente están marcados así:
 
 ---
 
-## Antes de nada: hay dos vías, y para un compañero de grupo la buena es la B
+## Antes de nada: hay dos vías, y desde la F91 la elección cambió
 
 | | **Vía A — Copiar** | **Vía B — Construir** |
 |---|---|---|
 | Herramienta | `exportar_bd.ps1` → `importar_bd.ps1` | `construir_desde_cero.ps1` |
-| Qué viaja | Un paquete de **22 MB** | **Nada**: solo el repositorio |
-| Los datos | Los **mismos**, fila a fila | Se **generan**: mismos recuentos y distribuciones, distintos valores |
+| Qué viaja | Un paquete de **2,1 GB** (era 22 MB antes de la F91) | **Nada**: solo el repositorio |
+| Los datos | Los **mismos**, fila a fila: 54.207.156 | Se **generan**, y **hoy se quedan en ~1.000.000**: la vía B ejecuta las fases 38, 39 y 43, **no la 91** |
 | Contraseñas de los 6 usuarios | Las del equipo de origen (hashes SCRAM en `01_roles.sql`) | Cada uno pone las suyas |
 | Clave de cifrado | **Hay que compartirla** por un canal aparte | Cada uno **crea la suya**; no se comparte nada |
-| Tiempo | ~10 s de restauración | ~2 min de scripts |
+| Tiempo | ~10 min de restauración | ~2 min de scripts |
 
-**Para tus compañeros de grupo: vía B.** No hay que mandarles datos, ni
-contraseñas, ni la clave de cifrado: se bajan el repositorio y ejecutan dos
-comandos. Y para una entrega de base de datos es lo que se quiere enseñar — la
-base **construida desde los scripts**, no restaurada de un volcado.
+**La regla cambió con la F91.** Antes las dos vías daban los mismos recuentos y
+la B era la buena para un compañero: nada sensible viajaba. Ahora la B **no
+llega al millón y medio por tabla**, porque `construir_desde_cero.ps1-Etapa
+Datos` no ejecuta las etapas de la fase 91. Así que:
 
-**La vía A sirve para otra cosa:** tener una réplica exacta, con los mismos
-pedidos y las mismas fechas, por ejemplo en tu propio portátil.
+- **¿Los compañeros necesitan la base EXACTA, con las mismas filas?** → **vía A**,
+  y hay que compartir la clave de cifrado por un canal aparte (sección 6). Es el
+  precio de tener los mismos bytes cifrados.
+- **¿Les basta con una base equivalente para trabajar y enseñar?** → **vía B**,
+  que sigue sin exigir compartir nada. Se quedan en ~1M de filas, salvo que se
+  añadan las etapas de la F91 a `construir_desde_cero.ps1`.
+
+Para una entrega de base de datos, la B sigue siendo lo que se quiere enseñar:
+la base **construida desde los scripts**, no restaurada de un volcado.
 
 > **Si eliges la vía B, salta a la [sección 12](#12-vía-b--construir-la-base-desde-cero).**
 > Las secciones 3 y 4 son de la vía A.
@@ -42,7 +49,7 @@ pedidos y las mismas fechas, por ejemplo en tu propio portátil.
 | Se replica | Cómo |
 |---|---|
 | Esquema: 38 tablas, 122 índices, 30 triggers, funciones | `02_base.dump` |
-| Los datos: 1.271.200 filas (1.011.103 de negocio) | `02_base.dump` |
+| Los datos: **54.207.156 filas** en las 34 tablas de negocio (F91) | `02_base.dump` |
 | 6 usuarios + 6 roles, con sus contraseñas | `01_roles.sql` (hashes SCRAM) |
 | 2.155 privilegios de columna y los GRANT | `02_base.dump` |
 | Parámetros del servidor medidos en F36/F39 | `03_configuracion.sql` |
@@ -120,14 +127,20 @@ Esto se hace **una sola vez, en el equipo que ya tiene la base** (no en el
 destino). Genera una carpeta con todo lo portable.
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\migracion\exportar_bd.ps1 -Destino D:\entrega
+powershell -ExecutionPolicy Bypass -File scripts\migracion\exportar_bd.ps1 -Destino D:\entrega -PgPort 5433
 ```
+
+> **`-PgPort` no es opcional en un equipo cuyo clúster no escucha en el 5432.**
+> El portátil ASUS usa el **5433**. El parámetro se añadió en la F91: antes el
+> puerto estaba **fijo a 5432** dentro de las llamadas a `pg_dump` y
+> `pg_dumpall`, así que el exportador fallaba al conectar — y si en el 5432
+> hubiera habido otro clúster, habría exportado la base equivocada sin avisar.
 
 Produce `D:\entrega\marathon_<fecha>\` con:
 
 ```
 01_roles.sql          los 12 roles, con sus hashes SCRAM
-02_base.dump          la base entera, formato custom comprimido (~22 MB)
+02_base.dump          la base entera, formato custom comprimido (2,1 GB tras la F91)
 03_configuracion.sql  los ALTER SYSTEM de las fases 36 y 39
 importar_bd.ps1       el script del paso 4
 GUIA_REPLICACION.md   este archivo
@@ -142,6 +155,32 @@ privado, nunca subido a ningún sitio.
 > ### 🖐 INTERVENCIÓN HUMANA
 > Copiar la carpeta del paquete al equipo destino (USB, red o carpeta
 > compartida). Un agente no puede mover archivos entre dos máquinas.
+
+### Las tres cosas que tienen que viajar, y por qué canales distintos
+
+Es donde se pierde la gente: el paquete **no basta**, y las tres piezas no
+pueden ir juntas.
+
+| # | Qué | Cómo viaja | Si falta |
+|---|---|---|---|
+| 1 | El **paquete** (`marathon_<fecha>\`, 2,1 GB) | USB o disco. **No cabe en GitHub** ni debe subirse | No hay base |
+| 2 | La **clave de cifrado** | **Canal aparte**, en mano o gestor de contraseñas (sección 6) | La base funciona, pero correos, teléfonos y direcciones salen **vacíos** |
+| 3 | Las **contraseñas de los 6 usuarios** | El `.env`, en mano; o `-IncluirSecretos` en el paquete | El backend no abre los pools por rol |
+
+**La 1 y la 2 nunca en el mismo soporte.** Si la clave viaja dentro del USB que
+lleva los datos que cifra, cifrar no ha servido de nada: quien pierda el USB
+pierde las dos mitades. Es la misma razón por la que `gestionar_clave.ps1`
+rechaza escribir la clave dentro de la carpeta de respaldos.
+
+**El repositorio (GitHub) no es ninguna de las tres.** Lleva el código y los
+scripts, y hace falta clonarlo (sección 2), pero no lleva ni datos, ni clave, ni
+contraseñas: el `.env` está en `.gitignore`.
+
+> **Sobre `-IncluirSecretos`:** ahorra el paso 5, pero mete contraseñas en claro
+> dentro del paquete. Entonces el paquete pasa a ser material sensible **de
+> principio a fin** y hay que tratarlo como tal — no dejarlo en una carpeta
+> compartida, no subirlo a Drive. Sin el flag, basta con dictar las seis
+> contraseñas a cada compañero.
 
 ---
 

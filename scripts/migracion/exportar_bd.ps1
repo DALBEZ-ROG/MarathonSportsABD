@@ -105,15 +105,41 @@ $lineas = @(
     '-- Los CREATE llevan guarda para poder reejecutarlo sin romper nada.'
     ''
 )
+# La lista de roles del proyecto se pregunta A LA BASE, no se adivina por el
+# nombre. Filtrar por el patron '^(usr_|rol_)' parecia bastar y no bastaba: en
+# un cluster compartido con otros trabajos hay roles ajenos que empiezan igual
+# -- aqui rol_consultas y rol_ventas, que son de bdventas -- y se colaban en el
+# paquete. Y con ellos se colaba su linea "GRANT rol_ventas TO usuario_ventas",
+# cuyo destinatario NO casa con el patron y por tanto nunca se creaba: el
+# 01_roles.sql resultante fallaba en el equipo destino con "el rol
+# usuario_ventas no existe", en el paso 1, antes siquiera de restaurar la base.
+# El criterio bueno es tener privilegios EN ESTA BASE, mas los seis usuarios de
+# conexion de la aplicacion.
+$rq = Invoke-Pg 'psql.exe' @('-h','localhost','-p',"$PgPort",'-U','postgres','-d',$Base,'-At','-c',
+      "SELECT DISTINCT grantee FROM information_schema.role_table_grants
+        WHERE table_schema='public' AND grantee NOT IN ('PUBLIC','postgres')
+       UNION
+       SELECT rolname FROM pg_roles WHERE rolname LIKE 'usr\_%\_marathon'")
+if ($rq.ExitCode -ne 0) { throw "psql (lista de roles) fallo: $($rq.Salida -join ' ')" }
+$permitidos = @($rq.Salida | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
+Write-Host ("      {0} roles pertenecen a esta base" -f $permitidos.Count)
+
 foreach ($l in $r.Salida) {
     $t = "$l"
-    if ($t -match '^(CREATE ROLE|ALTER ROLE|GRANT)\s+"?(usr_\w+|rol_\w+)') {
-        if ($t -match '^CREATE ROLE\s+"?(\w+)') {
-            $nombre = $matches[1]
-            $lineas += "DO `$`$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='$nombre') THEN"
-            $lineas += "  $t"
-            $lineas += "END IF; END `$`$;"
-        } else {
+    if ($t -match '^CREATE ROLE\s+"?(\w+)') {
+        $nombre = $matches[1]
+        if ($permitidos -notcontains $nombre) { continue }
+        $lineas += "DO `$`$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='$nombre') THEN"
+        $lineas += "  $t"
+        $lineas += "END IF; END `$`$;"
+    }
+    elseif ($t -match '^ALTER ROLE\s+"?(\w+)') {
+        if ($permitidos -contains $matches[1]) { $lineas += $t }
+    }
+    elseif ($t -match '^GRANT\s+"?(\w+)"?\s+TO\s+"?(\w+)') {
+        # Las DOS puntas tienen que estar en el paquete. Si falta cualquiera de
+        # las dos, el GRANT no se puede ejecutar en destino.
+        if (($permitidos -contains $matches[1]) -and ($permitidos -contains $matches[2])) {
             $lineas += $t
         }
     }
