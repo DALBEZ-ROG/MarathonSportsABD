@@ -37,7 +37,15 @@ param(
     # los seis usuarios de base de datos. Sin ellos el receptor tiene que
     # escribirlas a mano. CON ellos, el paquete es material sensible y no debe
     # subirse a ningun sitio publico.
-    [switch] $IncluirSecretos
+    [switch] $IncluirSecretos,
+    # El puerto del servidor. Estaba FIJO a 5432 dentro de las llamadas a
+    # pg_dumpall y pg_dump, mientras que importar_bd.ps1 y
+    # construir_desde_cero.ps1 si lo aceptaban como parametro. En un equipo
+    # donde el cluster no escucha en el 5432 -- este portatil usa el 5433 -- el
+    # script fallaba al conectar por mucho que se le pasara otra cosa. Peor: si
+    # en el 5432 hubiera OTRO cluster, habria exportado la base equivocada sin
+    # avisar. Mismo arreglo que ya se hizo en gestionar_clave.ps1.
+    [int]    $PgPort = 5432
 )
 
 $ErrorActionPreference = 'Stop'
@@ -82,7 +90,7 @@ function Invoke-Pg {
 # --- 1. roles del cluster -----------------------------------------------------
 Write-Host "[1/4] Roles y usuarios..."
 $rolesArchivo = Join-Path $paquete '01_roles.sql'
-$r = Invoke-Pg 'pg_dumpall.exe' @('-h','localhost','-p','5432','-U','postgres','--roles-only')
+$r = Invoke-Pg 'pg_dumpall.exe' @('-h','localhost','-p',"$PgPort",'-U','postgres','--roles-only')
 if ($r.ExitCode -ne 0) { throw "pg_dumpall fallo: $($r.Salida -join ' ')" }
 
 # Se filtran SOLO los roles del proyecto. Volcar el cluster entero arrastraria
@@ -121,7 +129,7 @@ $dump = Join-Path $paquete '02_base.dump'
 # columna sobre las columnas cifradas, y perderlos dejaria la base migrada sin
 # modelo de seguridad. Por eso 01_roles.sql debe aplicarse ANTES: si los roles
 # no existen, estos GRANT fallan.
-$r = Invoke-Pg 'pg_dump.exe' @('-h','localhost','-p','5432','-U','postgres','-d',$Base,
+$r = Invoke-Pg 'pg_dump.exe' @('-h','localhost','-p',"$PgPort",'-U','postgres','-d',$Base,
                                '-Fc','-Z','6','-f',$dump)
 if ($r.ExitCode -ne 0) { throw "pg_dump fallo: $($r.Salida -join ' ')" }
 Write-Host ("      {0:N1} MB" -f ((Get-Item $dump).Length / 1MB))

@@ -1,30 +1,13 @@
-# Ajustes del compilador del IDE (Eclipse JDT) para ESTE proyecto.
-#
-# POR QUE EXISTE ESTE FICHERO
-# El analisis de nulos de Eclipse marcaba 186 avisos del tipo:
-#
-#   Null type safety: The expression of type 'Integer' needs unchecked
-#   conversion to conform to '@NonNull Integer'
-#
-# No son fallos. Salen porque Spring Data declara sus parametros como @NonNull
-# y este proyecto no usa anotaciones de nulabilidad en su propio codigo, asi que
-# el analisis no tiene informacion y avisa en CASI TODA llamada a un repositorio.
-# javac compila el backend entero con CERO avisos.
-#
-# El problema no era el ruido en si, era lo que tapaba: 186 falsos positivos
-# esconden los avisos de verdad. El 2026-08-29 el panel decia "18 errores" que
-# tampoco existian —eran el indice del IDE sin refrescar— y hubo que compilar a
-# mano para demostrarlo.
-#
-# COMO SE DESHACE
-# Borrando este fichero. No cambia nada del programa: solo lo que el editor
-# decide enseñar. Si algun dia el proyecto adopta anotaciones de nulabilidad
-# (JSpecify o las de Spring) en su propio codigo, entonces SI merece la pena
-# volver a encenderlo, porque ahi ya dice algo.
 eclipse.preferences.version=1
-org.eclipse.jdt.core.compiler.annotation.nullanalysis=disabled
-org.eclipse.jdt.core.compiler.problem.nullSpecViolation=ignore
-org.eclipse.jdt.core.compiler.problem.nullAnnotationInferenceConflict=ignore
-org.eclipse.jdt.core.compiler.problem.nullUncheckedConversion=ignore
-org.eclipse.jdt.core.compiler.problem.potentialNullReference=ignore
+org.eclipse.jdt.core.compiler.annotation.missingNonNullByDefaultAnnotation=ignore
+org.eclipse.jdt.core.compiler.annotation.nonnull=org.springframework.lang.NonNull
+org.eclipse.jdt.core.compiler.annotation.nonnullbydefault=org.springframework.lang.NonNullApi
+org.eclipse.jdt.core.compiler.annotation.nullable=org.springframework.lang.Nullable
+org.eclipse.jdt.core.compiler.annotation.nullanalysis=enabled
 org.eclipse.jdt.core.compiler.problem.missingNonNullByDefaultAnnotation=ignore
+org.eclipse.jdt.core.compiler.problem.nullAnnotationInferenceConflict=warning
+org.eclipse.jdt.core.compiler.problem.nullReference=warning
+org.eclipse.jdt.core.compiler.problem.nullSpecViolation=warning
+org.eclipse.jdt.core.compiler.problem.nullUncheckedConversion=ignore
+org.eclipse.jdt.core.compiler.problem.potentialNullReference=warning
+org.eclipse.jdt.core.compiler.problem.syntacticNullAnalysisForFields=enabled
