@@ -67,6 +67,10 @@ export class AuthService {
   limpiarYSalir(): void {
     localStorage.removeItem('marathon_user');
     localStorage.removeItem('marathon_expira');
+    // F88: la conversación con el asistente se va con la sesión. Puede llevar
+    // cifras del negocio dentro, y el siguiente que entre en este navegador no
+    // tiene por qué encontrárselas.
+    try { sessionStorage.removeItem('marathon_asistente'); } catch { /* da igual */ }
     this.router.navigate(['/login']);
   }
 

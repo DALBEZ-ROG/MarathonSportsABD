@@ -2,12 +2,13 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, Router } from '@angular/router';
 import { NavbarComponent } from './shared/components/navbar/navbar.component';
+import { AsistenteBurbujaComponent } from './shared/components/asistente-burbuja/asistente-burbuja.component';
 import { AuthService } from './core/services/auth.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, NavbarComponent],
+  imports: [CommonModule, RouterOutlet, NavbarComponent, AsistenteBurbujaComponent],
   template: `
     <div class="app-layout" [class.has-sidebar]="showNavbar">
       <ng-container *ngIf="showNavbar">
@@ -19,6 +20,13 @@ import { AuthService } from './core/services/auth.service';
       <main class="main-content" [class.with-sidebar]="showNavbar">
         <router-outlet></router-outlet>
       </main>
+
+      <!-- F88: el asistente, a mano en todas las pantallas. Va FUERA del <main>
+           a propósito: dentro heredaría su relleno lateral, y la burbuja tiene
+           que anclarse a la esquina de la ventana, no a la del contenido. El
+           propio componente decide si se ve —sesión, permiso, y no estar ya
+           en /ia—. -->
+      <app-asistente-burbuja *ngIf="showNavbar"></app-asistente-burbuja>
     </div>
   `,
   styles: [`

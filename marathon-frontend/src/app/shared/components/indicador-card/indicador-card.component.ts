@@ -81,10 +81,18 @@ import { Indicador } from '../../../core/services/dashboard.service';
     </article>
   `,
   styles: [`
-    :host { display: block; height: 100%; }
+    /* F88: sin height:100%.
+       Lo tenía para que todas las tarjetas de una fila midieran lo mismo, y el
+       precio era feo: la más alta marcaba la altura de las demás, y como
+       .ind-body lleva flex:1, ese sobrante se convertía en un vacío en medio de
+       la tarjeta con el pie pegado abajo. «Pedidos atascados» tenía 150 px de
+       nada. Ahora cada una mide lo suyo; el borde inferior queda irregular, y
+       eso es exactamente lo que hace que el tablero se lea como un tablero y no
+       como una cuadrícula con agujeros. */
+    :host { display: block; }
 
     .ind {
-      display: flex; flex-direction: column; height: 100%;
+      display: flex; flex-direction: column;
       padding: 1.15rem 1.25rem 1rem;
       border-radius: 16px;
       border: 1px solid rgba(255,255,255,0.07);
@@ -118,7 +126,9 @@ import { Indicador } from '../../../core/services/dashboard.service';
     }
     .badge.sd { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.55); border-color: rgba(255,255,255,0.14); }
 
-    .ind-body { flex: 1; }
+    /* F88: ya no absorbe sobrante —no lo hay—, solo separa del pie. */
+    .ind-body { flex: 0 0 auto; margin-bottom: .9rem; }
+    .ind-body.empty { margin-bottom: .5rem; }
     .value-row { display: flex; align-items: baseline; gap: .22rem; flex-wrap: wrap; }
     .value {
       font-size: clamp(1.7rem, 2.4vw, 2.3rem); font-weight: 700; line-height: 1.05;
@@ -156,7 +166,7 @@ import { Indicador } from '../../../core/services/dashboard.service';
     }
     .retry:hover { background: rgba(255,255,255,0.12); }
 
-    .ind-foot { margin-top: .9rem; padding-top: .7rem; border-top: 1px solid rgba(255,255,255,0.06); }
+    .ind-foot { margin-top: auto; padding-top: .7rem; border-top: 1px solid rgba(255,255,255,0.06); }
     .periodo { margin: 0; font-size: .72rem; font-weight: 600; color: rgba(201,168,76,0.85); }
     .base {
       margin: .22rem 0 0; font-size: .7rem; line-height: 1.45; color: rgba(255,255,255,0.34);

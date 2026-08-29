@@ -2,28 +2,8 @@ import { Component, OnInit, ViewChild, ElementRef, AfterViewChecked } from '@ang
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
-import { environment } from '../../../environments/environment';
-import { AuthService } from '../../core/services/auth.service';
+import { AsistenteService, IAResponse, ChatMessage } from '../../core/services/asistente.service';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
-
-interface IAResponse {
-  pregunta: string;
-  sql: string | null;
-  explicacion: string | null;
-  resultados: Array<{ [key: string]: any }> | null;
-  totalResultados: number | null;
-  error: string | null;
-  timestamp: string;
-}
-
-interface ChatMessage {
-  tipo: 'usuario' | 'ia';
-  texto?: string;
-  respuesta?: IAResponse;
-  mostrarSql?: boolean;
-  copiado?: boolean;
-}
 
 /**
  * Preguntarle a los datos en castellano (F82).
@@ -282,127 +262,59 @@ export class IAChatComponent implements OnInit, AfterViewChecked {
 
   @ViewChild('chatArea') chatArea!: ElementRef<HTMLDivElement>;
 
-  private apiUrl = environment.apiUrl;
-
   pregunta = '';
-  cargando = false;
-  isAdmin = false;
-  ejemplos: string[] = [];
-  mensajes: ChatMessage[] = [];
 
-  /** Si el módulo está encendido. Se pregunta antes de dejar escribir. */
-  estado: 'comprobando' | 'encendido' | 'apagado' = 'comprobando';
+  /**
+   * F88: el estado ya no vive aquí.
+   *
+   * <p>La conversación, el encendido del módulo y los ejemplos están en
+   * {@link AsistenteService}, que es de la sesión y no de la pantalla. El motivo
+   * es la burbuja flotante: si cada vista guardara lo suyo, pasar de la burbuja
+   * a esta página —que es justo lo que ofrece su botón de «abrir en grande»—
+   * perdería lo que llevaras preguntado. Ahora es la misma conversación.
+   *
+   * <p>El servicio se expone como `a` para que la plantilla lo use directamente.
+   * Los accesores de abajo existen para no reescribir la plantilla entera.
+   */
+  constructor(public a: AsistenteService) {}
 
-  private debeScrollear = false;
-
-  constructor(private http: HttpClient, private authService: AuthService) {}
+  get isAdmin(): boolean { return this.a.esAdmin; }
+  get cargando(): boolean { return this.a.cargando; }
+  get ejemplos(): string[] { return this.a.ejemplos; }
+  get mensajes(): ChatMessage[] { return this.a.mensajes; }
+  get estado(): 'comprobando' | 'encendido' | 'apagado' { return this.a.estado; }
 
   ngOnInit(): void {
-    this.isAdmin = this.authService.hasRol('Administrador');
-
-    this.http.get<{ habilitado: boolean }>(`${this.apiUrl}/ia/estado`).subscribe({
-      next: res => {
-        this.estado = res?.habilitado ? 'encendido' : 'apagado';
-        if (this.estado === 'encendido') { this.cargarEjemplos(); }
-      },
-      // Si ni siquiera se puede preguntar por el estado, se trata como apagado:
-      // es lo que el usuario va a ver de todas formas, y así no se le deja
-      // escribir en una caja que no va a responder.
-      error: () => { this.estado = 'apagado'; }
-    });
-  }
-
-  private cargarEjemplos(): void {
-    this.http.get<string[]>(`${this.apiUrl}/ia/ejemplos`).subscribe({
-      next: res => { this.ejemplos = res ?? []; },
-      error: () => { this.ejemplos = []; }
-    });
+    this.a.iniciar();
+    // Al entrar por la pantalla completa, la burbuja sobra: se pliega.
+    this.a.minimizar();
   }
 
   ngAfterViewChecked(): void {
-    if (this.debeScrollear && this.chatArea) {
+    if (this.a.hayQueBajar && this.chatArea) {
       this.chatArea.nativeElement.scrollTop = this.chatArea.nativeElement.scrollHeight;
-      this.debeScrollear = false;
+      this.a.hayQueBajar = false;
     }
   }
 
-  usarEjemplo(ejemplo: string): void {
-    this.pregunta = ejemplo;
-  }
+  usarEjemplo(ejemplo: string): void { this.pregunta = ejemplo; }
 
-  reintentar(pregunta: string): void {
-    this.pregunta = pregunta;
-  }
+  reintentar(pregunta: string): void { this.pregunta = pregunta; }
 
-  columnas(resultados: Array<{ [key: string]: any }>): string[] {
-    if (!resultados || resultados.length === 0) { return []; }
-    return Object.keys(resultados[0]);
-  }
+  columnas(resultados: Array<{ [key: string]: any }>): string[] { return this.a.columnas(resultados); }
 
-  /** Una columna es numérica si TODOS sus valores lo son; con uno solo no basta. */
   esNumerica(resultados: Array<{ [key: string]: any }>, col: string): boolean {
-    return resultados.every(f => f[col] === null || typeof f[col] === 'number');
+    return this.a.esNumerica(resultados, col);
   }
 
-  /** `total_vendido` se lee peor que `Total vendido`. */
-  titulo(col: string): string {
-    const limpio = col.replace(/_/g, ' ').trim();
-    return limpio.charAt(0).toUpperCase() + limpio.slice(1);
-  }
+  titulo(col: string): string { return this.a.titulo(col); }
 
-  celda(v: any): string {
-    if (v === null || v === undefined) { return '—'; }
-    if (typeof v === 'number') { return new Intl.NumberFormat('es-EC').format(v); }
-    return String(v);
-  }
+  celda(v: any): string { return this.a.celda(v); }
 
-  copiar(msg: ChatMessage, sql: string): void {
-    navigator.clipboard?.writeText(sql).then(() => {
-      msg.copiado = true;
-      setTimeout(() => { msg.copiado = false; }, 2000);
-    }).catch(() => { /* sin portapapeles: el SQL sigue a la vista para copiarlo a mano */ });
-  }
+  copiar(msg: ChatMessage, sql: string): void { this.a.copiar(msg, sql); }
 
   enviar(): void {
-    const texto = this.pregunta.trim();
-    if (!texto || this.cargando) { return; }
-
-    this.mensajes.push({ tipo: 'usuario', texto });
+    this.a.enviar(this.pregunta);
     this.pregunta = '';
-    this.cargando = true;
-    this.debeScrollear = true;
-
-    this.http.post<IAResponse>(`${this.apiUrl}/ia/consultar`, { pregunta: texto }).subscribe({
-      next: res => {
-        this.mensajes.push({ tipo: 'ia', respuesta: res, mostrarSql: false });
-        this.cargando = false;
-        this.debeScrollear = true;
-      },
-      error: err => {
-        // 503: el modulo esta apagado (app.ia.enabled=false). El backend manda
-        // el motivo en el cuerpo; conviene mostrarlo tal cual en vez del
-        // generico, porque no es un fallo sino una decision de despliegue.
-        const mensaje = err?.status === 503
-          ? (err?.error?.error ?? 'El asistente está apagado en esta instalación.')
-          : 'No se pudo hablar con el servidor. Vuelve a intentarlo.';
-
-        // Y si lo apagaron mientras la pantalla estaba abierta, se pasa al
-        // panel de apagado en vez de dejar la caja de texto viva.
-        if (err?.status === 503) { this.estado = 'apagado'; }
-
-        const respuesta: IAResponse = {
-          pregunta: texto,
-          sql: null,
-          explicacion: null,
-          resultados: null,
-          totalResultados: null,
-          error: mensaje,
-          timestamp: new Date().toISOString()
-        };
-        this.mensajes.push({ tipo: 'ia', respuesta });
-        this.cargando = false;
-        this.debeScrollear = true;
-      }
-    });
   }
 }

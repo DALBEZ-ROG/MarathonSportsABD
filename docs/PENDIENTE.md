@@ -64,6 +64,7 @@ A las fases 47-59 se suman ahora:
 | **F85** | Los **formularios y la base** dicen lo mismo: se acaban los campos que se pedían y se tiraban |
 | **F86** | Un parámetro que falta deja de ser un **500 anónimo** y pasa a ser un 400 que lo nombra |
 | **F87** | La **documentación de la API** deja de servirse sin contraseña, y el SQL del asistente deja de viajar a quien no es administrador |
+| **F88** | El tablero deja de tener huecos, y el asistente vive en una **burbuja** disponible en todas las pantallas |
 
 ---
 
@@ -1435,6 +1436,52 @@ respuesta con las herramientas del navegador. **Esconder en el navegador no es
 esconder.** Y ese SQL es lo único de todo el sistema que enseña nombres de
 tablas y columnas de verdad. Ahora se recorta en el servidor; el administrador
 lo sigue recibiendo, que es quien debe poder comprobar qué se ejecutó.
+
+### F88 · El tablero sin huecos, y el asistente en una burbuja
+
+**El tablero: dónde estaba el aire.** Las tarjetas llevaban `height: 100%` y la
+rejilla `align-items: stretch`, así que **todas las de una fila medían lo que la
+más alta**. Y como `.ind-body` lleva `flex: 1`, ese sobrante se lo comía el
+cuerpo y empujaba el pie hasta abajo: «Pedidos atascados» tenía **150 px de
+nada** en medio. Ahora cada tarjeta mide lo suyo.
+
+Lo demás del espacio:
+
+- Siete indicadores en cuatro columnas dejan **una celda vacía**. El puente al
+  análisis, que era una banda a lo ancho debajo, **sube a la rejilla como
+  baldosa** y la ocupa: tapa el hueco con algo útil y ahorra una banda entera.
+- El gráfico y el ranking tenían el mismo ancho. El de pedidos por día salía
+  apretado mientras la lista de cinco filas nadaba: ahora **1,5 a 1**.
+
+De **1.362 px de alto a 1.252**, con más información a la vista.
+
+**La burbuja del asistente.** Estaba solo en `/ia`, y para preguntarle algo
+había que salir de lo que estuvieras mirando. Ahora hay una burbuja fija en la
+esquina, en todas las pantallas, que se despliega en un panel.
+
+Se comporta como pidió el dueño, y las tres cosas son deliberadas:
+
+| | |
+|---|---|
+| **No se cierra** | No tiene aspa. Un clic fuera no lo cierra, y cambiar de pantalla tampoco. |
+| **Solo se minimiza** | Vuelve a burbuja, con un punto verde si hay conversación. |
+| **Botón de pantalla completa** | Abre `/ia` — y la conversación **va con él**. |
+
+**Lo que hace que esto funcione es que la conversación salió del componente.**
+Vive en `AsistenteService`, que es de la sesión. Si cada vista guardara lo suyo,
+el botón de «abrir en grande» perdería lo que llevaras preguntado, que es justo
+lo contrario de lo que se pedía. Se guarda en `sessionStorage`, **no** en
+`localStorage`: un F5 no debe vaciar algo que dejaste abierto, pero cerrar la
+pestaña sí — y al cerrar sesión se borra, porque esos mensajes llevan cifras del
+negocio dentro.
+
+> **Y por el camino, el asistente fallaba en algo tonto.** Preguntarle «cuántos
+> productos activos hay» devolvía *«no se pudo ejecutar la consulta»*: el modelo
+> escribía `WHERE estado = true` y `estado` es **texto** (`'activo'`), así que
+> PostgreSQL respondía «el operador no existe: character varying = boolean».
+> El contexto no decía los valores. Ahora los dice, y con un aviso al principio
+> porque es el fallo que más se repetía. Comprobado: «cuántos productos activos
+> hay» → 109; «cuántas bodegas activas» → 20.
 
 ### Recorrido completo de los flujos, por HTTP y con los seis roles (2026-08-29)
 

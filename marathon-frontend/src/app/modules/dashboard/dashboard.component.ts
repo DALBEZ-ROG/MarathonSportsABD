@@ -95,6 +95,22 @@ import { IndicadorCardComponent } from '../../shared/components/indicador-card/i
           <app-indicador-card *ngFor="let i of r.indicadores"
                               [ind]="i"
                               (reintentar)="cargar()"></app-indicador-card>
+
+          <!-- F88: el puente al análisis vive DENTRO de la rejilla.
+               Antes era una banda a lo ancho debajo, y arriba quedaba una celda
+               vacía —siete indicadores en cuatro columnas dejan un hueco—. Como
+               baldosa, tapa el hueco con algo que sirve y ahorra una banda. -->
+          <a class="puente-tile" routerLink="/analitica" *ngIf="puedeAnalizar">
+            <span class="pt-icono" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 3v18h18"/><polyline points="7 14 11 10 14 13 20 7"/>
+              </svg>
+            </span>
+            <strong>Análisis del negocio</strong>
+            <span class="pt-sub">Lo que más sale, quién deja más, en qué región se
+              vende y por qué devuelven.</span>
+            <span class="pt-ir">Abrir <span aria-hidden="true">→</span></span>
+          </a>
         </section>
 
         <section class="paneles" *ngIf="r.serie.length || r.topProductos.length">
@@ -135,17 +151,10 @@ import { IndicadorCardComponent } from '../../shared/components/indicador-card/i
           </article>
         </section>
 
-        <!-- ── Puente al análisis (F80) ────────────────────────────
-             Los indicadores contestan «cómo va todo ahora»; el análisis,
-             «qué está pasando». Son dos preguntas distintas y hasta ahora
-             la segunda no tenía dónde vivir. -->
-        <a class="puente" routerLink="/analitica" *ngIf="puedeAnalizar">
-          <div>
-            <strong>Análisis del negocio</strong>
-            <span>Lo que más sale, quién deja más, en qué región se vende y por qué devuelven — sobre el período que elijas.</span>
-          </div>
-          <span class="flecha" aria-hidden="true">→</span>
-        </a>
+        <!-- F88: el puente al análisis (F80) subió a la rejilla, como baldosa.
+             Los indicadores contestan «cómo va todo ahora»; el análisis, «qué
+             está pasando». Siguen siendo dos preguntas distintas; lo que cambia
+             es que la segunda ya no ocupa una banda entera a lo ancho. -->
 
         <!-- Tablero sin indicadores -->
         <section class="estado-panel" *ngIf="!r.indicadores.length">
@@ -162,17 +171,18 @@ import { IndicadorCardComponent } from '../../shared/components/indicador-card/i
     </div>
   `,
   styles: [`
-    /* ── Puente al análisis (F80) ─────────────────────────────── */
-    .puente { display: flex; align-items: center; justify-content: space-between;
-              gap: 1.5rem; margin-top: 1.25rem; padding: 1.1rem 1.4rem;
-              background: var(--ms-gold-dim); border: 1px solid rgba(201,168,76,.3);
-              border-radius: var(--ms-radius); text-decoration: none;
-              transition: border-color .15s ease; }
-    .puente:hover { border-color: var(--ms-gold); }
-    .puente strong { display: block; color: var(--ms-gold-light); font-size: .98rem;
-                     margin-bottom: .2rem; }
-    .puente span { color: var(--ms-text-muted); font-size: .84rem; line-height: 1.55; }
-    .puente .flecha { color: var(--ms-gold); font-size: 1.2rem; flex-shrink: 0; }
+    /* ── Puente al análisis (F80), ahora como baldosa de la rejilla (F88) ── */
+    .puente-tile {
+      display: flex; flex-direction: column; gap: .35rem;
+      padding: 1.15rem 1.25rem; border-radius: 16px; text-decoration: none;
+      background: var(--ms-gold-dim); border: 1px solid rgba(201,168,76,.3);
+      transition: border-color .18s ease, transform .18s ease;
+    }
+    .puente-tile:hover { border-color: var(--ms-gold); transform: translateY(-3px); }
+    .pt-icono { color: var(--ms-gold); display: flex; }
+    .puente-tile strong { color: var(--ms-gold-light); font-size: .95rem; }
+    .pt-sub { color: var(--ms-text-muted); font-size: .78rem; line-height: 1.5; }
+    .pt-ir { margin-top: .25rem; color: var(--ms-gold); font-size: .78rem; font-weight: 600; }
 
     /* El contenedor es fluido: ocupa el ancho disponible con un tope alto para
        que en un monitor ultra-ancho las líneas de texto no se estiren. */
@@ -241,7 +251,12 @@ import { IndicadorCardComponent } from '../../shared/components/indicador-card/i
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(min(100%, 268px), 1fr));
       gap: clamp(.8rem, 1.4vw, 1.15rem);
-      align-items: stretch;
+      /* F88: antes 'stretch', y ahi estaba el hueco. Cada tarjeta se estiraba a
+         la altura de la MAS ALTA de su fila, y como .ind-body lleva flex:1, todo
+         ese sobrante se lo comia el cuerpo y empujaba el pie hasta abajo: una
+         tarjeta de dos lineas quedaba con 150 px de vacio en medio. Con 'start'
+         cada una mide lo que ocupa. */
+      align-items: start;
     }
 
     /* ── Esqueleto de carga ── */
@@ -275,9 +290,17 @@ import { IndicadorCardComponent } from '../../shared/components/indicador-card/i
     }
 
     /* ── Paneles de gráfico y ranking ── */
+    /* F88: el gráfico y el ranking NO necesitan el mismo ancho. Con dos
+       columnas iguales, la línea de pedidos por día salía apretada mientras la
+       lista de más vendidos —cinco filas cortas— nadaba. Ahora el gráfico se
+       lleva vez y media. Por debajo de 900 px vuelven a una sola columna. */
     .paneles {
       display: grid; gap: clamp(.8rem, 1.4vw, 1.15rem); margin-top: clamp(.8rem, 1.4vw, 1.15rem);
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .paneles { grid-template-columns: 1fr; }
     }
     .panel {
       padding: 1.25rem; border-radius: 16px;
