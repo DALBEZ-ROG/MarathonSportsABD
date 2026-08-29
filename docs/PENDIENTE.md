@@ -66,6 +66,7 @@ A las fases 47-59 se suman ahora:
 | **F87** | La **documentación de la API** deja de servirse sin contraseña, y el SQL del asistente deja de viajar a quien no es administrador |
 | **F88** | El tablero deja de tener huecos, y el asistente vive en una **burbuja** disponible en todas las pantallas |
 | **F89** | El desplegable que salía **por detrás de la tabla**, y la ventana de crear un rol: 95 permisos que ya se pueden encontrar |
+| **F90** | Mi perfil: deja de ser una columna de 500 px y contesta **«¿qué puedo hacer yo?»** |
 
 ---
 
@@ -1526,6 +1527,35 @@ funciona**, porque un rol nuevo casi nunca se hace de cero.
   nuevo no entra en esas pantallas por muchos permisos que se le marquen: hace
   falta tocar la configuración del servidor. Eso no se veía por ninguna parte y
   se descubría al usarlo.
+
+### F90 · Mi perfil: la pregunta que trae a alguien a esta pantalla
+
+**Qué tenía.** Una columna de 500 px en una pantalla de 1.300, con tres datos
+—nombre, correo, rol— y un formulario de contraseña que **no decía ninguna de
+las reglas** que el servidor iba a aplicar. Se escribía, se enviaba, y el
+servidor contestaba que no.
+
+**Lo que le faltaba estaba a mano.** En un sistema donde todo depende del rol, la
+pregunta que trae a alguien a su perfil no es «¿cómo me llamo?» —eso ya lo sabe—
+sino **«¿qué puedo hacer yo?»**. Esa lista ya viajaba en la sesión: el login
+devuelve los permisos y se guardan en `localStorage`. No se enseñaba en ninguna
+parte. Ahora ocupa el bloque de abajo, agrupada por módulo: 95 permisos en 31
+bloques, de un vistazo.
+
+**Las reglas, antes de escribir.** El servidor exige la contraseña actual
+correcta, entre 8 y 50 caracteres, y las dos nuevas iguales — el máximo de 50 no
+estaba dicho en ningún sitio. Las tres se enseñan arriba y **se ponen en verde
+según se cumplen**; el botón no se habilita hasta que están las tres, y dice qué
+falta en vez de quedarse apagado.
+
+**Y lo que NO hace, que es lo que se da por hecho:** cambiar la contraseña **no
+cierra** las sesiones abiertas en otros sitios — el endpoint no revoca nada.
+Ahora lo dice, y remite a cerrar sesión allí, que sí revoca de inmediato (F60).
+
+> Detalle de rejilla que costó una vuelta: con `auto-fit` y un bloque a todo lo
+> ancho (`grid-column: 1 / -1`), **auto-fit no puede colapsar las pistas
+> vacías** — salían cuatro columnas con dos llenas y 800 px de nada a la
+> derecha. Con dos columnas fijas, resuelto.
 
 ### Recorrido completo de los flujos, por HTTP y con los seis roles (2026-08-29)
 
