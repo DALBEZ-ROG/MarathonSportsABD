@@ -540,6 +540,17 @@ pendiente ──► procesado ──► enviado ──► entregado
 **Picking** → la cola de pedidos por recoger → entras a uno → marcas línea por
 línea lo recogido y de qué bodega.
 
+Cada línea **te dice en qué bodegas está el producto y cuántas unidades hay en
+cada una**, de más a menos; si solo hay un sitio posible, viene ya elegido. Se
+enseñan las seis con más existencias y el resto queda tras «+N más»; «Elegir otra
+bodega» abre la lista completa, para el caso raro de sacarlo de un almacén sin
+registro.
+
+La cantidad se pone con **−/+** o con el botón **«Todas»**. Guardar con menos de
+lo pedido **no es un error**: deja la línea a medias y se puede terminar después.
+El borde de la línea dice cómo va: gris sin empezar, ámbar a medias, verde
+entera. Cuando las líneas están todas completas, la pantalla te manda a Empaque.
+
 > **Un pedido no aparece en la cola de empaque hasta que está recogido del
 > todo.** Antes de la fase 52 la cola pedía los 100 primeros de 19.059
 > procesados, así que un pedido recién recogido no se podía empacar nunca.

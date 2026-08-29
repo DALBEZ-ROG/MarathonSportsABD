@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { AppIconComponent } from '../../../shared/components/icon/icon.component';
@@ -19,6 +19,27 @@ interface PickingLinea {
   bodegaPickingNombre?: string | null;
   pendiente: number;
   guardando?: boolean;
+  /** F74: dónde está la mercancía. Se resuelve con el inventario que ya existía. */
+  ubicaciones?: Ubicacion[];
+  buscandoUbicaciones?: boolean;
+  verTodasLasBodegas?: boolean;
+  verTodasLasUbicaciones?: boolean;
+}
+
+/**
+ * Cuántas bodegas se enseñan antes de plegar el resto.
+ *
+ * <p>Seis y no veinte: un producto de catálogo está en casi todos los almacenes,
+ * y con siete líneas en pantalla la lista completa deja de leerse. Van ordenadas
+ * por existencias, así que las seis primeras son las que de verdad se usan.
+ */
+const MAX_BODEGAS = 6;
+
+/** Una bodega que de verdad tiene existencias de este producto. */
+interface Ubicacion {
+  idBodega: number;
+  nombre: string;
+  cantidad: number;
 }
 
 interface PickingPedido {
@@ -38,86 +59,338 @@ interface PickingPedido {
   estadoPicking: string;
 }
 
+/**
+ * Recoger un pedido de las estanterías.
+ *
+ * <p><b>Qué estaba mal (F74).</b> Dos cosas, y la segunda pesaba más que la
+ * primera.
+ *
+ * <p>La visible: el componente <b>no tenía ni una regla de estilo</b> —el bloque
+ * decía «hereda el tema global» y no heredaba nada, porque las clases que usa
+ * (<code>.linea-controles</code>, <code>.campo</code>) no existen en
+ * <code>styles.scss</code>. El resultado eran recuadros encimados: la cantidad
+ * total caída al fondo de su columna y el desplegable de bodega montado sobre la
+ * casilla de al lado.
+ *
+ * <p>La de fondo: <b>el desplegable listaba las 200 bodegas sin decir cuál tiene
+ * la mercancía</b>. Quien recoge tenía que adivinar el almacén, y equivocarse
+ * significa un movimiento de stock contra una bodega que no lo tenía. Ahora cada
+ * línea pregunta al inventario dónde está el producto y ofrece solo las bodegas
+ * con existencias, con cuántas unidades hay en cada una. La lista completa sigue
+ * a un clic, para el caso raro de recoger de una bodega sin registro.
+ */
 @Component({
   selector: 'app-picking-ejecucion',
   standalone: true,
-  imports: [CommonModule, FormsModule, AppIconComponent],
+  imports: [CommonModule, FormsModule, AppIconComponent, RouterLink],
   template: `
-    <div class="container" *ngIf="pedido">
-      <div class="header">
-        <div>
-          <h2>Pedido {{pedido.numeroPedido}}</h2>
-          <span class="cliente">{{pedido.clienteNombre}} {{pedido.clienteApellido}}</span>
-          <span class="estado-badge" [ngClass]="'ep-'+estadoPicking">{{estadoLabel(estadoPicking)}}</span>
+    <div class="container" *ngIf="pedido as p">
+
+      <!-- ── Cabecera ────────────────────────────────────────────── -->
+      <header class="cab">
+        <div class="cab-txt">
+          <button class="btn-volver" (click)="volver()">
+            <span class="flecha" aria-hidden="true">←</span> Picking
+          </button>
+          <h1>
+            Recoger {{ p.numeroPedido }}
+            <span class="pill" [ngClass]="'ep-' + estadoPicking">{{ estadoLabel(estadoPicking) }}</span>
+          </h1>
+          <p class="sub">
+            {{ p.clienteNombre }} {{ p.clienteApellido }}
+            <span class="sep">·</span> {{ totalUnidades }} unidades en {{ totalLineas }}
+            {{ totalLineas === 1 ? 'línea' : 'líneas' }}
+          </p>
         </div>
-        <button class="btn-back" (click)="volver()">← Volver</button>
+
+        <div class="avance">
+          <div class="avance-cab">
+            <span class="avance-txt">{{ lineasCompletadas }} de {{ totalLineas }} líneas listas</span>
+            <span class="avance-pct">{{ porcentaje }}%</span>
+          </div>
+          <div class="barra"><div class="relleno" [style.width.%]="porcentaje"></div></div>
+        </div>
+      </header>
+
+      <!-- ── Pedido especial ─────────────────────────────────────── -->
+      <div class="especial" *ngIf="p.esPedidoEspecial" [class.urge]="esUrgente()">
+        <div class="esp-cab">
+          <span class="esp-chip">Pedido especial · {{ tipoLabel(p.tipoEspecial) }}</span>
+          <span class="esp-urge inline-icon-text" *ngIf="esUrgente()">
+            <app-icon name="warning" [size]="16"/>
+            Entrega urgente — límite {{ p.fechaLimiteEntrega | date:'dd/MM/yyyy HH:mm' }}
+          </span>
+        </div>
+        <p class="esp-nota" *ngIf="p.notaEspecial">«{{ p.notaEspecial }}»</p>
       </div>
 
-      <div class="especial-banner" *ngIf="pedido.esPedidoEspecial">
-        <div class="especial-top">
-          <span class="especial-badge">PEDIDO ESPECIAL · {{tipoLabel(pedido.tipoEspecial)}}</span>
-        </div>
-        <p class="nota" *ngIf="pedido.notaEspecial">{{pedido.notaEspecial}}</p>
-        <div class="urgente inline-icon-text" *ngIf="esUrgente()"><app-icon name="warning" [size]="16"/> Entrega urgente — límite {{pedido.fechaLimiteEntrega | date:'dd/MM/yyyy HH:mm'}}</div>
-      </div>
-
-      <div class="progress-top">
-        <div class="progress-info">
-          <span><strong>{{lineasCompletadas}}</strong> de <strong>{{totalLineas}}</strong> líneas completadas</span>
-          <span>{{porcentaje}}%</span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" [style.width.%]="porcentaje"></div>
-        </div>
-      </div>
-
+      <!-- ── Las líneas ──────────────────────────────────────────── -->
       <div class="lineas">
-        <div class="linea" *ngFor="let l of pedido.lineas" [ngClass]="claseLinea(l)">
-          <div class="linea-info">
-            <span class="prod-nombre">{{l.productoNombre}}</span>
-            <span class="prod-unidad" *ngIf="l.unidadMedidaNombre">({{l.unidadMedidaNombre}})</span>
-            <span class="prod-desc" *ngIf="l.productoDescripcion">{{l.productoDescripcion}}</span>
+        <article class="linea" *ngFor="let l of p.lineas; let i = index" [ngClass]="claseLinea(l)">
+
+          <div class="l-cab">
+            <div class="l-titulo">
+              <span class="l-num">{{ i + 1 }}</span>
+              <div>
+                <h2>{{ l.productoNombre }}</h2>
+                <p class="l-desc">
+                  <span *ngIf="l.productoDescripcion">{{ l.productoDescripcion }}</span>
+                  <span class="sep" *ngIf="l.productoDescripcion && l.unidadMedidaNombre">·</span>
+                  <span *ngIf="l.unidadMedidaNombre">{{ l.unidadMedidaNombre }}</span>
+                </p>
+              </div>
+            </div>
+            <span class="l-estado">{{ textoEstadoLinea(l) }}</span>
           </div>
 
-          <div class="linea-controles">
-            <div class="campo">
-              <label>Cantidad total</label>
-              <span class="cantidad-total">{{l.cantidad}}</span>
+          <div class="l-cuerpo">
+
+            <!-- Cuánto se recoge -->
+            <div class="bloque">
+              <span class="rotulo">Cuántas unidades has recogido</span>
+              <div class="contador">
+                <button type="button" class="paso" (click)="sumar(l, -1)"
+                        [disabled]="l.cantidadRecogida <= 0" aria-label="Una menos">−</button>
+                <input type="number" [(ngModel)]="l.cantidadRecogida" [min]="0" [max]="l.cantidad"
+                       class="cifra" (change)="acotar(l)"/>
+                <button type="button" class="paso" (click)="sumar(l, 1)"
+                        [disabled]="l.cantidadRecogida >= l.cantidad" aria-label="Una más">+</button>
+                <span class="de">de {{ l.cantidad }}</span>
+                <button type="button" class="todo" (click)="recogerTodo(l)"
+                        *ngIf="l.cantidadRecogida !== l.cantidad">Todas</button>
+              </div>
+              <!-- La explicación solo cuando de verdad se va a guardar a medias.
+                   Puesta siempre, en un pedido de siete líneas es un muro que se
+                   deja de leer a la segunda. -->
+              <p class="falta" *ngIf="l.cantidadRecogida > 0 && l.cantidadRecogida < l.cantidad">
+                Faltan <strong>{{ l.cantidad - l.cantidadRecogida }}</strong>.
+                Guardar así deja la línea a medias, y eso está bien: se puede
+                terminar después.
+              </p>
             </div>
-            <div class="campo">
-              <label>Cantidad recogida</label>
-              <input type="number" [(ngModel)]="l.cantidadRecogida" [min]="0" [max]="l.cantidad" class="input-num"/>
 
-              <!-- L4: de que bodega se recoge. El backend lo exige cuando se recoge algo. -->
+            <!-- De dónde se recoge -->
+            <div class="bloque">
+              <span class="rotulo">De qué bodega la sacas</span>
 
-              <select [(ngModel)]="l.idBodegaPicking" class="input-num" title="Bodega de la que se recoge">
+              <p class="cargando" *ngIf="l.buscandoUbicaciones">Buscando dónde está…</p>
 
-                <option [ngValue]="null">Bodega...</option>
+              <ng-container *ngIf="!l.buscandoUbicaciones">
+                <div class="bodegas" *ngIf="l.ubicaciones?.length">
+                  <button type="button" class="bod" *ngFor="let u of visibles(l)"
+                          [class.on]="l.idBodegaPicking === u.idBodega"
+                          [class.corta]="u.cantidad < l.cantidad"
+                          (click)="elegirBodega(l, u.idBodega)">
+                    <strong>{{ u.nombre }}</strong>
+                    <span>{{ u.cantidad }} u.</span>
+                  </button>
 
-                <option *ngFor="let b of bodegas" [ngValue]="b.idBodega">{{ b.nombre }}</option>
+                  <!-- Un producto puede estar en veinte bodegas. Enseñarlas todas
+                       es un muro; se enseñan las que más tienen y el resto a un
+                       clic, que es como se elige de verdad. -->
+                  <button type="button" class="bod resto" *ngIf="ocultas(l) > 0"
+                          (click)="l.verTodasLasUbicaciones = true">
+                    <strong>+{{ ocultas(l) }}</strong>
+                    <span>más</span>
+                  </button>
+                </div>
 
-              </select>
+                <p class="sin-stock" *ngIf="!l.ubicaciones?.length">
+                  Ninguna bodega registra existencias de este producto. Puedes
+                  elegirla igualmente de la lista completa, pero conviene revisar
+                  el inventario antes.
+                </p>
+
+                <button type="button" class="mas-bodegas" (click)="l.verTodasLasBodegas = !l.verTodasLasBodegas">
+                  {{ l.verTodasLasBodegas ? 'Ocultar la lista completa' : 'Elegir otra bodega' }}
+                </button>
+
+                <select *ngIf="l.verTodasLasBodegas" [(ngModel)]="l.idBodegaPicking" class="select-todas">
+                  <option [ngValue]="null">Sin elegir</option>
+                  <option *ngFor="let b of bodegas" [ngValue]="b.idBodega">{{ b.nombre }}</option>
+                </select>
+              </ng-container>
+
+              <p class="aviso-corta" *ngIf="bodegaElegidaCorta(l)">
+                Esa bodega tiene menos unidades de las que estás recogiendo.
+              </p>
             </div>
-            <div class="campo check">
-              <label>
-                <input type="checkbox" [checked]="l.pickingCompletado" disabled/>
-                Línea completada
-              </label>
+
+            <!-- Guardar -->
+            <div class="bloque accion">
+              <button class="guardar" (click)="guardarLinea(l)" [disabled]="l.guardando">
+                {{ l.guardando ? 'Guardando…' : 'Guardar línea' }}
+              </button>
+              <span class="guardado" *ngIf="l.pickingCompletado">
+                Línea completa
+              </span>
             </div>
-            <button class="btn-guardar" (click)="guardarLinea(l)" [disabled]="l.guardando">
-              {{ l.guardando ? 'Guardando...' : 'Guardar línea' }}
-            </button>
           </div>
-        </div>
+        </article>
       </div>
 
-      <div class="toast" *ngIf="toast" [class.error]="toastError">{{toast}}</div>
+      <!-- ── Qué toca después ────────────────────────────────────── -->
+      <div class="cierre" *ngIf="totalLineas > 0 && lineasCompletadas === totalLineas">
+        <h3>Todo recogido</h3>
+        <p>
+          Las {{ totalLineas }} líneas están completas. El siguiente paso del
+          flujo es <strong>empacar</strong> el pedido y darle su HU.
+        </p>
+        <a class="ir" routerLink="/empaque">Ir a Empaque</a>
+      </div>
+
+      <div class="toast" *ngIf="toast" [class.error]="toastError">{{ toast }}</div>
     </div>
 
-    <div class="spinner" *ngIf="!pedido">Cargando picking...</div>
+    <div class="spinner" *ngIf="!pedido">Cargando picking…</div>
   `,
   styles: [`
-    /* Inherits global dark theme from styles.scss */
+    /* ── Cabecera ──────────────────────────────────────────────── */
+    .cab { display: flex; justify-content: space-between; align-items: flex-start;
+           gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .cab h1 { margin: 0 0 .3rem; font-size: 1.6rem; color: var(--ms-text);
+              display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+    .sub { margin: 0; color: var(--ms-text-muted); font-size: .92rem; }
+    .sep { color: var(--ms-text-muted); margin: 0 .35rem; }
+
+    .pill { font-size: .68rem; font-weight: 700; letter-spacing: .06em;
+            padding: .25rem .6rem; border-radius: 99px; color: #fff;
+            text-transform: uppercase; }
+    .ep-pendiente   { background: #64748b; }
+    .ep-en_progreso { background: #d97706; }
+    .ep-completo    { background: #16a34a; }
+
+    /* El avance como barra: en una pantalla de almacén se mira de lejos. */
+    .avance { min-width: 230px; display: flex; flex-direction: column; gap: .45rem; }
+    .avance-cab { display: flex; justify-content: space-between; align-items: baseline;
+                  gap: 1rem; }
+    .avance-txt { color: var(--ms-text-muted); font-size: .84rem; }
+    .avance-pct { color: var(--ms-gold-light); font-size: 1.1rem; font-weight: 700; }
+    .barra { height: 8px; border-radius: 99px; background: rgba(255,255,255,0.07);
+             overflow: hidden; }
+    .relleno { height: 100%; background: var(--ms-gold); border-radius: 99px;
+               transition: width .25s ease; }
+
+    /* ── Pedido especial ───────────────────────────────────────── */
+    .especial { background: var(--ms-gold-dim); border: 1px solid rgba(201,168,76,.35);
+                border-radius: var(--ms-radius); padding: .9rem 1.2rem; margin-bottom: 1.5rem; }
+    .especial.urge { border-color: rgba(220,38,38,.5); background: rgba(220,38,38,.08); }
+    .esp-cab { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .esp-chip { font-size: .72rem; font-weight: 700; letter-spacing: .05em;
+                text-transform: uppercase; color: var(--ms-gold-light); }
+    .especial.urge .esp-chip { color: #fca5a5; }
+    .esp-urge { font-size: .82rem; color: #fca5a5; display: inline-flex;
+                align-items: center; gap: .35rem; }
+    .esp-nota { margin: .5rem 0 0; font-size: .88rem; color: var(--ms-text-muted);
+                font-style: italic; }
+
+    /* ── Las líneas ────────────────────────────────────────────── */
+    .lineas { display: flex; flex-direction: column; gap: 1rem; }
+
+    .linea { background: var(--ms-bg-card); border: 1px solid var(--ms-border);
+             border-left: 3px solid var(--ms-border);
+             border-radius: var(--ms-radius); overflow: hidden; }
+    .linea.pendiente { border-left-color: #64748b; }
+    .linea.parcial   { border-left-color: #d97706; }
+    .linea.completa  { border-left-color: #16a34a; }
+
+    .l-cab { display: flex; justify-content: space-between; align-items: flex-start;
+             gap: 1rem; padding: 1.1rem 1.4rem; border-bottom: 1px solid var(--ms-border); }
+    .l-titulo { display: flex; gap: .9rem; align-items: flex-start; min-width: 0; }
+    .l-num { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%;
+             background: rgba(255,255,255,0.06); color: var(--ms-text-muted);
+             display: grid; place-items: center; font-size: .78rem; font-weight: 700; }
+    .l-cab h2 { margin: 0; font-size: 1.02rem; color: var(--ms-text); }
+    .l-desc { margin: .2rem 0 0; font-size: .84rem; color: var(--ms-text-muted); }
+    .l-estado { flex-shrink: 0; font-size: .8rem; color: var(--ms-text-muted);
+                white-space: nowrap; }
+    .linea.completa .l-estado { color: #4ade80; }
+    .linea.parcial  .l-estado { color: #fbbf24; }
+
+    /* Tres columnas que NO se pisan: cantidad, bodega, acción. */
+    .l-cuerpo { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(280px, 1.3fr) auto;
+                gap: 1.5rem; padding: 1.25rem 1.4rem; align-items: start; }
+    .bloque { min-width: 0; display: flex; flex-direction: column; gap: .55rem; }
+    .bloque.accion { align-items: stretch; justify-content: flex-start; gap: .5rem; }
+    .rotulo { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
+              color: var(--ms-text-muted); }
+
+    /* ── El contador ───────────────────────────────────────────── */
+    .contador { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
+    .paso { width: 34px; height: 34px; flex-shrink: 0; border-radius: var(--ms-radius-sm);
+            background: rgba(255,255,255,0.04); border: 1px solid var(--ms-border);
+            color: var(--ms-text); font-size: 1.1rem; line-height: 1; cursor: pointer;
+            transition: all .15s ease; }
+    .paso:hover:not(:disabled) { border-color: var(--ms-gold); color: var(--ms-gold); }
+    .paso:disabled { opacity: .35; cursor: default; }
+    .cifra { width: 74px; text-align: center; font-size: 1.05rem; font-weight: 600;
+             padding: .45rem .3rem; border-radius: var(--ms-radius-sm);
+             background: rgba(255,255,255,0.04); border: 1px solid var(--ms-border);
+             color: var(--ms-text); font-family: inherit; }
+    .de { color: var(--ms-text-muted); font-size: .88rem; }
+    .todo { background: transparent; border: 1px solid rgba(201,168,76,.5);
+            color: var(--ms-gold-light); padding: .35rem .7rem; border-radius: 99px;
+            font-size: .78rem; cursor: pointer; }
+    .todo:hover { background: var(--ms-gold-dim); }
+    .falta { margin: 0; font-size: .78rem; color: var(--ms-text-muted); line-height: 1.5; }
+    .falta strong { color: #fbbf24; }
+
+    /* ── Las bodegas ───────────────────────────────────────────── */
+    .bodegas { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .bod { display: flex; flex-direction: column; align-items: flex-start; gap: .1rem;
+           background: rgba(255,255,255,0.03); border: 1px solid var(--ms-border);
+           border-radius: var(--ms-radius-sm); padding: .4rem .7rem; cursor: pointer;
+           transition: all .15s ease; }
+    .bod strong { font-size: .84rem; color: var(--ms-text); font-weight: 600; }
+    .bod span { font-size: .72rem; color: var(--ms-text-muted); }
+    .bod:hover { border-color: rgba(255,255,255,0.25); }
+    .bod.on { border-color: var(--ms-gold); background: var(--ms-gold-dim); }
+    .bod.on strong { color: var(--ms-gold-light); }
+    .bod.corta strong::after { content: ' ·'; color: #fbbf24; }
+    .bod.resto { justify-content: center; border-style: dashed; }
+    .bod.resto strong { color: var(--ms-text-muted); }
+
+    .cargando, .sin-stock { margin: 0; font-size: .8rem; color: var(--ms-text-muted);
+                            line-height: 1.5; }
+    .mas-bodegas { align-self: flex-start; background: none; border: none; padding: 0;
+                   color: var(--ms-text-muted); font-size: .78rem; cursor: pointer;
+                   text-decoration: underline; text-underline-offset: 3px; font-family: inherit; }
+    .mas-bodegas:hover { color: var(--ms-gold); }
+    .select-todas { width: 100%; padding: .5rem .6rem; border-radius: var(--ms-radius-sm);
+                    background: rgba(255,255,255,0.04); border: 1px solid var(--ms-border);
+                    color: var(--ms-text); font-family: inherit; font-size: .86rem; }
+    .aviso-corta { margin: 0; font-size: .78rem; color: #fbbf24; }
+
+    /* ── Guardar ───────────────────────────────────────────────── */
+    .guardar { background: var(--ms-gold); border: none; color: #1a1a1a;
+               padding: .65rem 1.3rem; border-radius: var(--ms-radius-sm);
+               font-size: .88rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+               font-family: inherit; }
+    .guardar:hover:not(:disabled) { filter: brightness(1.08); }
+    .guardar:disabled { opacity: .55; cursor: default; }
+    .guardado { font-size: .78rem; color: #4ade80; text-align: center; }
+
+    /* ── El cierre ─────────────────────────────────────────────── */
+    .cierre { margin-top: 1.5rem; background: rgba(22,163,74,.08);
+              border: 1px solid rgba(22,163,74,.35); border-radius: var(--ms-radius);
+              padding: 1.3rem 1.5rem; }
+    .cierre h3 { margin: 0 0 .35rem; font-size: 1.05rem; color: #4ade80; }
+    .cierre p { margin: 0 0 .9rem; font-size: .88rem; color: var(--ms-text-muted);
+                line-height: 1.6; }
+    .ir { display: inline-block; background: rgba(22,163,74,.18);
+          border: 1px solid rgba(22,163,74,.5); color: #86efac; padding: .55rem 1.1rem;
+          border-radius: var(--ms-radius-sm); font-size: .86rem; text-decoration: none; }
+    .ir:hover { background: rgba(22,163,74,.28); }
+
+    /* ── Estrecho: las tres columnas se apilan en vez de encimarse ── */
+    @media (max-width: 1100px) {
+      .l-cuerpo { grid-template-columns: 1fr; gap: 1.2rem; }
+      .bloque.accion { align-items: flex-start; }
+    }
+    @media (max-width: 620px) {
+      .cab h1 { font-size: 1.3rem; }
+      .avance { width: 100%; }
+    }
   `]
 })
 export class PickingEjecucionComponent implements OnInit {
@@ -148,14 +421,53 @@ export class PickingEjecucionComponent implements OnInit {
 
   cargar(id: number) {
     this.http.get<PickingPedido>(`${environment.apiUrl}/picking/pedidos/${id}`).subscribe({
-      next: res => { this.pedido = res; this.recalcular(); },
+      next: res => {
+        this.pedido = res;
+        this.recalcular();
+        res.lineas.forEach(l => this.cargarUbicaciones(l));
+      },
       error: (err) => { this.mostrarToast(err.error?.message || 'Error al cargar el picking', true); }
+    });
+  }
+
+  /**
+   * Dónde está la mercancía de esta línea (F74).
+   *
+   * <p>Usa el listado de inventario que ya existía —no un endpoint nuevo, que
+   * habría que concederle a los seis roles— y se queda con las filas de ESTE
+   * producto que tienen existencias. Sin esto, quien recoge elige el almacén de
+   * una lista de 200 nombres sin ninguna pista, y equivocarse significa un
+   * movimiento de stock contra una bodega que no tenía la prenda.
+   */
+  cargarUbicaciones(l: PickingLinea) {
+    l.buscandoUbicaciones = true;
+    const url = `${environment.apiUrl}/inventario?page=0&size=300`
+              + `&busqueda=${encodeURIComponent(l.productoNombre)}`;
+    this.http.get<any>(url).subscribe({
+      next: res => {
+        const filas: any[] = res?.content ?? res?.data ?? [];
+        l.ubicaciones = filas
+          .filter(f => f.productoId === l.idProducto && f.cantidad > 0)
+          .map(f => ({ idBodega: f.bodegaId, nombre: f.bodegaNombre, cantidad: f.cantidad }))
+          .sort((a, b) => b.cantidad - a.cantidad);
+        // Si solo hay un sitio posible, se elige solo: obligar a pulsar la
+        // unica opcion no es una decision, es un tramite.
+        if (l.ubicaciones.length === 1 && !l.idBodegaPicking) {
+          l.idBodegaPicking = l.ubicaciones[0].idBodega;
+        }
+        l.buscandoUbicaciones = false;
+      },
+      error: () => { l.ubicaciones = []; l.buscandoUbicaciones = false; }
     });
   }
 
   get porcentaje(): number {
     if (!this.totalLineas) return 0;
     return Math.round((this.lineasCompletadas / this.totalLineas) * 100);
+  }
+
+  get totalUnidades(): number {
+    return this.pedido ? this.pedido.lineas.reduce((s, l) => s + l.cantidad, 0) : 0;
   }
 
   recalcular() {
@@ -169,6 +481,42 @@ export class PickingEjecucionComponent implements OnInit {
     } else {
       this.estadoPicking = 'en_progreso';
     }
+  }
+
+  // ── Contador ────────────────────────────────────────────────────────────
+  sumar(l: PickingLinea, delta: number) {
+    const v = (l.cantidadRecogida || 0) + delta;
+    l.cantidadRecogida = Math.max(0, Math.min(l.cantidad, v));
+  }
+
+  recogerTodo(l: PickingLinea) { l.cantidadRecogida = l.cantidad; }
+
+  /** Teclear a mano puede pasarse; se acota al escribir, no al guardar. */
+  acotar(l: PickingLinea) {
+    if (l.cantidadRecogida == null || isNaN(l.cantidadRecogida)) { l.cantidadRecogida = 0; return; }
+    l.cantidadRecogida = Math.max(0, Math.min(l.cantidad, Math.trunc(l.cantidadRecogida)));
+  }
+
+  /** Las bodegas que se enseñan de entrada: las seis con más existencias. */
+  visibles(l: PickingLinea): Ubicacion[] {
+    const todas = l.ubicaciones ?? [];
+    return l.verTodasLasUbicaciones ? todas : todas.slice(0, MAX_BODEGAS);
+  }
+
+  ocultas(l: PickingLinea): number {
+    if (l.verTodasLasUbicaciones) return 0;
+    return Math.max(0, (l.ubicaciones?.length ?? 0) - MAX_BODEGAS);
+  }
+
+  elegirBodega(l: PickingLinea, idBodega: number) {
+    l.idBodegaPicking = l.idBodegaPicking === idBodega ? null : idBodega;
+  }
+
+  /** Aviso, no bloqueo: el stock puede haberse movido desde que se cargó. */
+  bodegaElegidaCorta(l: PickingLinea): boolean {
+    if (!l.idBodegaPicking || !l.ubicaciones?.length) return false;
+    const u = l.ubicaciones.find(x => x.idBodega === l.idBodegaPicking);
+    return !!u && u.cantidad < (l.cantidadRecogida || 0);
   }
 
   guardarLinea(l: PickingLinea) {
@@ -209,6 +557,12 @@ export class PickingEjecucionComponent implements OnInit {
     if (l.cantidadRecogida > 0 && l.cantidadRecogida < l.cantidad) return 'parcial';
     if (l.pickingCompletado) return 'completa';
     return 'pendiente';
+  }
+
+  textoEstadoLinea(l: PickingLinea): string {
+    if (l.pickingCompletado) return 'Recogida entera';
+    if (l.cantidadRecogida > 0) return 'A medias · faltan ' + (l.cantidad - l.cantidadRecogida);
+    return 'Sin empezar';
   }
 
   volver() { this.router.navigate(['/picking']); }

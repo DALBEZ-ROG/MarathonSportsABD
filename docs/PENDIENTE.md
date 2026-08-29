@@ -50,6 +50,7 @@ A las fases 47-59 se suman ahora:
 | **F71** | Las dos pantallas de producción, y **la mano de obra y los indirectos calculados** en vez de tecleados |
 | **F72** | Mover stock deja de pedir el **id del producto** y explica qué hace cada movimiento |
 | **F73** | El cliente tiene **documento** (cédula, RUC o pasaporte) y por fin se guarda; el pedido especial deja de ocupar una banda entera |
+| **F74** | Picking y detalle del pedido rehechos: se acaban los recuadros encimados, y el picking **dice en qué bodega está** la mercancía |
 
 ---
 
@@ -140,6 +141,14 @@ commitean.** La clave de cifrado de los respaldos es distinta en cada equipo.
     nombre sin punto que no aparece en ninguna parte del código fuente. Si un
     error no cuadra con lo que dice el fuente, `mvn clean compile` antes de
     seguir buscando.
+
+13. **Una clase con nombre corriente puede chocar con `styles.scss`.** Los
+    estilos de un componente Angular no están encapsulados frente a los globales
+    cuando el nombre coincide: en la F74, una `<section class="bloque acciones">`
+    salió con el título, la explicación y los botones en un solo renglón porque
+    `styles.scss` ya define `.acciones { display: flex }`. No dio ningún error;
+    solo se veía mal. Antes de bautizar una clase con una palabra genérica
+    —`acciones`, `header`, `total`, `campo`— búscala en `styles.scss`.
 
 ## 3. Lo que se cerró el 2026-08-27
 
@@ -666,6 +675,51 @@ casilla de verificación**. Ahora es un interruptor en la cabecera de «Datos de
 pedido», y los campos aparecen debajo solo cuando hay algo que rellenar — con una
 línea explicando lo que casi nadie sabe: que un pedido especial **se crea aunque
 no haya stock**, porque existe precisamente para prepararse o fabricarse.
+
+### F74 · Picking y detalle del pedido: los recuadros encimados y algo peor
+
+Lo dijo el dueño mirando las dos pantallas: *«se ven feas, hay unos cuadros que se
+ven encimados»*. Tenía razón, y la causa era literal.
+
+**Ninguno de los dos componentes tenía una sola regla de estilo.** Los dos
+llevaban el mismo comentario —`/* Inherits global dark theme from styles.scss */`—
+y no heredaban nada, porque las clases que usaban (`.linea-controles`, `.campo`,
+`.info-card`) **no existen** en `styles.scss`. Sin reglas, los elementos se
+apilaban en el orden del HTML: en picking, «cantidad total» caía al fondo de su
+columna y el desplegable de bodega quedaba montado sobre la casilla de al lado.
+
+**Pero lo que más costaba no se veía.** El desplegable de bodega listaba **las 20
+bodegas sin decir cuál tiene la mercancía**. Quien recoge tenía que adivinar el
+almacén, y equivocarse no es un error de pantalla: es un movimiento de stock
+contra una bodega que no tenía la prenda.
+
+Ahora cada línea le pregunta al inventario dónde está el producto y ofrece las
+bodegas **con existencias, con cuántas unidades hay en cada una**, ordenadas de
+más a menos. Se enseñan seis y el resto queda a un clic —un producto de catálogo
+está en casi todos los almacenes, y con siete líneas en pantalla la lista
+completa deja de leerse—. Si solo hay un sitio posible, se elige solo.
+
+> **Se usa el listado de inventario que ya existía, no un endpoint nuevo.** Uno
+> nuevo habría que concedérselo a los seis roles; éste ya lo tiene quien recoge.
+
+El resto de la pantalla: contador con **−/+** y un botón «Todas» en vez de teclear
+la cifra, borde de color por estado (sin empezar / a medias / entera), avance en
+barra, y al terminar un cierre que dice **qué toca después** —empacar— con el
+enlace. La explicación de «guardar a medias» solo sale cuando de verdad se va a
+guardar a medias.
+
+**En el detalle del pedido** se decía «Corporativo» tres veces en tres recuadros
+anidados. Ahora hay una banda; la ruta del pedido se ve como cuatro puntos
+(pendiente → procesado → enviado → entregado) en vez de deducirla del color de
+una etiqueta; la tabla tiene su fila de total; y los botones de estado llevan
+delante lo que significan: que procesar **reserva** las unidades, y que es todo o
+nada.
+
+**Dos cosas que enseñó esta fase.** La primera, que `.acciones` ya existía en
+`styles.scss` con `display: flex`, y aplanó una sección entera sin dar error
+(aviso 13). La segunda, que un solape **se mide**, no se mira: comparar los
+rectángulos de los bloques con `getBoundingClientRect()` encontró en un segundo
+lo que a ojo, en una captura, es discutible.
 
 ---
 
