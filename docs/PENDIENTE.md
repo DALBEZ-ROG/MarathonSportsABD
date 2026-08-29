@@ -55,6 +55,7 @@ A las fases 47-59 se suman ahora:
 | **F76** | El buscador compartido trae **su propio tamaño**: en picking medía 19 px y en el resto 44 |
 | **F77** | Qué es el **HU**, catálogo de **transportistas**, y la **región sale de la ciudad del cliente** en vez del teclado |
 | **F78** | La devolución dice **antes** lo que la base exige: pedido entregado, y lo ya devuelto gasta cupo |
+| **F79** | La inspección dice **qué hace cada decisión**, y el reembolso enseña su tope en vez de rechazarlo al enviar |
 
 ---
 
@@ -860,6 +861,38 @@ del dueño: *«ya los que manejan el sistema sabrán eso»*. Tenía razón — u
 definición de término no es ayuda contextual, es ruido para quien usa la pantalla
 todos los días. Lo que sí se queda es lo que la pantalla **hace**: que confirmar
 descuenta stock, y que la región sale de la ciudad del cliente.
+
+### F79 · Inspeccionar una devolución: tres decisiones que no se deshacen
+
+La pantalla enseñaba los datos, pero **no decía qué hace cada cosa** — y aquí se
+toman tres decisiones que no tienen vuelta atrás.
+
+**El resultado de cada línea mueve, o no, el stock.** «Apto reventa» **devuelve la
+mercancía al inventario** de la bodega que se elija; «defectuoso» no la devuelve y
+la deja disponible para reclamársela al proveedor; «rechazado» no hace nada. Los
+tres se elegían en un desplegable idéntico, sin una palabra sobre la diferencia:
+tres opciones que parecen equivalentes y una de ellas escribe en el inventario.
+Ahora cada una es una tarjeta que dice su efecto, y antes de guardar la pantalla
+avisa de cuántas unidades van a volver al stock.
+
+**Una línea inspeccionada no se puede volver a inspeccionar** —el backend lo
+rechaza— y tampoco se decía. Ahora se dice, y se pueden revisar de una en una:
+lo que se deje sin marcar queda pendiente.
+
+**El reembolso tiene tope**, y era el mismo defecto de la F78 en otra pantalla: el
+importe se escribía a mano y el error salía al enviar. El tope es el valor de las
+líneas que la inspección **no rechazó**, al precio al que se vendieron. Ahora se
+calcula, se enseña, viene propuesto en la casilla y teclear de más lo recorta.
+
+> **Hizo falta un dato del backend**: `precioUnitario` en la línea de la
+> devolución. Sin él la pantalla no puede calcular el tope, y un tope calculado
+> con otra fórmula que la del servidor es peor que no tenerlo. Es un campo en un
+> DTO que ya se enviaba, no un endpoint nuevo.
+
+> **La misma trampa, por tercera vez.** F78 y F79 son el mismo defecto en dos
+> pantallas: la interfaz pedía datos sin enseñar la regla que el servidor va a
+> aplicar. Cuando una validación del backend dice «no puedes», merece la pena
+> preguntarse si la pantalla podía haberlo dicho antes.
 
 ---
 

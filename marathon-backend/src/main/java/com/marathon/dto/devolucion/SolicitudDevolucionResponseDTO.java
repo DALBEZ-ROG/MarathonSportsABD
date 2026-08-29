@@ -50,6 +50,18 @@ public class SolicitudDevolucionResponseDTO {
         private Integer idDetallePedido;
         private String productoNombre;
         private Integer cantidadOriginal;
+        /**
+         * Lo que se pago por unidad en el pedido (F79).
+         *
+         * <p>Va aqui para que la pantalla pueda calcular el TOPE del reembolso
+         * -la suma de las lineas no rechazadas a su precio de venta-, que es
+         * justo lo que el servidor comprueba. Sin este dato la pantalla dejaba
+         * escribir cualquier importe y el error salia despues de escribirlo.
+         *
+         * <p>Es el precio del PEDIDO, no el de catalogo de hoy: reembolsar a
+         * precio de hoy una compra de hace seis meses seria otro defecto.
+         */
+        private java.math.BigDecimal precioUnitario;
         private Integer cantidadDevuelta;
         private String resultadoInspeccion;
         private String observacionInspeccion;
@@ -63,6 +75,9 @@ public class SolicitudDevolucionResponseDTO {
         public void setProductoNombre(String productoNombre) { this.productoNombre = productoNombre; }
         public Integer getCantidadOriginal() { return cantidadOriginal; }
         public void setCantidadOriginal(Integer cantidadOriginal) { this.cantidadOriginal = cantidadOriginal; }
+
+        public java.math.BigDecimal getPrecioUnitario() { return precioUnitario; }
+        public void setPrecioUnitario(java.math.BigDecimal v) { this.precioUnitario = v; }
         public Integer getCantidadDevuelta() { return cantidadDevuelta; }
         public void setCantidadDevuelta(Integer cantidadDevuelta) { this.cantidadDevuelta = cantidadDevuelta; }
         public String getResultadoInspeccion() { return resultadoInspeccion; }

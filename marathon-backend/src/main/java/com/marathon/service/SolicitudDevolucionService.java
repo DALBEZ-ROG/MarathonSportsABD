@@ -365,6 +365,7 @@ public class SolicitudDevolucionService {
             if (d.getDetallePedido() != null) {
                 det.setIdDetallePedido(d.getDetallePedido().getIdDetalle());
                 det.setCantidadOriginal(d.getDetallePedido().getCantidad());
+                det.setPrecioUnitario(d.getDetallePedido().getPrecioUnitario());
                 if (d.getDetallePedido().getProducto() != null) {
                     det.setProductoNombre(d.getDetallePedido().getProducto().getNombre());
                 }

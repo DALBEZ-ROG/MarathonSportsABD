@@ -615,8 +615,17 @@ devolución al proveedor (paso 7.2).
 
 ### 7.2 · Inspeccionar — **Operador de Bodega**
 
-`bodega@marathon.com` → **Devoluciones → la solicitud → Iniciar inspección**
-(pasa a `en_inspeccion`) → **Inspeccionar**: línea por línea, aceptar o rechazar.
+`bodega@marathon.com` → **Devoluciones → la solicitud → Empezar la inspección**
+(pasa a `en_inspeccion`) → línea por línea, una de tres:
+
+| resultado | qué hace |
+|---|---|
+| **Apto para reventa** | **Vuelve al stock** de la bodega que elijas. Es el único que mueve inventario. |
+| **Defectuoso** | No vuelve al stock; queda disponible para **reclamárselo al proveedor**. |
+| **Rechazado** | No se acepta esa línea. Ni stock ni reembolso. |
+
+> **Una línea revisada no se puede volver a revisar.** Se pueden hacer de una en
+> una: lo que dejes sin marcar queda pendiente.
 
 - Si se rechazan **todas** las líneas → `rechazada`.
 - Si se acepta alguna → `completada`, y **lo aceptado en buen estado vuelve al
@@ -624,8 +633,15 @@ devolución al proveedor (paso 7.2).
 
 ### 7.3 · Reembolsar — *Operador de Pedidos*
 
-`pedidos@marathon.com` → **Devoluciones → la solicitud → Registrar reembolso**.
-Hay un tope: no se puede reembolsar más de lo que se cobró.
+`pedidos@marathon.com` → **Devoluciones → la solicitud → Devolverle el dinero**.
+
+Hay un **tope**, y la pantalla lo dice y lo propone en la casilla: el valor de las
+líneas que la inspección **no rechazó**, al precio al que se vendieron —no al de
+catálogo de hoy: reembolsar a precio de hoy una compra de hace seis meses sería
+otro defecto—. Por debajo se puede; por encima lo rechaza el servidor.
+
+Solo cabe **un reembolso por solicitud**, y solo sobre una `completada`: si todo
+se rechazó no hay nada que devolver.
 
 ### Estados de la devolución
 
