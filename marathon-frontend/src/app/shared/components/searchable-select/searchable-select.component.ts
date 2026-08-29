@@ -24,7 +24,20 @@ import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from '@angular/f
   styles: [`
     :host { display: block; width: 100%; }
     .search-select { position: relative; width: 100%; }
-    input { width: 100%; box-sizing: border-box; padding-right: 2.5rem; background: var(--ms-bg-input, #1e2430); color: var(--ms-text, #f4f4f4); border: 1px solid var(--ms-border, rgba(255,255,255,.12)); border-radius: var(--ms-radius-sm, 8px); }
+    /* El tamaño va AQUI, no en la pagina que lo usa.
+       Antes solo se declaraba el hueco de la flecha, y el alto lo ponia la
+       regla global .form-group input. Donde no hay un .form-group alrededor
+       —el picking, por ejemplo— la caja se quedaba en 19 px: una raya, al lado
+       de los 44 px que mide cualquier otro buscador de la aplicacion. Un
+       componente compartido no puede depender de como este montada la pantalla
+       que lo mete. Estas son las medidas de la casa, las mismas que ya calculaba
+       la regla global: .7rem/1rem de relleno y .9rem de letra. */
+    input { width: 100%; box-sizing: border-box; padding: .7rem 2.5rem .7rem 1rem;
+            font-family: inherit; font-size: .9rem;
+            background: var(--ms-bg-input, #1e2430); color: var(--ms-text, #f4f4f4);
+            border: 1px solid var(--ms-border, rgba(255,255,255,.12));
+            border-radius: var(--ms-radius-sm, 8px); }
+    input::placeholder { color: var(--ms-text-muted, rgba(255,255,255,.4)); }
     .open input { border-color: rgba(201,168,76,.65); box-shadow: 0 0 0 3px rgba(201,168,76,.09); }
     .toggle { position: absolute; right: .2rem; top: .2rem; bottom: .2rem; width: 2.2rem; border: 0; background: transparent; cursor: pointer; }
     .toggle span { display: block; width: 7px; height: 7px; margin: auto; border-right: 2px solid rgba(255,255,255,.7); border-bottom: 2px solid rgba(255,255,255,.7); transform: rotate(45deg) translate(-2px,-2px); }

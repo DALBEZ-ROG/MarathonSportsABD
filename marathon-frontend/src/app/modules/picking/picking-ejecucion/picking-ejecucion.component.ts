@@ -314,14 +314,16 @@ interface PickingPedido {
 
     /* ── El contador ───────────────────────────────────────────── */
     .contador { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
-    .paso { width: 34px; height: 34px; flex-shrink: 0; border-radius: var(--ms-radius-sm);
+    /* 44 px, el alto de cualquier campo de la aplicacion: el contador y el
+       buscador de bodega tienen que leerse como un solo renglon. */
+    .paso { width: 38px; height: 44px; flex-shrink: 0; border-radius: var(--ms-radius-sm);
             background: rgba(255,255,255,0.04); border: 1px solid var(--ms-border);
             color: var(--ms-text); font-size: 1.1rem; line-height: 1; cursor: pointer;
             transition: all .15s ease; }
     .paso:hover:not(:disabled) { border-color: var(--ms-gold); color: var(--ms-gold); }
     .paso:disabled { opacity: .35; cursor: default; }
-    .cifra { width: 74px; text-align: center; font-size: 1.05rem; font-weight: 600;
-             padding: .45rem .3rem; border-radius: var(--ms-radius-sm);
+    .cifra { width: 74px; height: 44px; text-align: center; font-size: 1.05rem;
+             font-weight: 600; padding: .45rem .3rem; border-radius: var(--ms-radius-sm);
              background: rgba(255,255,255,0.04); border: 1px solid var(--ms-border);
              color: var(--ms-text); font-family: inherit; }
     .de { color: var(--ms-text-muted); font-size: .88rem; }

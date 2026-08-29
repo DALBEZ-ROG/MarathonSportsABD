@@ -51,6 +51,8 @@ A las fases 47-59 se suman ahora:
 | **F72** | Mover stock deja de pedir el **id del producto** y explica qué hace cada movimiento |
 | **F73** | El cliente tiene **documento** (cédula, RUC o pasaporte) y por fin se guarda; el pedido especial deja de ocupar una banda entera |
 | **F74** | Picking y detalle del pedido rehechos: se acaban los recuadros encimados, y el picking **dice en qué bodega está** la mercancía |
+| **F75** | La bodega del picking **se escribe**, con el mismo buscador que el resto de la aplicación |
+| **F76** | El buscador compartido trae **su propio tamaño**: en picking medía 19 px y en el resto 44 |
 
 ---
 
@@ -735,6 +737,28 @@ abierta, la tarjeta deja de recortar y se levanta.
 (aviso 13). La segunda, que un solape **se mide**, no se mira: comparar los
 rectángulos de los bloques con `getBoundingClientRect()` encontró en un segundo
 lo que a ojo, en una captura, es discutible.
+
+### F76 · Un componente compartido no puede depender de la pantalla que lo usa
+
+«Está demasiado fina, ¿qué es esooo?», y era verdad: en picking la barra de
+búsqueda medía **19 px** y en el resto de la aplicación **44**.
+
+La causa: `app-searchable-select` declaraba de su caja de texto **solo el hueco
+de la flecha** (`padding-right: 2.5rem`). El alto se lo ponía la regla global
+`.form-group input`, que existe en `styles.scss`. En «Pedido nuevo» y en «Nueva
+orden de compra» el buscador va dentro de un `.form-group` y hereda los 44 px;
+en picking no hay ningún `.form-group` alrededor, así que se quedaba en la altura
+natural del texto: una raya.
+
+El arreglo no es ponerle un alto a la pantalla de picking —eso deja la trampa
+puesta para la siguiente—, sino que **el componente traiga su tamaño**: las
+mismas medidas que ya calculaba la regla global (`.7rem 1rem`, `.9rem` de letra),
+declaradas donde vive el componente. Medido después en las tres pantallas: 44 px
+en las tres, exactamente lo que valían antes las otras dos.
+
+> **Un `line-height` de más las subió a 45 px**, es decir, cambió pantallas que
+> nadie había tocado. Un componente compartido se toca midiendo antes y después
+> **en todas** las pantallas que lo usan, no solo en la que se está arreglando.
 
 ---
 
