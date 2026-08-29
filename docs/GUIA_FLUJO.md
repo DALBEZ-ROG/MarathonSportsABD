@@ -697,6 +697,34 @@ veces** — es justo lo que demuestra que la separación de funciones existe.
 
 ---
 
+## Estación 8 · Medir y auditar
+
+**Rol: Supervisor E-Commerce** — `supervisor@marathon.com` · la auditoría, solo Administrador
+
+Hay **dos lecturas distintas**, y conviene no confundirlas:
+
+| | contesta | se mira |
+|---|---|---|
+| **Indicadores** (`/indicadores`) | ¿Cómo va todo **ahora**? | De pie, en diez segundos. Cada rol ve el suyo. |
+| **Análisis del negocio** (`/analitica`) | ¿Qué está **pasando**? | Sentado, cambiando el período. Solo Administrador y Supervisor. |
+
+El análisis responde, sobre la ventana que elijas (30 días, 90, 12 meses o todo):
+
+- **Lo que más sale** y **lo que más se compra** — ojo: lo comprado cuenta lo
+  **recibido**, no lo pedido; una orden aprobada todavía no es mercancía.
+- **Quién deja más** — por importe, no por número de visitas; al lado va cuántos
+  pedidos hizo, que distingue al que compra mucho una vez del que vuelve cada semana.
+- **Dónde se vende** — por región y por ciudad. La región sale de la ciudad del
+  cliente (estación 6.2), no de un dato tecleado.
+- **De qué se vive** — por categoría de producto.
+- **Por qué devuelven** — en unidades, no en solicitudes.
+
+> **Un pedido anulado no cuenta en ninguna cifra.** No se vendió.
+
+> **Un día sin ventas vale cero y se dibuja**; un mes que falta no se inventa. La
+> diferencia es si el hueco se conoce: el día existió, el mes de 2003 no tiene por
+> qué haber existido en la ventana.
+
 ## Tabla rápida: quién hace qué
 
 | Acción | Administrador | Compras | Producción | Bodega | Pedidos | Supervisor |

@@ -56,6 +56,7 @@ A las fases 47-59 se suman ahora:
 | **F77** | Qué es el **HU**, catálogo de **transportistas**, y la **región sale de la ciudad del cliente** en vez del teclado |
 | **F78** | La devolución dice **antes** lo que la base exige: pedido entregado, y lo ya devuelto gasta cupo |
 | **F79** | La inspección dice **qué hace cada decisión**, y el reembolso enseña su tope en vez de rechazarlo al enviar |
+| **F80** | **Análisis del negocio**: lo más vendido y lo más comprado, quién deja más, en qué región se vende y por qué devuelven |
 
 ---
 
@@ -893,6 +894,60 @@ calcula, se enseña, viene propuesto en la casilla y teclear de más lo recorta.
 > pantallas: la interfaz pedía datos sin enseñar la regla que el servidor va a
 > aplicar. Cuando una validación del backend dice «no puedes», merece la pena
 > preguntarse si la pantalla podía haberlo dicho antes.
+
+### F80 · Análisis del negocio: la pregunta que no tenía dónde vivir
+
+Lo pidió el dueño para el paso 8: *«métele otros gráficos extra de producto más
+vendido, más comprado, mejor cliente… qué ciudad o región vende más»*.
+
+**Por qué una pantalla nueva y no más tarjetas en /indicadores.** Son dos
+preguntas distintas. Los indicadores contestan «¿cómo va todo **ahora**?» y se
+miran de pie, en diez segundos; el análisis contesta «¿qué está pasando?» y se
+mira sentado, cambiando la ventana de tiempo y comparando. Meter lo segundo en lo
+primero habría hecho el tablero más lento de leer sin hacer el análisis mejor. Las
+dos pantallas se enlazan entre sí, y el paso 8 del flujo ofrece las dos.
+
+**Ocho bloques, una sola petición.** Comparten la ventana de fechas y se miran
+juntos: partirlos en ocho llamadas los dejaría desincronizados —un gráfico de
+agosto al lado de otro de julio— y obligaría a conceder ocho permisos donde basta
+uno. Va con `dashboard:ver`, que ya tienen exactamente los dos roles a los que
+esto le sirve; los otros cuatro reciben 403, comprobado.
+
+**Las decisiones de dibujo, que no son de gusto.**
+
+- **Barras horizontales en todo ranking.** Un producto se llama «ZAP NIK
+  DM0113-100 W NIKE COURT V 5»; en columnas verticales ese nombre se gira y deja
+  de leerse.
+- **Un solo color por gráfico.** Las barras son categorías *nominales* —productos,
+  ciudades— y su magnitud ya la dice la longitud. Pintar cada barra de un color
+  gastaría el canal de identidad en repetir lo que la barra ya dice. Se usa el oro
+  de la marca, que da **8,5:1** sobre el fondo del panel (el mínimo para una marca
+  es 3:1).
+- **La granularidad la elige la ventana.** En 30 días una serie mensual son **dos
+  puntos**, y dos puntos unidos por una recta no son una tendencia: son una recta.
+  Hasta 120 días la serie es diaria; a partir de ahí, mensual.
+- **Un día sin ventas vale cero y se dibuja.** El día existió y no se vendió: es un
+  dato, no un hueco. Sin rellenarlo, la línea junta el día 3 con el día 7 como si
+  fueran consecutivos. Un **mes** que falta sí se deja fuera —en «todo el
+  histórico» la ventana empieza en 2000 y rellenar veinte años de ceros sería
+  inventar—. La diferencia es si el hueco se conoce.
+- **Cada gráfico lleva su tabla**, plegada. Es la lectura que funciona sin ver
+  color y la que se copia a un informe.
+
+**Tres cosas que la prueba fija y que no se ven en pantalla:** que un pedido
+anulado no cuenta en ninguna cifra —contarlo sería premiar una venta que no
+ocurrió, y el gráfico saldría igual de bonito—; que la ventana la traduce el
+servidor y vuelve en la respuesta, para que la pantalla pueda decir de cuándo son
+las cifras; y que la serie diaria trae un punto por día.
+
+> **Lo más comprado cuenta lo recibido, no lo pedido.** Una orden aprobada todavía
+> no es mercancía, y en una `recibida_parcial` lo que hay en el almacén es lo que
+> llegó. Se filtra además la materia prima: una línea de orden de compra puede no
+> ser un producto del catálogo.
+
+> **Es «por categoría» y no «por marca» porque la marca no es una tabla**: vive
+> dentro del texto de la descripción del producto («Marca: NIKE»). Agrupar por un
+> trozo de texto libre sería inventarse una dimensión que el modelo no tiene.
 
 ---
 

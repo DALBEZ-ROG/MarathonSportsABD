@@ -147,9 +147,10 @@ export const FLUJO: PasoFlujo[] = [
     resumen: 'Con el ciclo cerrado, se mira qué pasó y quién hizo qué.',
     responsable: SUPERVISOR,
     incumbencia: 'El Supervisor E-Commerce vive en los indicadores y los reportes. La auditoría es solo del Administrador: es la traza de quién tocó qué, y por eso no la ve quien opera.',
-    nota: 'Los datos de prueba terminan el 17 de agosto de 2026. Cualquier indicador que mida «hoy» sale vacío, y eso no es un fallo del sistema.',
+    nota: 'Dos lecturas distintas: los indicadores contestan «cómo va todo ahora» y se miran de pie; el análisis contesta «qué está pasando» —qué se vende, quién compra, dónde— y se mira sentado, cambiando el período.',
     opciones: [
       { nombre: 'Indicadores', descripcion: 'El tablero de cifras de tu rol', ruta: '/indicadores', roles: [ADMIN, SUPERVISOR, BODEGA, PEDIDOS, COMPRAS, PRODUCCION], principal: true },
+      { nombre: 'Análisis del negocio', descripcion: 'Lo más vendido, quién deja más y dónde se vende', ruta: '/analitica', roles: [ADMIN, SUPERVISOR] },
       { nombre: 'Reportes', descripcion: 'Ventas, inventario y manufactura', ruta: '/reportes', roles: [ADMIN, SUPERVISOR] },
       { nombre: 'Asistente IA', descripcion: 'Preguntar a los datos en castellano', ruta: '/ia', roles: [ADMIN, SUPERVISOR] },
       { nombre: 'Auditoría', descripcion: 'Quién hizo qué, y cuándo', ruta: '/auditoria', roles: [ADMIN] }

@@ -135,6 +135,18 @@ import { IndicadorCardComponent } from '../../shared/components/indicador-card/i
           </article>
         </section>
 
+        <!-- ── Puente al análisis (F80) ────────────────────────────
+             Los indicadores contestan «cómo va todo ahora»; el análisis,
+             «qué está pasando». Son dos preguntas distintas y hasta ahora
+             la segunda no tenía dónde vivir. -->
+        <a class="puente" routerLink="/analitica" *ngIf="puedeAnalizar">
+          <div>
+            <strong>Análisis del negocio</strong>
+            <span>Lo que más sale, quién deja más, en qué región se vende y por qué devuelven — sobre el período que elijas.</span>
+          </div>
+          <span class="flecha" aria-hidden="true">→</span>
+        </a>
+
         <!-- Tablero sin indicadores -->
         <section class="estado-panel" *ngIf="!r.indicadores.length">
           <h2>Este rol todavía no tiene indicadores</h2>
@@ -150,6 +162,18 @@ import { IndicadorCardComponent } from '../../shared/components/indicador-card/i
     </div>
   `,
   styles: [`
+    /* ── Puente al análisis (F80) ─────────────────────────────── */
+    .puente { display: flex; align-items: center; justify-content: space-between;
+              gap: 1.5rem; margin-top: 1.25rem; padding: 1.1rem 1.4rem;
+              background: var(--ms-gold-dim); border: 1px solid rgba(201,168,76,.3);
+              border-radius: var(--ms-radius); text-decoration: none;
+              transition: border-color .15s ease; }
+    .puente:hover { border-color: var(--ms-gold); }
+    .puente strong { display: block; color: var(--ms-gold-light); font-size: .98rem;
+                     margin-bottom: .2rem; }
+    .puente span { color: var(--ms-text-muted); font-size: .84rem; line-height: 1.55; }
+    .puente .flecha { color: var(--ms-gold); font-size: 1.2rem; flex-shrink: 0; }
+
     /* El contenedor es fluido: ocupa el ancho disponible con un tope alto para
        que en un monitor ultra-ancho las líneas de texto no se estiren. */
     .page {
@@ -310,6 +334,8 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   error: string | null = null;
   nombre = '';
   rolUsuario = '';
+  /** Solo el Administrador y el Supervisor tienen la pantalla de análisis. */
+  puedeAnalizar = false;
   accesoDenegado = false;
 
   private grafico?: Chart;
@@ -323,6 +349,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     const u = this.authService.getCurrentUser();
     this.nombre = u?.nombre ?? '';
     this.rolUsuario = u?.rol ?? 'desconocido';
+    this.puedeAnalizar = this.authService.hasRol('Administrador') || this.authService.hasRol('Supervisor E-Commerce');
   }
 
   ngOnInit(): void {

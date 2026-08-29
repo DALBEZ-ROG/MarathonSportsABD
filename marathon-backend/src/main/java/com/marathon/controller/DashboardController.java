@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.marathon.dto.dashboard.AnaliticaDTO;
 import com.marathon.dto.dashboard.DashboardKpisDTO;
 import com.marathon.dto.dashboard.DashboardResumenDTO;
 import com.marathon.dto.dashboard.EstadoPedidoDTO;
@@ -17,6 +18,7 @@ import com.marathon.dto.dashboard.TopProductoDTO;
 import com.marathon.dto.dashboard.VentaDiaDTO;
 import com.marathon.dto.reporte.ResumenManufacturaDTO;
 import com.marathon.service.DashboardResumenService;
+import com.marathon.service.AnaliticaService;
 import com.marathon.service.DashboardService;
 import com.marathon.service.ReporteManufacturaService;
 
@@ -27,13 +29,16 @@ public class DashboardController {
     private final DashboardService dashboardService;
     private final DashboardResumenService dashboardResumenService;
     private final ReporteManufacturaService reporteManufacturaService;
+    private final AnaliticaService analiticaService;
 
     public DashboardController(DashboardService dashboardService,
                                DashboardResumenService dashboardResumenService,
-                               ReporteManufacturaService reporteManufacturaService) {
+                               ReporteManufacturaService reporteManufacturaService,
+                               AnaliticaService analiticaService) {
         this.dashboardService = dashboardService;
         this.dashboardResumenService = dashboardResumenService;
         this.reporteManufacturaService = reporteManufacturaService;
+        this.analiticaService = analiticaService;
     }
 
     /**
@@ -86,6 +91,22 @@ public class DashboardController {
     public ResponseEntity<List<TopProductoDTO>> getTopProductos(
             @RequestParam(defaultValue = "5") int limite) {
         return ResponseEntity.ok(dashboardService.getTopProductos(limite));
+    }
+
+    /**
+     * F80 — el análisis del negocio: qué se vende, quién compra y dónde.
+     *
+     * <p>Va con {@code dashboard:ver}, que ya tienen exactamente los dos roles a
+     * los que esto les sirve —Administrador y Supervisor E-Commerce—, así que no
+     * hace falta un permiso nuevo para el mismo público.
+     *
+     * @param periodo {@code 30d} (por defecto), {@code 90d}, {@code 12m} o {@code todo}
+     */
+    @GetMapping("/analitica")
+    @PreAuthorize("hasAuthority('dashboard:ver')")
+    public ResponseEntity<AnaliticaDTO> getAnalitica(
+            @RequestParam(defaultValue = "30d") String periodo) {
+        return ResponseEntity.ok(analiticaService.analitica(periodo));
     }
 
     @GetMapping("/movimientos-hoy")
