@@ -1,6 +1,7 @@
 package com.marathon.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,6 +14,17 @@ import com.marathon.model.Cliente;
 public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
 
     Page<Cliente> findByEstado(String estado, Pageable pageable);
+
+    /**
+     * Busca por documento para poder avisar del duplicado ANTES de chocar con
+     * el indice unico (F73).
+     *
+     * <p>El indice {@code uq_cliente_documento} ya impide repetirlo, pero su
+     * violacion llega como un conflicto generico —"puede que el registro ya
+     * exista"— que no dice ni cual es el dato ni de quien es. Esto no sustituye
+     * al indice: lo precede, para dar un mensaje que se entienda.
+     */
+    Optional<Cliente> findByNumeroDocumento(String numeroDocumento);
 
     @Query("SELECT c FROM Cliente c WHERE (LOWER(c.nombre) LIKE LOWER(CONCAT('%',:search,'%')) OR LOWER(c.apellido) LIKE LOWER(CONCAT('%',:search,'%')))")
     Page<Cliente> findByNombreOrApellido(@Param("search") String search, Pageable pageable);
@@ -34,7 +46,7 @@ public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
      * endpoint completo pasaba de milisegundos a <b>6 segundos</b>.
      *
      * <p>Y el descifrado ahi no servia para nada: el selector solo pinta
-     * "nombre apellido (cedula)". Se estaban descifrando 13.860 datos
+     * "nombre apellido". Se estaban descifrando 13.860 datos
      * personales para no mostrar ninguno. Seleccionar solo las columnas que se
      * usan es a la vez lo rapido y lo correcto en proteccion de datos.
      *

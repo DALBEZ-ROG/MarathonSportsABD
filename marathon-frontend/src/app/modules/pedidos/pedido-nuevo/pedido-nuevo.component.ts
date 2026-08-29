@@ -52,7 +52,18 @@ interface ExcelImportPendiente {
       <h2>Nuevo Pedido</h2>
 
       <div class="form-section">
-        <h3>Datos del Pedido</h3>
+        <div class="sec-cab">
+          <h3>Datos del pedido</h3>
+          <!-- El pedido especial era una SECCIÓN entera para una casilla. Ahora
+               es un interruptor en la misma banda, y solo ocupa sitio cuando de
+               verdad hay algo que rellenar. -->
+          <button type="button" class="esp-toggle" [class.on]="esPedidoEspecial"
+                  [attr.aria-pressed]="esPedidoEspecial"
+                  (click)="alternarEspecial()">
+            {{ esPedidoEspecial ? '✓ Pedido especial' : 'Marcar como especial' }}
+          </button>
+        </div>
+
         <div class="form-row">
           <div class="form-group">
             <label>Cliente *</label>
@@ -64,34 +75,33 @@ interface ExcelImportPendiente {
             <input type="text" [(ngModel)]="observaciones" name="observaciones" placeholder="Opcional..." class="full-width"/>
           </div>
         </div>
-      </div>
 
-      <div class="form-section">
-        <h3>Pedido Especial</h3>
-        <label class="toggle-row">
-          <input type="checkbox" [(ngModel)]="esPedidoEspecial" name="esPedidoEspecial" (change)="onToggleEspecial()"/>
-          <span>¿Es un pedido especial?</span>
-        </label>
-
-        <div class="especial-fields" *ngIf="esPedidoEspecial">
+        <div class="especial" *ngIf="esPedidoEspecial">
+          <p class="esp-expli">
+            Un pedido especial <strong>se crea aunque no haya stock</strong>: existe
+            precisamente para prepararse o fabricarse. El déficit queda anotado en la
+            bitácora, no callado.
+          </p>
           <div class="form-row">
             <div class="form-group">
-              <label>Tipo de pedido especial *</label>
-              <select [(ngModel)]="tipoEspecial" name="tipoEspecial" class="full-width">
-                <option value="">-- Seleccione --</option>
-                <option value="personalizado">Personalizado</option>
-                <option value="regalo">Regalo</option>
-                <option value="corporativo">Corporativo</option>
-              </select>
+              <label>Tipo *</label>
+              <div class="esp-tipos">
+                <button type="button" *ngFor="let t of tiposEspeciales"
+                        class="esp-tipo" [class.on]="tipoEspecial === t.valor"
+                        (click)="tipoEspecial = t.valor">{{ t.titulo }}</button>
+              </div>
             </div>
             <div class="form-group">
               <label>Fecha límite de entrega</label>
-              <input type="datetime-local" [(ngModel)]="fechaLimiteEntrega" name="fechaLimiteEntrega" class="full-width"/>
+              <input type="datetime-local" [(ngModel)]="fechaLimiteEntrega"
+                     name="fechaLimiteEntrega" class="full-width"/>
             </div>
           </div>
           <div class="form-group">
-            <label>Nota especial</label>
-            <textarea [(ngModel)]="notaEspecial" name="notaEspecial" rows="3" placeholder="Detalles del pedido especial..." class="full-width"></textarea>
+            <label>Nota</label>
+            <input type="text" [(ngModel)]="notaEspecial" name="notaEspecial"
+                   placeholder="Qué lo hace especial: talla a medida, envoltorio, plazo…"
+                   class="full-width"/>
           </div>
         </div>
       </div>
@@ -207,6 +217,30 @@ interface ExcelImportPendiente {
     </div>
   `,
   styles: [`
+    /* ── Cabecera de sección con el interruptor de especial (F73) ─ */
+    .sec-cab { display: flex; justify-content: space-between; align-items: center;
+               gap: 1rem; flex-wrap: wrap; margin-bottom: .9rem; }
+    .sec-cab h3 { margin: 0; }
+    .esp-toggle { background: transparent; border: 1px solid rgba(255,255,255,0.14);
+                  color: rgba(255,255,255,0.55); padding: .38rem .8rem;
+                  border-radius: 99px; font-size: .78rem; cursor: pointer;
+                  transition: all .15s ease; white-space: nowrap; }
+    .esp-toggle:hover { border-color: rgba(201,168,76,0.6); color: #C9A84C; }
+    .esp-toggle.on { background: rgba(201,168,76,0.14); border-color: #C9A84C; color: #F4E28D; }
+
+    .especial { border-top: 1px solid rgba(255,255,255,0.07); margin-top: 1rem; padding-top: 1rem; }
+    .esp-expli { font-size: .82rem; color: rgba(255,255,255,0.5); line-height: 1.6;
+                 margin: 0 0 1rem; }
+    .esp-expli strong { color: rgba(255,255,255,0.85); }
+    .esp-tipos { display: flex; gap: .4rem; flex-wrap: wrap; }
+    .esp-tipo { flex: 1; min-width: 96px; background: rgba(255,255,255,0.03);
+                border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.6);
+                padding: .58rem .5rem; border-radius: 8px; font-size: .84rem;
+                cursor: pointer; transition: all .15s ease; }
+    .esp-tipo:hover { border-color: rgba(255,255,255,0.22); color: rgba(255,255,255,0.85); }
+    .esp-tipo.on { background: rgba(201,168,76,0.12); border-color: #C9A84C;
+                   color: #F4E28D; font-weight: 600; }
+
     .excel-actions {
       display: flex;
       flex-wrap: wrap;
@@ -381,6 +415,12 @@ export class PedidoNuevoComponent implements OnInit {
   importPendiente: ExcelImportPendiente | null = null;
 
   esPedidoEspecial = false;
+
+  readonly tiposEspeciales = [
+    { valor: 'personalizado', titulo: 'Personalizado' },
+    { valor: 'regalo',        titulo: 'Regalo' },
+    { valor: 'corporativo',   titulo: 'Corporativo' }
+  ];
   tipoEspecial = '';
   notaEspecial = '';
   fechaLimiteEntrega = '';
@@ -465,6 +505,12 @@ export class PedidoNuevoComponent implements OnInit {
     if (detalle.cantidad <= 1) return;
     detalle.cantidad--;
     detalle.subtotal = detalle.cantidad * detalle.precioUnitario;
+  }
+
+  /** El interruptor sustituye a la casilla; reusa la limpieza que ya había. */
+  alternarEspecial() {
+    this.esPedidoEspecial = !this.esPedidoEspecial;
+    this.onToggleEspecial();
   }
 
   onToggleEspecial() {

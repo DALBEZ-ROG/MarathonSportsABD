@@ -12,9 +12,22 @@ public class ClienteRequestDTO {
     @NotBlank(message = "El apellido es obligatorio")
     private String apellido;
 
-    @NotBlank(message = "La cédula es obligatoria")
-    @Size(max = 10, message = "La cédula no puede exceder 10 caracteres")
-    private String cedula;
+    /**
+     * {@code cedula}, {@code ruc} o {@code pasaporte} (F73).
+     *
+     * <p>Sustituye al antiguo campo {@code cedula}, que <b>no se guardaba en
+     * ningún sitio</b>: la tabla no tenía columna para él, así que se pedía como
+     * obligatorio y se tiraba.
+     *
+     * <p><b>Los dos son opcionales</b>, y no es un olvido: los 5.000 clientes
+     * que ya existen no tienen documento, y exigirlo aquí impediría editarles el
+     * teléfono. Lo que sí se exige, en {@code ClienteService}, es que si se pone
+     * esté completo y bien formado.
+     */
+    private String tipoDocumento;
+
+    @Size(max = 20, message = "El número de documento no puede exceder 20 caracteres")
+    private String numeroDocumento;
 
     @Email(message = "El email no es válido")
     private String email;
@@ -35,8 +48,10 @@ public class ClienteRequestDTO {
     public String getApellido() { return apellido; }
     public void setApellido(String apellido) { this.apellido = apellido; }
 
-    public String getCedula() { return cedula; }
-    public void setCedula(String cedula) { this.cedula = cedula; }
+    public String getTipoDocumento() { return tipoDocumento; }
+    public void setTipoDocumento(String v) { this.tipoDocumento = v; }
+    public String getNumeroDocumento() { return numeroDocumento; }
+    public void setNumeroDocumento(String v) { this.numeroDocumento = v; }
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }

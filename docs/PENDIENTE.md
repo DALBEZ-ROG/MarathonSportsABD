@@ -49,10 +49,11 @@ A las fases 47-59 se suman ahora:
 | **F70** | La recepción de mercancía rehecha, el botón del PDF partido en dos, y el aire que les faltaba a las pantallas de detalle |
 | **F71** | Las dos pantallas de producción, y **la mano de obra y los indirectos calculados** en vez de tecleados |
 | **F72** | Mover stock deja de pedir el **id del producto** y explica qué hace cada movimiento |
+| **F73** | El cliente tiene **documento** (cédula, RUC o pasaporte) y por fin se guarda; el pedido especial deja de ocupar una banda entera |
 
 ---
 
-## 2. Antes de tocar nada: once cosas que van a morderte
+## 2. Antes de tocar nada: doce cosas que van a morderte
 
 Esto no es contexto de adorno. Cada punto costó una sesión descubrirlo.
 
@@ -128,6 +129,17 @@ Esto no es contexto de adorno. Cada punto costó una sesión descubrirlo.
 commitean.** La clave de cifrado de los respaldos es distinta en cada equipo.
 
 ---
+
+12. **`mvn compile` no basta, y de dos maneras distintas.** La primera ya se
+    sabía: la compilación incremental da **verde sin recompilar**, así que un
+    error de sintaxis puede sobrevivir a un `BUILD SUCCESS`. La segunda apareció
+    en la F73 y es peor: borrar a mano un solo `.class` y recompilar dejó
+    `ClienteService.class` con referencias a `ClienteResponseDTO` **sin
+    paquete**, o sea a una clase del paquete por defecto que no existe. Compiló,
+    arrancó, y murió con `ClassNotFoundException: ClienteResponseDTO` — un
+    nombre sin punto que no aparece en ninguna parte del código fuente. Si un
+    error no cuadra con lo que dice el fuente, `mvn clean compile` antes de
+    seguir buscando.
 
 ## 3. Lo que se cerró el 2026-08-27
 
@@ -600,6 +612,60 @@ que convierte un formulario en algo que se entiende sin manual.
 El stock actual se resuelve con el listado que ya existía —filtrando por bodega y
 buscando por nombre— en vez de añadir un endpoint: la pantalla ya tenía lo que
 necesitaba, y una consulta nueva habría que concedérsela a seis roles.
+
+### F73 · El documento del cliente: se pedía, y se tiraba
+
+Lo pidió el dueño de una frase: *«lo de cliente no solo tiene cédula sino también
+RUC»*. Al ir a añadirlo apareció algo peor que una carencia.
+
+**El formulario pedía la cédula, la marcaba como obligatoria, el DTO la llevaba
+de ida y vuelta… y la tabla `cliente` no tenía ninguna columna donde guardarla.**
+Se exigía un dato para tirarlo. Por eso la columna «Cédula» del listado salía
+vacía en los 5.000 clientes: no es que no se hubiera rellenado, es que nunca se
+guardó nada.
+
+Ahora son dos columnas —`tipo_documento` y `numero_documento`— y no una por
+tipo, porque un cliente tiene **un** documento de **un** tipo; dos columnas
+admitirían el estado imposible de tener cédula y RUC a la vez y obligarían a
+decidir cuál mirar en cada consulta.
+
+| tipo | formato | quién |
+|---|---|---|
+| `cedula` | 10 dígitos | persona natural |
+| `ruc` | 13 dígitos | empresa o persona con actividad económica |
+| `pasaporte` | 5 a 20 caracteres | extranjero sin cédula |
+
+**Cuatro decisiones que conviene no deshacer:**
+
+1. **Admite nulo, y es a propósito.** Los 5.000 clientes que ya existen no tienen
+   documento y **no se les inventa uno** (§5: no se reparan datos históricos).
+   Salen como «sin documento», que es lo que son. Exigirlo habría impedido hasta
+   editarles el teléfono.
+2. **El número se normaliza antes de guardarlo.** `17-1234-5620` y `1712345620`
+   son la misma cédula para una persona y dos textos distintos para el índice
+   único. Sin limpiar, dos empleados escribiéndola con y sin guiones habrían
+   creado dos clientes sin que la base se enterara.
+3. **Es único, pero solo entre los que lo tienen** — índice parcial, para que los
+   5.000 nulos convivan con la garantía. Y el aviso dice **de quién** es el
+   documento repetido: el índice solo, al saltar, daba un conflicto genérico que
+   no decía ni el dato ni el dueño.
+4. **No se cifra**, al revés que correo, teléfono y dirección. El documento hay
+   que poder **buscarlo** —es como se identifica a un cliente en mostrador— y lo
+   cifrado no se busca por prefijo ni se indexa para exigir unicidad. Los otros
+   tres se cifran porque solo se leen.
+
+**El fallo que tuvo esta misma fase, y que la prueba fija.** La validación
+comprobaba el número **ya normalizado**, que es nulo cuando falta el tipo — así
+que un número escrito sin elegir tipo **se perdía en silencio**: exactamente el
+defecto que la fase venía a arreglar. Ahora se mira el original.
+
+### F73-bis · El pedido especial deja de ocupar una banda para una casilla
+
+«Pedido Especial» era una sección entera del formulario para contener **una
+casilla de verificación**. Ahora es un interruptor en la cabecera de «Datos del
+pedido», y los campos aparecen debajo solo cuando hay algo que rellenar — con una
+línea explicando lo que casi nadie sabe: que un pedido especial **se crea aunque
+no haya stock**, porque existe precisamente para prepararse o fabricarse.
 
 ---
 

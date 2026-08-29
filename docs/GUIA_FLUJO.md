@@ -463,6 +463,20 @@ Supervisor E-Commerce.
 
 **Clientes** → si es nuevo, se da de alta (necesita ciudad, del paso 1).
 
+El **documento** se elige por tipo, y cada uno tiene su formato:
+
+| tipo | formato | quién |
+|---|---|---|
+| Cédula | 10 dígitos | persona natural |
+| RUC | 13 dígitos | empresa o persona con actividad económica |
+| Pasaporte | 5 a 20 caracteres | extranjero sin cédula |
+
+Se escribe como venga —con guiones o espacios— y se guarda limpio, para que la
+misma cédula escrita de dos formas no cree dos clientes. **No es obligatorio**:
+los clientes anteriores a la F73 no tienen documento y salen como «sin
+documento»; se les puede poner al editarlos. Lo que no se puede es repetirlo — si
+ya lo tiene alguien, la pantalla dice **quién**.
+
 ### 5.2 · El pedido
 
 **Pedidos → Nuevo pedido**
@@ -484,6 +498,9 @@ Supervisor E-Commerce.
 > `corporativo` o `regalo` **sí se crea sin stock**: existe precisamente para
 > prepararse o fabricarse, y tiene fecha límite de entrega. El déficit queda en
 > la bitácora (`pedidos` / `crear_sin_stock`), no callado.
+>
+> Se marca con el botón **«Marcar como especial»**, arriba a la derecha de
+> «Datos del pedido». Al pulsarlo aparecen el tipo, la fecha límite y la nota.
 
 ### 5.3 · Procesarlo
 

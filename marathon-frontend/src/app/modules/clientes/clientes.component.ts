@@ -17,7 +17,8 @@ interface Cliente {
   idCliente: number;
   nombre: string;
   apellido: string;
-  cedula: string;
+  tipoDocumento: string;
+  numeroDocumento: string;
   email: string;
   telefono: string;
   direccion: string;
@@ -56,13 +57,19 @@ interface Cliente {
 
       <table class="data-table" *ngIf="!loading && !cargaError && data.length > 0">
         <thead>
-          <tr><th>ID</th><th>Nombre</th><th>Cédula</th><th>Email</th><th>Teléfono</th><th>Ciudad</th><th>Estado</th><th>Acciones</th></tr>
+          <tr><th>ID</th><th>Nombre</th><th>Documento</th><th>Email</th><th>Teléfono</th><th>Ciudad</th><th>Estado</th><th>Acciones</th></tr>
         </thead>
         <tbody>
           <tr *ngFor="let item of data">
             <td>{{item.idCliente}}</td>
             <td>{{item.nombre}} {{item.apellido}}</td>
-            <td>{{item.cedula}}</td>
+            <td>
+              <ng-container *ngIf="item.numeroDocumento; else sinDoc">
+                <span class="doc-tipo">{{ etiquetaDoc(item.tipoDocumento) }}</span>
+                <span class="doc-num">{{ item.numeroDocumento }}</span>
+              </ng-container>
+              <ng-template #sinDoc><span class="doc-vacio">sin documento</span></ng-template>
+            </td>
             <td>{{item.email}}</td>
             <td>{{item.telefono}}</td>
             <td>{{item.ciudadNombre}}</td>
@@ -96,15 +103,40 @@ interface Cliente {
                 <input type="text" [(ngModel)]="form.apellido" name="apellido" required/>
               </div>
             </div>
-            <div class="form-row">
+            <div class="form-group">
+              <label>Documento de identidad</label>
+              <div class="doc-tipos">
+                <button type="button" *ngFor="let t of tiposDocumento"
+                        class="doc-btn" [class.on]="form.tipoDocumento === t.valor"
+                        (click)="elegirTipoDoc(t.valor)">
+                  <strong>{{ t.titulo }}</strong>
+                  <span>{{ t.pista }}</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-row" *ngIf="form.tipoDocumento">
               <div class="form-group">
-                <label>Cédula *</label>
-                <input type="text" [(ngModel)]="form.cedula" name="cedula" maxlength="10" required/>
+                <label>{{ etiquetaDoc(form.tipoDocumento) }} *</label>
+                <input type="text" [(ngModel)]="form.numeroDocumento" name="numeroDocumento"
+                       [maxlength]="maxDoc()" [placeholder]="pistaDoc()"
+                       [class.input-error]="form.numeroDocumento && !docValido()"/>
+                <small class="pista" [class.mal]="form.numeroDocumento && !docValido()">
+                  {{ ayudaDoc() }}
+                </small>
               </div>
               <div class="form-group">
                 <label>Email</label>
                 <input type="email" [(ngModel)]="form.email" name="email"/>
               </div>
+            </div>
+
+            <div class="form-row" *ngIf="!form.tipoDocumento">
+              <div class="form-group">
+                <label>Email</label>
+                <input type="email" [(ngModel)]="form.email" name="email"/>
+              </div>
+              <div class="form-group"></div>
             </div>
             <div class="form-row">
               <div class="form-group">
@@ -153,6 +185,30 @@ interface Cliente {
     </div>
   `,
   styles: [`
+    /* ── Documento del cliente (F73) ───────────────────────────── */
+    .doc-tipos { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
+    .doc-btn { text-align: left; background: rgba(255,255,255,0.03);
+               border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+               padding: .55rem .7rem; cursor: pointer; transition: all .15s ease;
+               display: flex; flex-direction: column; gap: .15rem; }
+    .doc-btn:hover { border-color: rgba(255,255,255,0.22); }
+    .doc-btn strong { color: rgba(255,255,255,0.88); font-size: .86rem; }
+    .doc-btn span { color: rgba(255,255,255,0.45); font-size: .72rem; }
+    .doc-btn.on { border-color: #C9A84C; background: rgba(201,168,76,0.1); }
+    .doc-btn.on strong { color: #F4E28D; }
+
+    .pista { display: block; font-size: .74rem; color: rgba(255,255,255,0.45); margin-top: .25rem; }
+    .pista.mal { color: #f87171; }
+
+    .doc-tipo { display: inline-block; font-size: .62rem; text-transform: uppercase;
+                letter-spacing: .05em; background: rgba(255,255,255,0.07);
+                color: rgba(255,255,255,0.6); padding: .1rem .35rem;
+                border-radius: 4px; margin-right: .4rem; }
+    .doc-num { font-variant-numeric: tabular-nums; }
+    .doc-vacio { color: rgba(255,255,255,0.3); font-size: .82rem; font-style: italic; }
+
+    @media (max-width: 560px) { .doc-tipos { grid-template-columns: 1fr; } }
+
     /* Inherits global dark theme from styles.scss */
   `]
 })
@@ -180,7 +236,22 @@ export class ClientesComponent implements OnInit {
   showConfirm = false;
   editando = false;
   editId: number | null = null;
-  form: any = { nombre: '', apellido: '', cedula: '', email: '', telefono: '', direccion: '', idCiudad: null, estado: 'activo' };
+  form: any = { nombre: '', apellido: '', tipoDocumento: '', numeroDocumento: '', email: '', telefono: '', direccion: '', idCiudad: null, estado: 'activo' };
+
+  /**
+   * Los tres documentos que se usan en Ecuador (F73).
+   *
+   * **Antes solo había «cédula», y ni siquiera se guardaba**: la tabla no tenía
+   * columna para ella, así que el campo se pedía como obligatorio y se tiraba.
+   * Ahora son tres tipos con reglas distintas, y el número se valida contra la
+   * del tipo elegido antes de mandarlo — el CHECK de la base lo rechazaría
+   * igual, pero con un error mucho menos claro.
+   */
+  readonly tiposDocumento = [
+    { valor: 'cedula',    titulo: 'Cédula',    pista: 'Persona · 10 dígitos' },
+    { valor: 'ruc',       titulo: 'RUC',       pista: 'Empresa · 13 dígitos' },
+    { valor: 'pasaporte', titulo: 'Pasaporte', pista: 'Extranjero' }
+  ];
   formError = '';
   itemEliminar: Cliente | null = null;
   toast = '';
@@ -199,6 +270,49 @@ export class ClientesComponent implements OnInit {
   get puedeEscribir(): boolean {
     const rol = this.auth.getCurrentUser()?.rol;
     return rol === 'Administrador' || rol === 'Operador de Pedidos';
+  }
+
+  etiquetaDoc(tipo: string): string {
+    return this.tiposDocumento.find(t => t.valor === tipo)?.titulo || tipo || '';
+  }
+
+  elegirTipoDoc(valor: string) {
+    // Volver a pulsar el tipo elegido lo quita: un cliente puede no tener
+    // documento, y sin esto no habría forma de dejarlo en blanco.
+    this.form.tipoDocumento = this.form.tipoDocumento === valor ? '' : valor;
+    this.form.numeroDocumento = '';
+    this.formError = '';
+  }
+
+  maxDoc(): number {
+    return this.form.tipoDocumento === 'cedula' ? 10
+         : this.form.tipoDocumento === 'ruc' ? 13 : 20;
+  }
+
+  pistaDoc(): string {
+    return this.form.tipoDocumento === 'cedula' ? '1712345678'
+         : this.form.tipoDocumento === 'ruc' ? '1791234567001' : 'AB1234567';
+  }
+
+  /** La misma regla que el CHECK de la base, dicha antes de chocar con él. */
+  docValido(): boolean {
+    const n = (this.form.numeroDocumento || '').trim();
+    if (!n) { return false; }
+    switch (this.form.tipoDocumento) {
+      case 'cedula':    return /^[0-9]{10}$/.test(n);
+      case 'ruc':       return /^[0-9]{13}$/.test(n);
+      case 'pasaporte': return n.length >= 5 && n.length <= 20;
+      default:          return false;
+    }
+  }
+
+  ayudaDoc(): string {
+    switch (this.form.tipoDocumento) {
+      case 'cedula':    return 'Diez dígitos, sin guiones.';
+      case 'ruc':       return 'Trece dígitos: la cédula o el RUC de la empresa, terminado en 001.';
+      case 'pasaporte': return 'Entre 5 y 20 caracteres.';
+      default:          return '';
+    }
   }
 
   constructor(private crud: CrudService, private auth: AuthService) {}
@@ -236,7 +350,7 @@ export class ClientesComponent implements OnInit {
   abrirModal() {
     this.editando = false;
     this.editId = null;
-    this.form = { nombre: '', apellido: '', cedula: '', email: '', telefono: '', direccion: '', idCiudad: null, estado: 'activo' };
+    this.form = { nombre: '', apellido: '', tipoDocumento: '', numeroDocumento: '', email: '', telefono: '', direccion: '', idCiudad: null, estado: 'activo' };
     this.formError = '';
     this.showModal = true;
   }
@@ -245,7 +359,8 @@ export class ClientesComponent implements OnInit {
     this.editando = true;
     this.editId = item.idCliente;
     this.form = {
-      nombre: item.nombre, apellido: item.apellido, cedula: item.cedula || '',
+      nombre: item.nombre, apellido: item.apellido,
+      tipoDocumento: item.tipoDocumento || '', numeroDocumento: item.numeroDocumento || '',
       email: item.email || '', telefono: item.telefono || '',
       direccion: item.direccion || '', idCiudad: item.idCiudad || null, estado: item.estado
     };
@@ -258,7 +373,17 @@ export class ClientesComponent implements OnInit {
   guardar() {
     if (!this.form.nombre.trim()) { this.formError = 'El nombre es obligatorio'; return; }
     if (!this.form.apellido.trim()) { this.formError = 'El apellido es obligatorio'; return; }
-    if (!this.form.cedula.trim()) { this.formError = 'La cédula es obligatoria'; return; }
+    // El documento ya NO es obligatorio, y es a propósito: los 5.000 clientes
+    // que ya existen no lo tienen, y exigirlo impediría editarles el teléfono.
+    // Lo que sí se exige es que, si se pone, esté bien.
+    if (this.form.tipoDocumento && !this.docValido()) {
+      this.formError = this.ayudaDoc();
+      return;
+    }
+    if (this.form.numeroDocumento && !this.form.tipoDocumento) {
+      this.formError = 'Elige de qué tipo es el documento.';
+      return;
+    }
     this.saving = true;
     const body = { ...this.form };
     if (!body.idCiudad) body.idCiudad = null;

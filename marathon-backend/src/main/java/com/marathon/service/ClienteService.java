@@ -14,6 +14,7 @@ import com.marathon.dto.PageResponseDTO;
 import com.marathon.dto.cliente.ClienteRequestDTO;
 import com.marathon.dto.cliente.ClienteResponseDTO;
 import com.marathon.exception.ResourceNotFoundException;
+import com.marathon.exception.ValidationException;
 import com.marathon.model.Ciudad;
 import com.marathon.model.Cliente;
 import com.marathon.repository.CiudadRepository;
@@ -163,6 +164,16 @@ public class ClienteService {
     private void mapearDatos(Cliente cliente, ClienteRequestDTO dto) {
         cliente.setNombre(dto.getNombre());
         cliente.setApellido(dto.getApellido());
+        // F73: el documento, que antes se pedia y se tiraba. Se normaliza a
+        // digitos sin puntos ni guiones y en mayusculas para el pasaporte,
+        // porque el indice unico compara textos y "1712345678" y "171234567-8"
+        // son la misma cedula para una persona pero dos para PostgreSQL.
+        String tipoDoc = vacioComoNulo(dto.getTipoDocumento());
+        String numDoc = normalizarDocumento(tipoDoc, dto.getNumeroDocumento());
+        validarDocumento(tipoDoc, numDoc, vacioComoNulo(dto.getNumeroDocumento()));
+        comprobarDocumentoLibre(numDoc, cliente.getIdCliente());
+        cliente.setTipoDocumento(tipoDoc);
+        cliente.setNumeroDocumento(numDoc);
         // F41: correo, telefono y direccion NO se asignan aqui. Son campos
         // @Formula de solo lectura sobre columnas cifradas; asignarlos daria la
         // falsa impresion de que se guardan. Los persiste CifradoService, que
@@ -187,10 +198,108 @@ public class ClienteService {
         dto.setTelefono(cliente.getTelefono());
         dto.setDireccion(cliente.getDireccion());
         dto.setEstado(cliente.getEstado());
+        dto.setTipoDocumento(cliente.getTipoDocumento());
+        dto.setNumeroDocumento(cliente.getNumeroDocumento());
         if (cliente.getCiudad() != null) {
             dto.setIdCiudad(cliente.getCiudad().getIdCiudad());
             dto.setCiudadNombre(cliente.getCiudad().getNombre());
         }
         return dto;
+    }
+
+    /**
+     * Comprueba el documento ANTES de que lo haga la base (F73).
+     *
+     * <p>Los CHECK de `cliente` ya lo rechazarian, pero el mensaje que sale de
+     * ahi es el generico de integridad: «la operacion entra en conflicto con
+     * datos existentes, puede que el registro ya exista». Eso manda a buscar un
+     * duplicado cuando lo que pasa es que la cedula tiene tres digitos. Un
+     * mensaje cierto que apunta al sitio equivocado cuesta mas tiempo que uno
+     * claro.
+     */
+    private void validarDocumento(String tipo, String numero, String original) {
+        // Se mira el ORIGINAL, no el normalizado: normalizarDocumento() devuelve
+        // nulo cuando falta el tipo, asi que comprobar el normalizado dejaba
+        // pasar "numero sin tipo" y el numero se perdia en silencio — que es
+        // justo el defecto que esta fase vino a arreglar.
+        if (tipo == null && original == null) {
+            return;   // sin documento: es valido, los 5.000 antiguos no tienen
+        }
+        if (tipo == null) {
+            throw new ValidationException("Has escrito el documento «" + original
+                    + "» pero no has dicho de qué tipo es: cédula, RUC o pasaporte.");
+        }
+        if (numero == null || numero.isBlank()) {
+            throw new ValidationException("Has elegido " + tipo + " pero no has escrito el número.");
+        }
+        switch (tipo) {
+            case "cedula":
+                if (!numero.matches("[0-9]{10}")) {
+                    throw new ValidationException("Una cédula son 10 dígitos, y «" + original
+                            + "» tiene " + numero.length() + " una vez quitados los guiones.");
+                }
+                break;
+            case "ruc":
+                if (!numero.matches("[0-9]{13}")) {
+                    throw new ValidationException("Un RUC son 13 dígitos —la cédula o el RUC de la "
+                            + "empresa, terminado en 001—, y «" + original + "» tiene "
+                            + numero.length() + ".");
+                }
+                break;
+            case "pasaporte":
+                if (numero.length() < 5 || numero.length() > 20) {
+                    throw new ValidationException("El pasaporte debe tener entre 5 y 20 caracteres.");
+                }
+                break;
+            default:
+                throw new ValidationException("Tipo de documento desconocido: «" + tipo
+                        + "». Solo valen cédula, RUC o pasaporte.");
+        }
+    }
+
+    private String vacioComoNulo(String s) {
+        return (s == null || s.isBlank()) ? null : s.trim();
+    }
+
+    /**
+     * Deja el documento como lo espera el indice unico (F73).
+     *
+     * <p>Cedula y RUC se quedan solo con los digitos: quien teclea
+     * {@code 171234567-8} y quien teclea {@code 1712345678} estan escribiendo la
+     * misma cedula, pero para el indice serian dos clientes distintos. El
+     * pasaporte va en mayusculas por lo mismo, que es alfanumerico.
+     *
+     * <p>Si el tipo viene vacio, no hay documento: se devuelve nulo y el CHECK
+     * de la base se encarga de que el tipo tampoco quede suelto.
+     */
+    /**
+     * Avisa del documento repetido diciendo DE QUIEN es (F73).
+     *
+     * <p>El indice unico de la base ya lo impide; esto solo se adelanta para
+     * que el mensaje sirva de algo. Al editar hay que excluirse a uno mismo, o
+     * guardar un cliente sin tocarle el documento fallaria contra si mismo.
+     *
+     * @param idActual id del cliente que se esta guardando, o {@code null} si es nuevo
+     */
+    private void comprobarDocumentoLibre(String numero, Integer idActual) {
+        if (numero == null) { return; }
+        clienteRepository.findByNumeroDocumento(numero).ifPresent(otro -> {
+            if (idActual != null && idActual.equals(otro.getIdCliente())) { return; }
+            throw new ValidationException("Ese documento ya lo tiene "
+                    + otro.getNombre() + " " + otro.getApellido()
+                    + " (cliente #" + otro.getIdCliente() + "). Dos clientes con el "
+                    + "mismo documento son el mismo cliente dos veces.");
+        });
+    }
+
+    private String normalizarDocumento(String tipo, String numero) {
+        String limpio = vacioComoNulo(numero);
+        if (limpio == null || vacioComoNulo(tipo) == null) {
+            return null;
+        }
+        if ("pasaporte".equals(tipo)) {
+            return limpio.toUpperCase().replaceAll("\s+", "");
+        }
+        return limpio.replaceAll("[^0-9]", "");
     }
 }

@@ -74,7 +74,34 @@ public class Cliente {
     @Column(name = "updated_at", insertable = false, updatable = false)
     private LocalDateTime updatedAt;
 
+    /**
+     * Tipo de documento: {@code cedula}, {@code ruc} o {@code pasaporte} (F73).
+     *
+     * <p>Admite nulo porque los 5.000 clientes anteriores no tenían documento y
+     * <b>no se les inventa uno</b>. Va junto con el número: los dos o ninguno,
+     * y lo garantiza un CHECK.
+     */
+    @Column(name = "tipo_documento", length = 10)
+    private String tipoDocumento;
+
+    /**
+     * El número, sin puntos ni guiones.
+     *
+     * <p><b>No se cifra</b>, al revés que correo, teléfono y dirección, y es una
+     * decisión: el documento hay que poder <i>buscarlo</i> —es como se identifica
+     * a un cliente en mostrador— y un valor cifrado no se busca por prefijo ni se
+     * indexa para exigir unicidad.
+     */
+    @Column(name = "numero_documento", length = 20)
+    private String numeroDocumento;
+
     public Cliente() {}
+
+    public String getTipoDocumento() { return tipoDocumento; }
+    public void setTipoDocumento(String tipoDocumento) { this.tipoDocumento = tipoDocumento; }
+
+    public String getNumeroDocumento() { return numeroDocumento; }
+    public void setNumeroDocumento(String numeroDocumento) { this.numeroDocumento = numeroDocumento; }
 
     public Integer getIdCliente() { return idCliente; }
     public void setIdCliente(Integer idCliente) { this.idCliente = idCliente; }

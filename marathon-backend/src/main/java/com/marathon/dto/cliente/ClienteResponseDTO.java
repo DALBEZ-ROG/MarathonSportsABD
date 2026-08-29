@@ -5,7 +5,8 @@ public class ClienteResponseDTO {
     private Integer idCliente;
     private String nombre;
     private String apellido;
-    private String cedula;
+    private String tipoDocumento;
+    private String numeroDocumento;
     private String email;
     private String telefono;
     private String direccion;
@@ -24,8 +25,10 @@ public class ClienteResponseDTO {
     public String getApellido() { return apellido; }
     public void setApellido(String apellido) { this.apellido = apellido; }
 
-    public String getCedula() { return cedula; }
-    public void setCedula(String cedula) { this.cedula = cedula; }
+    public String getTipoDocumento() { return tipoDocumento; }
+    public void setTipoDocumento(String v) { this.tipoDocumento = v; }
+    public String getNumeroDocumento() { return numeroDocumento; }
+    public void setNumeroDocumento(String v) { this.numeroDocumento = v; }
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
