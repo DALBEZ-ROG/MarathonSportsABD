@@ -200,6 +200,42 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Un parametro que falta o que viene mal escrito es del cliente, no del
+     * servidor (F86).
+     *
+     * <p>Es la misma historia que el 404 de aqui arriba, con otro disfraz.
+     * Llamar a {@code /api/auditoria/inventario/resumen} sin su {@code idProducto}
+     * devolvia <b>500 «Error interno del servidor»</b> y dejaba en el registro un
+     * {@code ERROR "Error no controlado"} con la traza entera. Ni una cosa ni la
+     * otra: el servidor esta perfectamente: es la peticion la que no trae lo que
+     * el endpoint pide. Lo mismo con {@code ?page=abc} donde se espera un numero.
+     *
+     * <p>Se dice <b>que parametro</b> es. No es filtrar nada: el nombre del
+     * parametro es parte del contrato publico del endpoint, y sin el, el mensaje
+     * obliga a adivinar.
+     */
+    @ExceptionHandler({ org.springframework.web.bind.MissingServletRequestParameterException.class,
+                        org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class })
+    public ResponseEntity<ErrorResponse> handleParametro(Exception ex) {
+        String detalle;
+        if (ex instanceof org.springframework.web.bind.MissingServletRequestParameterException falta) {
+            detalle = "Falta el parámetro «" + falta.getParameterName() + "».";
+        } else {
+            var tipo = (org.springframework.web.method.annotation.MethodArgumentTypeMismatchException) ex;
+            detalle = "El parámetro «" + tipo.getName() + "» no tiene un valor válido.";
+        }
+        log.debug("Peticion con parametros incorrectos: {}", ex.getMessage());
+
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Bad Request",
+                detalle,
+                LocalDateTime.now()
+        );
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
      * Ultimo recurso (L9, D-12).
      *
      * <p>Antes devolvia {@code "Error interno del servidor: " + ex.getMessage()}.

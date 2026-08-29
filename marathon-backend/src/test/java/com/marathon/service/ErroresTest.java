@@ -142,4 +142,28 @@ class ErroresTest {
                 .as("y no debe seguir diciendo que el fallo es interno del servidor")
                 .doesNotContainIgnoringCase("interno del servidor");
     }
+
+    @Test
+    @DisplayName("un parámetro que falta es un 400 que lo nombra, no un 500 anónimo")
+    void unParametroQueFaltaEsDelCliente() {
+        // F86, y es la misma historia que el 404 de arriba con otro disfraz.
+        // Llamar a /api/auditoria/inventario/resumen sin su idProducto devolvía
+        // 500 «Error interno del servidor» y dejaba en el registro un
+        // ERROR «Error no controlado» con la traza entera. El servidor está
+        // perfectamente: es la petición la que no trae lo que el endpoint pide.
+        var falta = new org.springframework.web.bind.MissingServletRequestParameterException(
+                "idProducto", "Integer");
+
+        var respuesta = manejador.handleParametro(falta);
+
+        assertThat(respuesta.getStatusCode().value()).isEqualTo(400);
+        var cuerpo = respuesta.getBody();
+        assertThat(cuerpo).isNotNull();
+        assertThat(cuerpo.getMessage())
+                .as("tiene que decir QUÉ parámetro falta; si no, hay que adivinarlo")
+                .contains("idProducto");
+        assertThat(cuerpo.getMessage())
+                .doesNotContainIgnoringCase("interno del servidor")
+                .doesNotContain("Referencia:");
+    }
 }

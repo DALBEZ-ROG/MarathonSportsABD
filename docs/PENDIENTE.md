@@ -62,10 +62,11 @@ A las fases 47-59 se suman ahora:
 | **F83** | El asistente **funciona**: Gemini como proveedor, y el tope de filas deja de romper toda consulta con `LIMIT` |
 | **F84** | **Normalización**: la base deja de guardar cuatro veces lo que ya sabía (tres 3FN y una 1FN) |
 | **F85** | Los **formularios y la base** dicen lo mismo: se acaban los campos que se pedían y se tiraban |
+| **F86** | Un parámetro que falta deja de ser un **500 anónimo** y pasa a ser un 400 que lo nombra |
 
 ---
 
-## 2. Antes de tocar nada: quince cosas que van a morderte
+## 2. Antes de tocar nada: dieciséis cosas que van a morderte
 
 Esto no es contexto de adorno. Cada punto costó una sesión descubrirlo.
 
@@ -178,6 +179,33 @@ commitean.** La clave de cifrado de los respaldos es distinta en cada equipo.
     dio error ni se notó a ojo: lo cazó `RendimientoDespachosTest`, que **cuenta
     consultas** en vez de medir tiempo. Al añadir una asociación a una entidad
     que se lista paginada, o va LAZY, o va con `JOIN FETCH` en la consulta.
+
+16. **El compilador del IDE pisa `target/classes` y tira los nombres de los
+    parámetros.** Es la más traicionera de todas y costó un susto el
+    2026-08-29: tras arrancar el backend, **33 de 47 endpoints devolvían 500**.
+    En el registro:
+
+    ```
+    IllegalArgumentException: Name for argument of type [int] not specified,
+    and parameter name information not available via reflection.
+    Ensure that the compiler uses the '-parameters' flag.
+    ```
+
+    Los controladores usan `@RequestParam int page` sin nombrar el parámetro, y
+    Spring lo saca del *bytecode*. Maven lo pone —`spring-boot-starter-parent`
+    activa `-parameters`—, pero **el compilador del editor escribe en la misma
+    carpeta y no lo pone**. Gana el último que compiló, y si fue el IDE, medio
+    sistema deja de funcionar sin que nadie haya tocado el código.
+
+    Se comprueba en un segundo:
+
+    ```
+    javap -v -cp target/classes com.marathon.controller.ProductoController | grep -c MethodParameters
+    ```
+
+    **7 con Maven, 0 con el IDE.** Si sale 0, `mvn -o clean compile` **antes** de
+    arrancar. Es de la misma familia que el punto 12: no te fíes de lo que haya
+    en `target/`, porque no siempre lo puso Maven.
 
 ## 3. Lo que se cerró el 2026-08-27
 
@@ -1314,6 +1342,30 @@ factura rechazada por las dos vías.
 - **La reserva de stock de los 19.058 pedidos ya en `procesado` no se
   reconstruyó.** Durante la transición el disponible es optimista respecto de
   ellos. Se corrige solo según se despachen o se anulen.
+
+### F86 · Un parámetro que falta no es una avería del servidor
+
+Salió al barrer **los 47 endpoints GET** uno a uno para responder a la pregunta
+«¿el programa sigue funcionando al 100%?». Dos devolvían **500 «Error interno del
+servidor»**, y no porque estuvieran rotos: es que hay que llamarlos con un
+parámetro y no se lo pasé.
+
+Es exactamente la misma historia que el 404 de la **F63**, con otro disfraz. Al
+cliente le llegaba «error interno del servidor» —haciéndole creer que el fallo
+está en el servidor cuando está en la petición— y al registro le caía un
+`ERROR "Error no controlado"` con la traza entera, por cada llamada mal hecha.
+
+Ahora `MissingServletRequestParameterException` y
+`MethodArgumentTypeMismatchException` devuelven **400 diciendo qué parámetro es**:
+*«Falta el parámetro «idProducto»»*, *«El parámetro «idProducto» no tiene un
+valor válido»*. El nombre del parámetro es parte del contrato público del
+endpoint, así que decirlo no filtra nada y ahorra adivinar.
+
+**Resultado del barrido, con el arreglo puesto: 45 de 47 en 200, y los 2
+restantes en 400 con su motivo.** (Uno de ellos, `verificar-disponibilidad`, da
+400 también con parámetros correctos si el producto no tiene lista de materiales
+— y lo dice: *«El producto no tiene lista de materiales definida»*. Con un
+producto fabricado de verdad devuelve 200.)
 
 ### Spring Boot 3.2 se quedó sin soporte gratuito
 
