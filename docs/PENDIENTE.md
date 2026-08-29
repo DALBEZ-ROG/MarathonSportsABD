@@ -65,6 +65,7 @@ A las fases 47-59 se suman ahora:
 | **F86** | Un parámetro que falta deja de ser un **500 anónimo** y pasa a ser un 400 que lo nombra |
 | **F87** | La **documentación de la API** deja de servirse sin contraseña, y el SQL del asistente deja de viajar a quien no es administrador |
 | **F88** | El tablero deja de tener huecos, y el asistente vive en una **burbuja** disponible en todas las pantallas |
+| **F89** | El desplegable que salía **por detrás de la tabla**, y la ventana de crear un rol: 95 permisos que ya se pueden encontrar |
 
 ---
 
@@ -1482,6 +1483,49 @@ negocio dentro.
 > El contexto no decía los valores. Ahora los dice, y con un aviso al principio
 > porque es el fallo que más se repetía. Comprobado: «cuántos productos activos
 > hay» → 109; «cuántas bodegas activas» → 20.
+
+### F89 · El desplegable que salía por detrás, y la ventana de crear un rol
+
+**El desplegable de auditoría, y por qué el z-index no bastaba.** En
+`/auditoria`, la lista del buscador de producto se dibujaba **por detrás de la
+tabla**. Lo desconcertante era que la regla ya estaba puesta:
+
+```css
+.filter-field:has(.search-select.open) { position: relative; z-index: 60; }
+```
+
+Correcta, e inútil. El bloque `.audit-filters` lleva `backdrop-filter: blur(8px)`,
+y **cualquier valor distinto de `none` crea un contexto de apilamiento propio**.
+Dentro de él, ese `z-index: 60` solo compite con los hermanos del propio bloque
+de filtros; frente a la tabla, que está fuera, no puede nada — y entonces decide
+el orden del DOM, donde la tabla va después. Se comprobó con
+`document.elementFromPoint` sobre la lista abierta: devolvía `TD`. Con el
+contenedor levantado, devuelve `BUTTON`.
+
+> **Regla que volverá a hacer falta:** si un desplegable se esconde detrás de
+> algo, no mires su z-index — mira si **algún ancestro** tiene `backdrop-filter`,
+> `filter`, `transform` u `opacity`. Los cuatro crean contexto de apilamiento y
+> ahí se queda encerrado. Hay que levantar el ancestro, no el elemento.
+
+**La ventana de crear un rol.** Metía **31 módulos y 95 casillas** en una caja de
+dos columnas y 320 px de alto, con los nombres en crudo (`ANALISIS_COSTOS`), sin
+buscador y sin decir cuántos llevabas marcados. Encontrar un permiso era
+recorrerlos todos.
+
+Ahora: cuatro columnas en el ancho real de la pantalla, **filtro escribiendo**
+—por módulo o por acción, sin acentos—, la cuenta a la vista (`20 de 95`), un
+contador por módulo (`0/4`), y el botón de cada bloque dice si toca marcar o
+desmarcar. Y lo que más ahorra: **copiar los permisos de un rol que ya
+funciona**, porque un rol nuevo casi nunca se hace de cero.
+
+**Y dice las dos reglas que el servidor iba a aplicar en silencio:**
+
+- Un rol **sin ningún permiso** se puede guardar, y quien lo tenga entrará sin
+  poder hacer nada. Ahora lo avisa antes.
+- **51 reglas de `SecurityConfig` van por NOMBRE de rol, no por permiso.** Un rol
+  nuevo no entra en esas pantallas por muchos permisos que se le marquen: hace
+  falta tocar la configuración del servidor. Eso no se veía por ninguna parte y
+  se descubría al usarlo.
 
 ### Recorrido completo de los flujos, por HTTP y con los seis roles (2026-08-29)
 

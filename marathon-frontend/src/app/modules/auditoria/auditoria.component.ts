@@ -220,6 +220,26 @@ interface PageResp<T> { content: T[]; totalElements: number; totalPages: number;
     .filter-field.ancho { min-width: 300px; flex: 1 1 300px; }
     .filter-field:has(.search-select.open) { position: relative; z-index: 60; }
 
+    /* F89 - la lista del buscador salia POR DETRAS de la tabla.
+       ────────────────────────────────────────────────────────────────────
+       Y el z-index de arriba no bastaba, que es lo que despistaba: era
+       correcto, pero inutil. El bloque .audit-filters lleva backdrop-filter,
+       y cualquier valor distinto de "none" CREA UN CONTEXTO DE APILAMIENTO
+       PROPIO. Dentro de el, el z-index 60 del campo solo compite con sus
+       hermanos del propio bloque de filtros; frente a la tabla, que esta
+       fuera, no puede nada. Lo que decide entonces es el orden del DOM, y la
+       tabla va despues.
+
+       Asi que hay que levantar el CONTENEDOR entero, no el campo. Solo
+       mientras hay un desplegable abierto, para no dejar los filtros por
+       encima de nada el resto del tiempo.
+
+       Regla general, que volvera a hacer falta: si un desplegable se esconde
+       detras de algo, mira si algun ancestro tiene backdrop-filter, filter,
+       transform u opacity — los cuatro crean contexto de apilamiento, y ahi
+       se queda encerrado el z-index. */
+    .audit-filters:has(.search-select.open) { position: relative; z-index: 60; }
+
     .atajos { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap;
               margin: .9rem 0 .2rem; }
     .atajos > span { font-size: .76rem; color: rgba(255,255,255,0.3); margin-right: .2rem; }
