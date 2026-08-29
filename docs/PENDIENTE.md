@@ -48,6 +48,7 @@ A las fases 47-59 se suman ahora:
 | **F69** | Si el proveedor repone, se crea una orden de compra **que no se puede facturar** |
 | **F70** | La recepción de mercancía rehecha, el botón del PDF partido en dos, y el aire que les faltaba a las pantallas de detalle |
 | **F71** | Las dos pantallas de producción, y **la mano de obra y los indirectos calculados** en vez de tecleados |
+| **F72** | Mover stock deja de pedir el **id del producto** y explica qué hace cada movimiento |
 
 ---
 
@@ -574,6 +575,31 @@ crear nada — sale del mismo cálculo de la F29 que usa la pantalla de costes, 
 que no es una cuenta paralela. Y cuando el producto no tiene lista de materiales
 —**11 de los 14 fabricados**, desde la F59— lo dice y explica dónde se define,
 en vez de quedarse mudo con un botón bloqueado.
+
+### F72 · Mover stock: sin ids, y diciendo qué hace cada cosa
+
+Dos quejas del dueño, las dos justas:
+
+**1. Pedía el id del producto a mano.** Un `<input type="number">` donde había
+que escribir el número interno. Nadie se lo sabe, y no hay pantalla que lo
+enseñe. Ahora es el mismo selector con búsqueda que ya usaban las bodegas: se
+escribe el nombre.
+
+**2. No se entendía qué hacía cada movimiento, sobre todo el ajuste.** Y ese es
+el peligroso: **fija un valor ABSOLUTO**. Se escribe el total contado y el
+sistema calcula la diferencia. Quien lo lea como «sumar o restar» descuadrará el
+stock sin enterarse — y hay 10.757 ajustes en la base. Ahora los cuatro tipos son
+tarjetas que dicen lo que hacen, la del ajuste se llama **«Ajuste por conteo»**, y
+el rótulo de la cantidad cambia con el tipo: «unidades que entran», «unidades que
+salen», **«stock real que has contado»**.
+
+**Y se ve el efecto antes de confirmar.** En cuanto hay producto y bodega, la
+pantalla enseña lo que hay ahora y en qué quedará: **«63 → 70 (+7)»**. Eso es lo
+que convierte un formulario en algo que se entiende sin manual.
+
+El stock actual se resuelve con el listado que ya existía —filtrando por bodega y
+buscando por nombre— en vez de añadir un endpoint: la pantalla ya tenía lo que
+necesitaba, y una consulta nueva habría que concedérsela a seis roles.
 
 ---
 

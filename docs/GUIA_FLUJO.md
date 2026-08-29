@@ -423,8 +423,26 @@ Supervisor E-Commerce.
 > Un pedido procesado **reserva** unidades que siguen en la estantería pero ya
 > tienen dueño.
 
-- **Registrar movimiento** (entradas, salidas, traspasos): Administrador y
-  Operador de Bodega.
+- **Mover stock** (Administrador y Operador de Bodega). Es para lo que entra o
+  sale **fuera del flujo normal**: lo que llega de una orden de compra se
+  registra en su recepción, y lo que sale por un pedido, en el empaque. Hay
+  cuatro movimientos:
+
+  | | Qué hace |
+  |---|---|
+  | **Entrada** | Suma unidades. Para lo que llega sin ser una orden de compra |
+  | **Salida** | Resta unidades. Para roturas, muestras o mermas |
+  | **Ajuste por conteo** | **Fija** el stock a lo que has contado. **No suma ni resta** |
+  | **Traslado** | Mueve unidades a otra bodega. El total no cambia |
+
+  > **El ajuste es el que más se malinterpreta.** No se escribe la diferencia:
+  > se escribe **el total que hay en la estantería**, y el sistema calcula solo
+  > cuánto sobra o falta. Escribirlo como si fuera un delta descuadra el stock
+  > sin que nadie se entere. La pantalla te enseña el stock actual y en qué
+  > quedará —«63 → 70»— antes de confirmar.
+
+  > Ni una salida ni un ajuste a la baja pueden llevarse lo que un pedido
+  > procesado tiene **reservado**: esa mercancía ya tiene dueño.
 - **Reservas vencidas**: las que llevan más de 7 días reteniendo stock.
   **El sistema NO las suelta solo** — las pone delante de una persona, que decide
   y escribe un motivo. Soltar mercancía sin que nadie mire es peor que el

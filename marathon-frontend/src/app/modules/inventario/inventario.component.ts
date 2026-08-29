@@ -145,45 +145,109 @@ interface PageResponse<T> {
 
       <!-- Modal Movimiento -->
       <div class="modal-overlay" *ngIf="showMovModal" appModalSeguro (cerrar)="cerrarModalMovimiento()">
-        <div class="modal-card" (click)="$event.stopPropagation()">
-          <h3>Registrar Movimiento</h3>
+        <div class="modal-card ancho" (click)="$event.stopPropagation()">
+          <h3>Mover stock</h3>
+          <p class="mov-sub">
+            Para lo que entra o sale <strong>fuera del flujo normal</strong>. Lo que llega
+            de una orden de compra se registra en su recepción, y lo que sale por un
+            pedido, en el empaque.
+          </p>
+
           <form (ngSubmit)="guardarMovimiento()">
-            <div class="form-group">
-              <label>Tipo de Movimiento *</label>
-              <select [(ngModel)]="movForm.tipoMovimiento" name="tipoMovimiento" required>
-                <option value="">-- Seleccione --</option>
-                <option value="entrada">Entrada</option>
-                <option value="salida">Salida</option>
-                <option value="ajuste">Ajuste</option>
-                <option value="traslado">Traslado</option>
-              </select>
+
+            <!-- 1. Qué se hace -->
+            <span class="paso-etq">1 · Qué quieres hacer</span>
+            <div class="tipos">
+              <button type="button" class="tipo" *ngFor="let t of tiposMovimiento"
+                      [class.on]="movForm.tipoMovimiento === t.valor"
+                      (click)="elegirTipo(t.valor)">
+                <strong>{{ t.titulo }}</strong>
+                <span>{{ t.explica }}</span>
+              </button>
             </div>
-            <div class="form-group">
-              <label>Producto (ID) *</label>
-              <input type="number" [(ngModel)]="movForm.idProducto" name="idProducto" required min="1"/>
-            </div>
-            <div class="form-group">
-              <label>Bodega Origen *</label>
-              <app-searchable-select [(ngModel)]="movForm.idBodega" name="idBodega" [items]="bodegas"
-                valueKey="idBodega" placeholder="Escriba la bodega de origen..."/>
-            </div>
-            <div class="form-group" *ngIf="movForm.tipoMovimiento === 'traslado'">
-              <label>Bodega Destino *</label>
-              <app-searchable-select [(ngModel)]="movForm.idBodegaDestino" name="idBodegaDestino" [items]="bodegas"
-                valueKey="idBodega" placeholder="Escriba la bodega de destino..."/>
-            </div>
-            <div class="form-group">
-              <label>Cantidad *</label>
-              <input type="number" [(ngModel)]="movForm.cantidad" name="cantidad" required min="1"/>
-            </div>
-            <div class="form-group">
-              <label>Observación</label>
-              <input type="text" [(ngModel)]="movForm.observacion" name="observacion"/>
-            </div>
+
+            <ng-container *ngIf="movForm.tipoMovimiento">
+
+              <!-- 2. Sobre qué -->
+              <span class="paso-etq">2 · Sobre qué producto</span>
+              <div class="form-group">
+                <label>Producto *</label>
+                <app-searchable-select [(ngModel)]="movForm.idProducto" name="idProducto"
+                  [items]="productos" valueKey="idProducto"
+                  placeholder="Escribe el nombre del producto…"
+                  (ngModelChange)="alCambiarProductoOBodega()"/>
+              </div>
+
+              <div class="form-group">
+                <label>{{ movForm.tipoMovimiento === 'traslado' ? 'Bodega de origen *' : 'Bodega *' }}</label>
+                <app-searchable-select [(ngModel)]="movForm.idBodega" name="idBodega" [items]="bodegas"
+                  valueKey="idBodega" placeholder="Escribe la bodega…"
+                  (ngModelChange)="alCambiarProductoOBodega()"/>
+              </div>
+
+              <div class="form-group" *ngIf="movForm.tipoMovimiento === 'traslado'">
+                <label>Bodega de destino *</label>
+                <app-searchable-select [(ngModel)]="movForm.idBodegaDestino" name="idBodegaDestino"
+                  [items]="bodegas" valueKey="idBodega" placeholder="Escribe la bodega…"/>
+              </div>
+
+              <!-- El stock que hay ahora -->
+              <div class="stock-actual" *ngIf="stockConocido !== null">
+                <span>Ahí hay ahora</span>
+                <strong>{{ stockConocido }} unidad(es)</strong>
+              </div>
+              <p class="stock-nuevo-aviso" *ngIf="stockConocido === null && movForm.idProducto && movForm.idBodega">
+                Ese producto todavía no tiene existencias en esa bodega. Una
+                <strong>entrada</strong> creará la ficha; los demás movimientos no tienen
+                de dónde sacar unidades.
+              </p>
+
+              <!-- 3. Cuánto -->
+              <span class="paso-etq">3 · Cuánto</span>
+              <div class="form-group">
+                <label>{{ etiquetaCantidad() }} *</label>
+                <input type="number" [(ngModel)]="movForm.cantidad" name="cantidad" required
+                       [min]="movForm.tipoMovimiento === 'ajuste' ? 0 : 1"/>
+                <small class="pista" *ngIf="movForm.tipoMovimiento === 'ajuste'">
+                  <strong>No es la diferencia.</strong> Escribe el total que has contado en
+                  la estantería; el sistema calcula solo cuánto sobra o falta.
+                </small>
+              </div>
+
+              <!-- Cómo queda -->
+              <div class="resultado" *ngIf="stockResultante() !== null">
+                <span class="antes">{{ stockConocido || 0 }}</span>
+                <span class="flecha" aria-hidden="true">→</span>
+                <span class="despues" [class.sube]="delta() > 0" [class.baja]="delta() < 0">
+                  {{ stockResultante() }}
+                </span>
+                <span class="delta" *ngIf="delta() !== 0">
+                  ({{ delta() > 0 ? '+' : '' }}{{ delta() }})
+                </span>
+                <span class="destino" *ngIf="movForm.tipoMovimiento === 'traslado' && movForm.idBodegaDestino">
+                  y {{ movForm.cantidad }} pasan a {{ nombreBodega(movForm.idBodegaDestino) }}
+                </span>
+              </div>
+
+              <div class="form-group">
+                <label>Motivo</label>
+                <input type="text" [(ngModel)]="movForm.observacion" name="observacion"
+                       [placeholder]="pistaMotivo()"/>
+                <small class="pista">Queda en el kardex. Dentro de un mes, es lo único que explicará este movimiento.</small>
+              </div>
+
+              <p class="aviso-reserva" *ngIf="puedeChocarConReservas()">
+                Si estas unidades están <strong>reservadas</strong> por un pedido ya
+                procesado, el sistema lo impedirá: esa mercancía tiene dueño.
+              </p>
+            </ng-container>
+
             <small class="error" *ngIf="movError">{{movError}}</small>
             <div class="modal-actions">
               <button type="button" class="btn-cancel" (click)="cerrarModalMovimiento()">Cancelar</button>
-              <button type="submit" class="btn-save" [disabled]="saving">{{saving ? 'Registrando...' : 'Registrar'}}</button>
+              <button type="submit" class="btn-save" [disabled]="saving || !movForm.tipoMovimiento">
+                {{ saving ? 'Registrando…' : 'Registrar movimiento' }}
+              </button>
             </div>
           </form>
         </div>
@@ -301,6 +365,59 @@ interface PageResponse<T> {
        partir, y lo que cede es el nombre del producto, que es lo único que
        admite dos líneas sin quedar ilegible. Si aun así no cabe, la tabla
        desplaza en horizontal en vez de deformar el modal. */
+    /* ── Mover stock (F72) ─────────────────────────────────────── */
+    .modal-card.ancho { max-width: 620px; }
+    .mov-sub { color: rgba(255,255,255,0.55); font-size: .85rem; line-height: 1.6;
+               margin: -.3rem 0 1.2rem; }
+    .mov-sub strong { color: rgba(255,255,255,0.85); }
+    .paso-etq { display: block; font-size: .68rem; text-transform: uppercase;
+                letter-spacing: .08em; color: rgba(255,255,255,0.4);
+                margin: 1.2rem 0 .6rem; }
+    .paso-etq:first-of-type { margin-top: 0; }
+
+    .tipos { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+    .tipo { text-align: left; background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+            padding: .75rem .9rem; cursor: pointer; transition: all .15s ease;
+            display: flex; flex-direction: column; gap: .25rem; }
+    .tipo:hover { border-color: rgba(255,255,255,0.22); }
+    .tipo strong { color: rgba(255,255,255,0.9); font-size: .92rem; }
+    .tipo span { color: rgba(255,255,255,0.5); font-size: .76rem; line-height: 1.45; }
+    .tipo.on { border-color: #C9A84C; background: rgba(201,168,76,0.1); }
+    .tipo.on strong { color: #F4E28D; }
+
+    .stock-actual { display: flex; justify-content: space-between; align-items: baseline;
+                    background: rgba(255,255,255,0.04); border-radius: 8px;
+                    padding: .65rem .9rem; margin: .2rem 0 .3rem;
+                    font-size: .86rem; color: rgba(255,255,255,0.55); }
+    .stock-actual strong { color: rgba(255,255,255,0.9); font-variant-numeric: tabular-nums; }
+    .stock-nuevo-aviso { font-size: .8rem; color: rgba(255,255,255,0.5);
+                         line-height: 1.55; margin: .2rem 0 .5rem; }
+    .stock-nuevo-aviso strong { color: rgba(255,255,255,0.8); }
+
+    .resultado { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap;
+                 border: 1px solid rgba(201,168,76,0.35); background: rgba(201,168,76,0.06);
+                 border-radius: 8px; padding: .7rem .9rem; margin: .2rem 0 1rem;
+                 font-variant-numeric: tabular-nums; }
+    .resultado .antes { color: rgba(255,255,255,0.5); font-size: 1.05rem; }
+    .resultado .flecha { color: rgba(255,255,255,0.35); }
+    .resultado .despues { font-size: 1.35rem; font-weight: 600; color: #F4E28D; }
+    .resultado .despues.sube { color: #4ade80; }
+    .resultado .despues.baja { color: #f87171; }
+    .resultado .delta { color: rgba(255,255,255,0.45); font-size: .85rem; }
+    .resultado .destino { color: rgba(255,255,255,0.55); font-size: .8rem;
+                          flex-basis: 100%; }
+
+    .pista { display: block; font-size: .76rem; color: rgba(255,255,255,0.45);
+             line-height: 1.5; margin-top: .3rem; }
+    .pista strong { color: rgba(255,255,255,0.8); }
+    .aviso-reserva { font-size: .8rem; color: rgba(255,255,255,0.5); line-height: 1.55;
+                     border-left: 2px solid rgba(201,168,76,0.5); padding-left: .8rem;
+                     margin: 0 0 1rem; }
+    .aviso-reserva strong { color: rgba(255,255,255,0.85); }
+
+    @media (max-width: 560px) { .tipos { grid-template-columns: 1fr; } }
+
     .tabla-scroll { overflow-x: auto; }
     .tabla-reservas th { white-space: nowrap; }
     .tabla-reservas td.nowrap { white-space: nowrap; }
@@ -330,6 +447,34 @@ export class InventarioComponent implements OnInit {
   showMovModal = false;
   movForm: any = { tipoMovimiento: '', idProducto: null, idBodega: null, idBodegaDestino: null, cantidad: 1, observacion: '' };
   movError = '';
+
+  /** El catálogo, para poder elegir por nombre en vez de por id (F72). */
+  productos: any[] = [];
+
+  /**
+   * Stock que hay ahora del producto en la bodega elegida, o null si esa ficha
+   * no existe todavía. Es lo que permite enseñar «62 → 68» antes de confirmar.
+   */
+  stockConocido: number | null = null;
+
+  /**
+   * Los cuatro movimientos, explicados.
+   *
+   * **El que más falta hacía es «ajuste».** Fija un valor ABSOLUTO: se escribe
+   * el total contado y el sistema calcula la diferencia. Quien lo lea como
+   * «sumar o restar» descuadrará el stock sin enterarse, y hay 10.757 ajustes
+   * en la base.
+   */
+  readonly tiposMovimiento = [
+    { valor: 'entrada',  titulo: 'Entrada',
+      explica: 'Suma unidades. Para lo que llega sin ser una orden de compra.' },
+    { valor: 'salida',   titulo: 'Salida',
+      explica: 'Resta unidades. Para roturas, muestras o mermas.' },
+    { valor: 'ajuste',   titulo: 'Ajuste por conteo',
+      explica: 'Fija el stock a lo que has contado. No suma ni resta.' },
+    { valor: 'traslado', titulo: 'Traslado',
+      explica: 'Mueve unidades a otra bodega. El total no cambia.' }
+  ];
 
   showHistorial = false;
   historialData: Historial[] = [];
@@ -458,6 +603,13 @@ export class InventarioComponent implements OnInit {
     });
   }
 
+  cargarProductos() {
+    this.http.get<any>(`${this.apiUrl}/productos?size=1000&estado=activo`).subscribe({
+      next: res => { this.productos = res.content || []; },
+      error: () => { /* sin catalogo el selector queda vacio y se ve */ }
+    });
+  }
+
   cargarBodegas() {
     this.http.get<Bodega[]>(`${this.apiUrl}/bodegas/activas`).subscribe({
       next: res => { this.bodegas = res; }
@@ -472,7 +624,91 @@ export class InventarioComponent implements OnInit {
 
   cambiarPagina(p: number) { this.page = p; this.cargar(); }
 
+  elegirTipo(valor: string) {
+    this.movForm.tipoMovimiento = valor;
+    this.movError = '';
+  }
+
+  /** La cantidad significa algo distinto en cada movimiento; el rótulo lo dice. */
+  etiquetaCantidad(): string {
+    switch (this.movForm.tipoMovimiento) {
+      case 'entrada':  return 'Unidades que entran';
+      case 'salida':   return 'Unidades que salen';
+      case 'ajuste':   return 'Stock real que has contado';
+      case 'traslado': return 'Unidades que se mueven';
+      default:         return 'Cantidad';
+    }
+  }
+
+  pistaMotivo(): string {
+    switch (this.movForm.tipoMovimiento) {
+      case 'entrada':  return 'Ej.: sobrante de una devolución';
+      case 'salida':   return 'Ej.: dos unidades rotas en bodega';
+      case 'ajuste':   return 'Ej.: conteo físico del 28/08';
+      case 'traslado': return 'Ej.: reposición de tienda';
+      default:         return '';
+    }
+  }
+
+  /** Cuánto cambia el stock de la bodega de origen. */
+  delta(): number {
+    const cant = Number(this.movForm.cantidad) || 0;
+    const actual = this.stockConocido ?? 0;
+    switch (this.movForm.tipoMovimiento) {
+      case 'entrada':  return cant;
+      case 'salida':
+      case 'traslado': return -cant;
+      case 'ajuste':   return cant - actual;
+      default:         return 0;
+    }
+  }
+
+  stockResultante(): number | null {
+    if (!this.movForm.tipoMovimiento || !this.movForm.idProducto || !this.movForm.idBodega) {
+      return null;
+    }
+    if (this.movForm.cantidad === null || this.movForm.cantidad === '') { return null; }
+    return (this.stockConocido ?? 0) + this.delta();
+  }
+
+  puedeChocarConReservas(): boolean {
+    if (this.movForm.tipoMovimiento === 'salida') { return true; }
+    return this.movForm.tipoMovimiento === 'ajuste' && this.delta() < 0;
+  }
+
+  nombreBodega(id: number): string {
+    return this.bodegas.find(b => b.idBodega === id)?.nombre || '';
+  }
+
+  /**
+   * Busca el stock que hay ahora de ese producto en esa bodega.
+   *
+   * Se resuelve con el listado que ya existe —filtrando por bodega y buscando
+   * por nombre— en vez de añadir un endpoint: la pantalla ya tiene todo lo que
+   * necesita, y una consulta nueva habría que concedérsela a seis roles.
+   */
+  alCambiarProductoOBodega() {
+    this.stockConocido = null;
+    const idP = this.movForm.idProducto;
+    const idB = this.movForm.idBodega;
+    if (!idP || !idB) { return; }
+
+    const prod = this.productos.find(p => p.idProducto === idP);
+    if (!prod) { return; }
+
+    const params: any = { page: 0, size: 50, idBodega: idB, busqueda: prod.nombre };
+    this.http.get<PageResponse<Inventario>>(`${this.apiUrl}/inventario`, { params }).subscribe({
+      next: res => {
+        const fila = (res.content || []).find(i => i.productoId === idP && i.bodegaId === idB);
+        this.stockConocido = fila ? fila.cantidad : null;
+      },
+      error: () => { this.stockConocido = null; }
+    });
+  }
+
   abrirModalMovimiento() {
+    this.stockConocido = null;
+    if (this.productos.length === 0) { this.cargarProductos(); }
     this.movForm = { tipoMovimiento: '', idProducto: null, idBodega: null, idBodegaDestino: null, cantidad: 1, observacion: '' };
     this.movError = '';
     this.showMovModal = true;
