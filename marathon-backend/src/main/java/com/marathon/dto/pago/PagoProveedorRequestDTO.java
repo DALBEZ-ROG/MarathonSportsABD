@@ -2,6 +2,7 @@ package com.marathon.dto.pago;
 
 import java.math.BigDecimal;
 
+import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -20,6 +21,7 @@ public class PagoProveedorRequestDTO {
              message = "Método de pago inválido. Opciones: transferencia, cheque, efectivo, tarjeta")
     private String metodoPago;
 
+    @Size(max = 100, message = "La referencia no puede exceder 100 caracteres")
     private String referencia;
 
     private String observaciones;

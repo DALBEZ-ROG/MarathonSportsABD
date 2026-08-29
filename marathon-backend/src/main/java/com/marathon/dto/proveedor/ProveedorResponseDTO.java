@@ -10,8 +10,6 @@ public class ProveedorResponseDTO {
     private String direccion;
     private String telefono;
     private String email;
-    private Integer idCiudad;
-    private String ciudadNombre;
     private String estado;
     private LocalDateTime createdAt;
 
@@ -35,11 +33,7 @@ public class ProveedorResponseDTO {
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
 
-    public Integer getIdCiudad() { return idCiudad; }
-    public void setIdCiudad(Integer idCiudad) { this.idCiudad = idCiudad; }
 
-    public String getCiudadNombre() { return ciudadNombre; }
-    public void setCiudadNombre(String ciudadNombre) { this.ciudadNombre = ciudadNombre; }
 
     public String getEstado() { return estado; }
     public void setEstado(String estado) { this.estado = estado; }

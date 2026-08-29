@@ -71,6 +71,7 @@ public class CiudadService {
 
         Ciudad ciudad = new Ciudad();
         ciudad.setNombre(dto.getNombre());
+        ciudad.setRegion(regionDe(dto));
         ciudad.setEstado(dto.getEstado() != null ? dto.getEstado() : "activo");
         ciudad = ciudadRepository.save(ciudad);
 
@@ -90,6 +91,7 @@ public class CiudadService {
         }
 
         ciudad.setNombre(dto.getNombre());
+        ciudad.setRegion(regionDe(dto));
         if (dto.getEstado() != null) {
             ciudad.setEstado(dto.getEstado());
         }
@@ -111,7 +113,22 @@ public class CiudadService {
                 "Ciudad #" + id + " '" + ciudad.getNombre() + "' dada de baja");
     }
 
+    /**
+     * La region que manda el formulario, con el vacio tratado como «no lo se».
+     *
+     * <p>Un desplegable sin elegir manda cadena vacia, no nulo. Sin esto, esa
+     * cadena vacia llegaria al CHECK {@code chk_ciudad_region} y la pantalla
+     * recibiria un error de integridad hablando de datos duplicados, que no es
+     * lo que pasa. Una ciudad sin clasificar es valida; una con la region en
+     * blanco, no.
+     */
+    private String regionDe(CiudadRequestDTO dto) {
+        String region = dto.getRegion();
+        return (region == null || region.isBlank()) ? null : region;
+    }
+
     private CiudadResponseDTO toDTO(Ciudad ciudad) {
-        return new CiudadResponseDTO(ciudad.getIdCiudad(), ciudad.getNombre(), ciudad.getEstado());
+        return new CiudadResponseDTO(ciudad.getIdCiudad(), ciudad.getNombre(),
+                                     ciudad.getRegion(), ciudad.getEstado());
     }
 }

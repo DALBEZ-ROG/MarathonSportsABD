@@ -79,8 +79,7 @@ class ReembolsoTopeTest {
 
         EmpaqueRequestDTO empaque = new EmpaqueRequestDTO();
         empaque.setNumeroHu("HU-L8");
-        empaque.setTransportista("T");
-        empaque.setRegionDestino("R");
+        empaque.setIdTransportista(1); // Servientrega, del catalogo que siembra la F77
         empaqueService.confirmarEmpaque(pedido.getIdPedido(), empaque, fixtura.getIdUsuario());
 
         jdbc.update("update pedido set estado = 'entregado' where id_pedido = ?", pedido.getIdPedido());

@@ -3,6 +3,7 @@ package com.marathon.dto.facturacompra;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -13,6 +14,7 @@ public class FacturaCompraRequestDTO {
     private Integer idOrdenCompra;
 
     @NotBlank(message = "El número de factura del proveedor es obligatorio")
+    @Size(max = 50, message = "El número de factura no puede exceder 50 caracteres")
     private String numeroFacturaProveedor;
 
     @NotNull(message = "La fecha de factura es obligatoria")

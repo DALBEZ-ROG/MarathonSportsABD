@@ -184,7 +184,10 @@ public class FacturaCompraService {
         // 7. Crear cuenta por pagar
         CuentaPorPagar cuenta = new CuentaPorPagar();
         cuenta.setFacturaCompra(factura);
-        cuenta.setProveedor(orden.getProveedor());
+        // F84: aqui habia `cuenta.setProveedor(orden.getProveedor())`. Esa linea
+        // era la dependencia transitiva en persona: copiaba a la cuenta el
+        // proveedor que la factura, por su orden, ya decia. Ahora la cuenta
+        // llega a el sola; con la factura puesta, el proveedor ya esta.
         cuenta.setMontoTotal(factura.getTotal());
         cuenta.setFechaVencimiento(dto.getFechaVencimiento());
         cuenta.setEstado("vigente");

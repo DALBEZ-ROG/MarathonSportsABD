@@ -96,11 +96,26 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
 
     long countByEstado(String estado);
 
-    @Query("SELECT p FROM Pedido p WHERE p.estado IN ('enviado','entregado') "
-            + "AND (:region = '' OR p.regionDestino = :region) "
+    // F84: el filtro por region ya no mira una columna del pedido —no existe—,
+    // sino la region de la ciudad del cliente, que es de donde salia el dato.
+    //
+    // El LEFT JOIN FETCH del transportista tampoco es adorno: sin el, Hibernate
+    // pedia el transportista aparte, una vez por cada uno DISTINTO de la pagina.
+    // Con un solo transportista es una consulta de mas; con diez, diez. Lo cazo
+    // RendimientoDespachosTest, que cuenta consultas en vez de medir tiempo.
+    @Query(value = "SELECT p FROM Pedido p LEFT JOIN FETCH p.transportista "
+            + "WHERE p.estado IN ('enviado','entregado') "
+            + "AND (:region = '' OR p.cliente.ciudad.region = :region) "
             + "AND p.fechaEmpaque >= :desde "
             + "AND p.fechaEmpaque <= :hasta "
-            + "ORDER BY p.fechaEmpaque DESC, p.idPedido DESC")
+            + "ORDER BY p.fechaEmpaque DESC, p.idPedido DESC",
+           // La de contar va escrita a mano: derivarla de una consulta con JOIN
+           // FETCH no siempre sale bien, y un COUNT no necesita traer nada.
+           countQuery = "SELECT COUNT(p) FROM Pedido p "
+            + "WHERE p.estado IN ('enviado','entregado') "
+            + "AND (:region = '' OR p.cliente.ciudad.region = :region) "
+            + "AND p.fechaEmpaque >= :desde "
+            + "AND p.fechaEmpaque <= :hasta")
     Page<Pedido> findDespachados(@Param("region") String region,
                                  @Param("desde") LocalDateTime desde,
                                  @Param("hasta") LocalDateTime hasta,

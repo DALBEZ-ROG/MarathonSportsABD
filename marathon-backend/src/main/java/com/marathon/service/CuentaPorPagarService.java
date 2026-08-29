@@ -93,7 +93,7 @@ public class CuentaPorPagarService {
     public ResumenProveedorDTO resumenPorProveedor(Integer idProveedor) {
         BigDecimal totalAdeudado = cuentaRepository.totalAdeudadoPorProveedor(idProveedor);
         List<CuentaPorPagar> cuentasActivas = cuentaRepository
-                .findByProveedorIdProveedorAndEstadoIn(idProveedor, List.of("vigente", "vencida"));
+                .deProveedorEnEstados(idProveedor, List.of("vigente", "vencida"));
 
         ResumenProveedorDTO resumen = new ResumenProveedorDTO();
         resumen.setIdProveedor(idProveedor);

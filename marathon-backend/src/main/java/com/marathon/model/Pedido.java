@@ -21,7 +21,7 @@ import jakarta.persistence.Table;
 // F49 (D-39): @DynamicInsert es OBLIGATORIO aqui, no una optimizacion.
 // Sin el, Hibernate nombra en el INSERT TODAS las columnas mapeadas, incluidas
 // las que solo se rellenan en una etapa POSTERIOR del flujo:
-//   numero_hu, transportista, region_destino, fecha_empaque — las pone el empaque.
+//   numero_hu, id_transportista, fecha_empaque — las pone el empaque.
 // La fase 34 concede privilegios columna por columna, asi que el rol que
 // ARRANCA el flujo
 // no las tiene y la base rechaza el INSERT entero con "permiso denegado".
@@ -77,11 +77,13 @@ public class Pedido {
     @Column(name = "numero_hu")
     private String numeroHu;
 
-    @Column(name = "transportista")
-    private String transportista;
-
-    @Column(name = "region_destino")
-    private String regionDestino;
+    // F84: antes era `transportista VARCHAR(100)`, el NOMBRE escrito a mano.
+    // Guardar el nombre en vez de la clave significa que renombrar un
+    // transportista en el catalogo deja los pedidos viejos apuntando a algo que
+    // ya no existe, y que nada impide escribir uno que no esta en la lista.
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "id_transportista")
+    private Transportista transportista;
 
     @Column(name = "fecha_empaque")
     private LocalDateTime fechaEmpaque;
@@ -126,11 +128,32 @@ public class Pedido {
     public String getNumeroHu() { return numeroHu; }
     public void setNumeroHu(String numeroHu) { this.numeroHu = numeroHu; }
 
-    public String getTransportista() { return transportista; }
-    public void setTransportista(String transportista) { this.transportista = transportista; }
+    public Transportista getTransportista() { return transportista; }
+    public void setTransportista(Transportista transportista) { this.transportista = transportista; }
 
-    public String getRegionDestino() { return regionDestino; }
-    public void setRegionDestino(String regionDestino) { this.regionDestino = regionDestino; }
+    /** El nombre, para pintarlo. Nulo mientras el pedido no se haya empacado. */
+    public String getTransportistaNombre() {
+        return transportista != null ? transportista.getNombre() : null;
+    }
+
+    /**
+     * La region a la que va el bulto.
+     *
+     * <p>F84: <b>se deduce, ya no se guarda.</b> Hasta la F84 esto era una
+     * columna de {@code pedido} que el empaque tecleaba, cuando el camino ya
+     * estaba: pedido &rarr; cliente &rarr; ciudad &rarr; region. Un no-clave
+     * determinando otro no-clave es una dependencia transitiva, y rompe la 3FN.
+     *
+     * <p>Se podria haber defendido como «foto del momento del envio», pero aqui
+     * no cuela: el pedido <b>no guarda ninguna direccion de envio</b>, se lee
+     * siempre la viva del cliente. Congelar solo la region mientras la direccion
+     * es la actual da el peor resultado posible —un informe que dice «Costa» al
+     * lado de una direccion de Quito—. O se congela el destino entero, o nada.
+     */
+    public String getRegionDestino() {
+        return cliente != null && cliente.getCiudad() != null
+                ? cliente.getCiudad().getRegion() : null;
+    }
 
     public LocalDateTime getFechaEmpaque() { return fechaEmpaque; }
     public void setFechaEmpaque(LocalDateTime fechaEmpaque) { this.fechaEmpaque = fechaEmpaque; }

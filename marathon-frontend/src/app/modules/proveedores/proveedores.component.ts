@@ -6,12 +6,6 @@ import { AppIconComponent } from '../../shared/components/icon/icon.component';
 import { ModalSeguroDirective } from '../../shared/directives/modal-seguro.directive';
 import { EstadoListaComponent } from '../../shared/components/estado-lista/estado-lista.component';
 
-interface Ciudad {
-  idCiudad: number;
-  nombre: string;
-  estado: string;
-}
-
 interface Proveedor {
   idProveedor: number;
   nombre: string;
@@ -19,8 +13,6 @@ interface Proveedor {
   direccion: string;
   telefono: string;
   email: string;
-  idCiudad: number;
-  ciudadNombre: string;
   estado: string;
   createdAt: string;
 }
@@ -56,7 +48,7 @@ interface Proveedor {
 
       <table class="data-table" *ngIf="!loading && !cargaError && data.length > 0">
         <thead>
-          <tr><th>ID</th><th>Nombre</th><th>RUC</th><th>Teléfono</th><th>Ciudad</th><th>Estado</th><th>Acciones</th></tr>
+          <tr><th>ID</th><th>Nombre</th><th>RUC</th><th>Teléfono</th><th>Correo</th><th>Estado</th><th>Acciones</th></tr>
         </thead>
         <tbody>
           <tr *ngFor="let item of data">
@@ -64,7 +56,7 @@ interface Proveedor {
             <td>{{item.nombre}}</td>
             <td>{{item.ruc}}</td>
             <td>{{item.telefono}}</td>
-            <td>{{item.ciudadNombre}}</td>
+            <td>{{item.email}}</td>
             <td><span class="badge" [class.active]="item.estado==='activo'">{{item.estado}}</span></td>
             <td class="actions">
               <button class="btn-icon" (click)="editar(item)" title="Editar"><app-icon name="edit" [size]="16"/></button>
@@ -105,13 +97,11 @@ interface Proveedor {
               <label>Email</label>
               <input type="email" [(ngModel)]="form.email" name="email"/>
             </div>
-            <div class="form-group">
-              <label>Ciudad</label>
-              <select [(ngModel)]="form.idCiudad" name="idCiudad">
-                <option [ngValue]="null">-- Seleccione --</option>
-                <option *ngFor="let c of ciudades" [ngValue]="c.idCiudad">{{c.nombre}}</option>
-              </select>
-            </div>
+            <!-- F85: aquí había un desplegable de Ciudad. La tabla proveedor NO
+                 tiene columna de ciudad: lo que se elegía se perdía al guardar y
+                 la columna «Ciudad» de la lista salía siempre vacía. Ponerle
+                 ciudad al proveedor es una decisión con su columna y su clave
+                 ajena; mientras tanto no se pregunta lo que no se puede guardar. -->
             <div class="form-group" *ngIf="editando">
               <label>Estado</label>
               <select [(ngModel)]="form.estado" name="estado">
@@ -149,7 +139,6 @@ interface Proveedor {
 })
 export class ProveedoresComponent implements OnInit {
   data: Proveedor[] = [];
-  ciudades: Ciudad[] = [];
   loading = false;
   /**
    * Motivo del fallo de carga, o null si la carga fue bien (D6).
@@ -171,7 +160,7 @@ export class ProveedoresComponent implements OnInit {
   showConfirm = false;
   editando = false;
   editId: number | null = null;
-  form: any = { nombre: '', ruc: '', direccion: '', telefono: '', email: '', idCiudad: null, estado: 'activo' };
+  form: any = { nombre: '', ruc: '', direccion: '', telefono: '', email: '', estado: 'activo' };
   formError = '';
   itemEliminar: Proveedor | null = null;
   toast = '';
@@ -182,7 +171,6 @@ export class ProveedoresComponent implements OnInit {
 
   ngOnInit() {
     this.cargar();
-    this.cargarCiudades();
   }
 
   cargar() {
@@ -197,12 +185,6 @@ export class ProveedoresComponent implements OnInit {
     });
   }
 
-  cargarCiudades() {
-    this.crud.listar<Ciudad>('ciudades', { page: 0, size: 1000, estado: 'activo' }).subscribe({
-      next: res => { this.ciudades = res.content; }
-    });
-  }
-
   onSearch() {
     clearTimeout(this.searchTimeout);
     this.searchTimeout = setTimeout(() => { this.page = 0; this.cargar(); }, 300);
@@ -213,7 +195,7 @@ export class ProveedoresComponent implements OnInit {
   abrirModal() {
     this.editando = false;
     this.editId = null;
-    this.form = { nombre: '', ruc: '', direccion: '', telefono: '', email: '', idCiudad: null, estado: 'activo' };
+    this.form = { nombre: '', ruc: '', direccion: '', telefono: '', email: '', estado: 'activo' };
     this.formError = '';
     this.showModal = true;
   }
@@ -224,7 +206,7 @@ export class ProveedoresComponent implements OnInit {
     this.form = {
       nombre: item.nombre, ruc: item.ruc || '', direccion: item.direccion || '',
       telefono: item.telefono || '', email: item.email || '',
-      idCiudad: item.idCiudad || null, estado: item.estado
+      estado: item.estado
     };
     this.formError = '';
     this.showModal = true;
@@ -236,7 +218,6 @@ export class ProveedoresComponent implements OnInit {
     if (!this.form.nombre.trim()) { this.formError = 'El nombre es obligatorio'; return; }
     this.saving = true;
     const body = { ...this.form };
-    if (!body.idCiudad) body.idCiudad = null;
 
     const obs = this.editando
       ? this.crud.actualizar<Proveedor>('proveedores', this.editId!, body)

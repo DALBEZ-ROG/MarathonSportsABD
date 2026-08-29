@@ -13,7 +13,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
@@ -30,10 +29,6 @@ public class CuentaPorPagar {
     @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_factura_compra", nullable = false, unique = true)
     private FacturaCompra facturaCompra;
-
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "id_proveedor", nullable = false)
-    private Proveedor proveedor;
 
     @Column(name = "monto_total", nullable = false)
     private BigDecimal montoTotal;
@@ -64,8 +59,24 @@ public class CuentaPorPagar {
     public FacturaCompra getFacturaCompra() { return facturaCompra; }
     public void setFacturaCompra(FacturaCompra facturaCompra) { this.facturaCompra = facturaCompra; }
 
-    public Proveedor getProveedor() { return proveedor; }
-    public void setProveedor(Proveedor proveedor) { this.proveedor = proveedor; }
+    /**
+     * A quién se le debe.
+     *
+     * <p>F84: <b>se llega, ya no se copia.</b> Hasta la F84 esto era la columna
+     * {@code id_proveedor}, y {@code FacturaCompraService} la rellenaba con un
+     * literal {@code cuenta.setProveedor(orden.getProveedor())}: copiaba el
+     * proveedor que la orden de compra ya decía. Es la definición de dependencia
+     * transitiva —cuenta &rarr; factura &rarr; orden &rarr; proveedor— y rompe
+     * la 3FN. Las 2.293 cuentas cuadraban, pero nada garantizaba que siguieran
+     * cuadrando si alguien corregía el proveedor de una orden.
+     *
+     * <p>No lleva {@code @Transient} porque no es un campo: es un método
+     * derivado, y Hibernate solo mapea lo que declara un campo.
+     */
+    public Proveedor getProveedor() {
+        return facturaCompra != null && facturaCompra.getOrdenCompra() != null
+                ? facturaCompra.getOrdenCompra().getProveedor() : null;
+    }
 
     public BigDecimal getMontoTotal() { return montoTotal; }
     public void setMontoTotal(BigDecimal montoTotal) { this.montoTotal = montoTotal; }

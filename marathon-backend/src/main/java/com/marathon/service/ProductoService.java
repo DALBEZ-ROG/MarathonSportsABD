@@ -1,5 +1,9 @@
 package com.marathon.service;
 
+import java.math.BigDecimal;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -81,8 +85,14 @@ public class ProductoService {
                 idProveedor,
                 pageable);
 
+        // F85: el precio de compra de toda la pagina, de una consulta. Antes no
+        // se pedia: se copiaba el precio de venta y se llamaba «precio de compra».
+        List<Integer> ids = result.getContent().stream()
+                .map(Producto::getIdProducto).collect(Collectors.toList());
+        Map<Integer, BigDecimal> preciosCompra = preciosDeCompraDe(ids);
+
         List<ProductoResponseDTO> content = result.getContent().stream()
-                .map(this::toDTO)
+                .map(p -> toDTO(p, preciosCompra.get(p.getIdProducto())))
                 .collect(Collectors.toList());
 
         return new PageResponseDTO<>(content, result.getTotalElements(),
@@ -92,8 +102,18 @@ public class ProductoService {
     public ProductoResponseDTO obtener(Integer id) {
         Producto producto = productoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto", id));
-        ProductoResponseDTO dto = toDTO(producto);
         List<ProductoProveedor> relaciones = productoProveedorRepository.findByProductoIdProducto(id);
+
+        // F85: el precio de compra sale del proveedor principal; si ninguno esta
+        // marcado como tal, del primero que tenga precio. Aqui las relaciones ya
+        // estan cargadas, asi que no hace falta volver a la base.
+        ProductoResponseDTO dto = toDTO(producto, relaciones.stream()
+                .filter(pp -> pp.getPrecioCompra() != null && "activo".equals(pp.getEstado()))
+                .sorted(Comparator.comparing(
+                        pp -> !Boolean.TRUE.equals(pp.getEsProveedorPrincipal())))
+                .map(ProductoProveedor::getPrecioCompra)
+                .findFirst().orElse(null));
+
         List<ProveedorSimpleDTO> proveedores = relaciones.stream()
                 .map(pp -> new ProveedorSimpleDTO(
                         pp.getProveedor().getIdProveedor(),
@@ -112,7 +132,7 @@ public class ProductoService {
         producto.setEstado(reqDTO.getEstado() != null ? reqDTO.getEstado() : "activo");
         producto = productoRepository.save(producto);
 
-        guardarProveedores(producto, reqDTO.getProveedorIds());
+        guardarProveedores(producto, reqDTO.getProveedorIds(), reqDTO.getPrecioCompra());
 
         logService.registrarAccion("productos", "crear",
                 "Producto #" + producto.getIdProducto() + " '" + producto.getNombre()
@@ -138,7 +158,7 @@ public class ProductoService {
         }
 
         productoProveedorRepository.deleteByProductoIdProducto(id);
-        guardarProveedores(producto, reqDTO.getProveedorIds());
+        guardarProveedores(producto, reqDTO.getProveedorIds(), reqDTO.getPrecioCompra());
 
         // El detalle campo a campo (incluido el precio anterior) lo registra el
         // trigger trg_auditoria_producto en auditoria_cambios. Aqui queda la
@@ -217,31 +237,66 @@ public class ProductoService {
         producto.setUnidadMedida(unidad);
     }
 
-    private void guardarProveedores(Producto producto, List<Integer> proveedorIds) {
+    /** El precio de compra de cada producto de la lista, en un mapa (F85). */
+    private Map<Integer, BigDecimal> preciosDeCompraDe(List<Integer> ids) {
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<Integer, BigDecimal> precios = new LinkedHashMap<>();
+        for (Object[] fila : productoProveedorRepository.preciosDeCompraDe(ids)) {
+            // La consulta viene ordenada con el proveedor principal primero, asi
+            // que el primero que llega de cada producto es el bueno.
+            precios.putIfAbsent((Integer) fila[0], (BigDecimal) fila[1]);
+        }
+        return precios;
+    }
+
+    /**
+     * Vincula proveedores al producto y guarda el precio de compra (F85).
+     *
+     * <p>Antes esto marcaba <b>siempre</b> {@code esProveedorPrincipal = false} y
+     * nunca escribia {@code precioCompra}: ningun producto dado de alta por la
+     * pantalla tenia proveedor principal ni precio de compra, aunque el formulario
+     * obligara a escribir uno. El primero de la lista es el principal, que es lo
+     * que la pantalla da a entender al ponerlo el primero.
+     */
+    private void guardarProveedores(Producto producto, List<Integer> proveedorIds,
+                                    BigDecimal precioCompra) {
         if (proveedorIds == null || proveedorIds.isEmpty()) return;
 
         List<ProductoProveedor> relaciones = new ArrayList<>();
+        boolean primero = true;
         for (Integer provId : proveedorIds) {
             Proveedor proveedor = proveedorRepository.findById(provId)
                     .orElseThrow(() -> new ResourceNotFoundException("Proveedor", provId));
             ProductoProveedor pp = new ProductoProveedor();
             pp.setProducto(producto);
             pp.setProveedor(proveedor);
-            pp.setEsProveedorPrincipal(false);
+            pp.setEsProveedorPrincipal(primero);
+            // El precio escrito en el formulario es el del principal. A los
+            // demas no se les inventa uno: se editan desde su propia ficha.
+            if (primero) {
+                pp.setPrecioCompra(precioCompra);
+            }
             pp.setEstado("activo");
             relaciones.add(pp);
+            primero = false;
         }
         productoProveedorRepository.saveAll(relaciones);
     }
 
-    private ProductoResponseDTO toDTO(Producto producto) {
+    private ProductoResponseDTO toDTO(Producto producto, BigDecimal precioCompra) {
         ProductoResponseDTO dto = new ProductoResponseDTO();
         dto.setIdProducto(producto.getIdProducto());
         dto.setCodigo(String.format("PROD-%06d", producto.getIdProducto()));
         dto.setNombre(producto.getNombre());
         dto.setDescripcion(producto.getDescripcion());
         dto.setPrecioVenta(producto.getPrecio());
-        dto.setPrecioCompra(producto.getPrecio());
+        // F85: aqui ponia producto.getPrecio() — el precio de VENTA— y la
+        // pantalla lo enseñaba como precio de compra. El margen de cualquier
+        // producto salia exactamente cero. Nulo si no hay proveedor con precio:
+        // un producto fabricado no tiene precio de compra, y cero no es lo mismo.
+        dto.setPrecioCompra(precioCompra);
         dto.setEstado(producto.getEstado());
         dto.setOrigen(producto.getOrigen());
         dto.setTieneBom(listaMaterialesRepository

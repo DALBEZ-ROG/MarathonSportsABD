@@ -34,6 +34,7 @@ class RendimientoDespachosTest {
     @Autowired private EmpaqueService empaqueService;
     @Autowired private FixturaVenta fixtura;
     @Autowired private EntityManagerFactory emf;
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     private Bodega bodega;
 
@@ -41,6 +42,13 @@ class RendimientoDespachosTest {
     void prepararDatos() {
         fixtura.empezar();
         bodega = fixtura.bodegaConStock("A", 500);
+        // F84: el filtro por region ya no mira una columna del pedido —no
+        // existe—, sino la region de la CIUDAD del cliente. Antes valia
+        // cualquier texto inventado ("RegionL16"); ahora tiene que ser una de
+        // las cuatro de verdad, y la de este cliente se fija aqui.
+        jdbc.update("update ciudad set region = 'Oriente' where id_ciudad = "
+                  + "(select id_ciudad from cliente where id_cliente = ?)",
+                  fixtura.getIdCliente());
     }
 
     @AfterEach
@@ -53,8 +61,7 @@ class RendimientoDespachosTest {
     void elListadoNoEsUnNMasUno() {
         EmpaqueRequestDTO empaque = new EmpaqueRequestDTO();
         empaque.setNumeroHu("HU-L16");
-        empaque.setTransportista("T");
-        empaque.setRegionDestino("RegionL16");
+        empaque.setIdTransportista(1); // Servientrega, del catalogo que siembra la F77
 
         for (int i = 0; i < 10; i++) {
             Pedido p = fixtura.pedidoRecogidoDesde(1, bodega);
@@ -64,7 +71,7 @@ class RendimientoDespachosTest {
         Statistics stats = emf.unwrap(SessionFactory.class).getStatistics();
         stats.clear();
 
-        var pagina = empaqueService.listarDespachados(0, 10, "RegionL16", null, null);
+        var pagina = empaqueService.listarDespachados(0, 10, "Oriente", null, null);
 
         long consultas = stats.getPrepareStatementCount();
 

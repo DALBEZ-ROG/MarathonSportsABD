@@ -56,7 +56,7 @@ interface Producto {
   categoriaNombre: string;
   idUnidadMedida: number;
   unidadMedidaNombre: string;
-  stockMinimo: number;
+  // F85: producto.stockMinimo ya no existe; el minimo vive en inventario, por bodega.
   estado: string;
   origen: string;
   tieneBom?: boolean;
@@ -147,10 +147,23 @@ interface Producto {
               <label>Descripción</label>
               <input type="text" [(ngModel)]="form.descripcion" name="descripcion"/>
             </div>
+            <!-- F85: el precio de compra se guarda de verdad, en el vínculo con
+                 el proveedor (producto_proveedor.precio_compra). Antes se exigía
+                 y se tiraba, y la lista enseñaba el de VENTA en su sitio: el
+                 margen de todos los productos salía cero. Deja de ser obligatorio
+                 porque un producto fabricado no se le compra a nadie. -->
             <div class="form-row">
               <div class="form-group">
-                <label>Precio Compra *</label>
-                <input type="number" [(ngModel)]="form.precioCompra" name="precioCompra" step="0.01" required/>
+                <label>Precio Compra</label>
+                <input type="number" [(ngModel)]="form.precioCompra" name="precioCompra" step="0.01"
+                       [disabled]="form.origen === 'fabricado'"/>
+                <small class="ayuda" *ngIf="form.origen === 'fabricado'">
+                  Un producto fabricado no tiene precio de compra: tiene coste de producción,
+                  que sale de su lista de materiales.
+                </small>
+                <small class="ayuda" *ngIf="form.origen !== 'fabricado'">
+                  Es el precio del proveedor de abajo. Sin proveedor no se guarda.
+                </small>
               </div>
               <div class="form-group">
                 <label>Precio Venta *</label>
@@ -173,11 +186,11 @@ interface Producto {
                 </select>
               </div>
             </div>
+            <!-- F85: aquí había un «Stock Mínimo» que no se guardaba en ninguna
+                 parte. El mínimo no es del producto, es del producto EN CADA
+                 BODEGA (inventario.stock_minimo): un número suelto aquí no sabría
+                 a qué bodega aplicarse. Se pone desde Inventario. -->
             <div class="form-row">
-              <div class="form-group">
-                <label>Stock Mínimo</label>
-                <input type="number" [(ngModel)]="form.stockMinimo" name="stockMinimo"/>
-              </div>
               <div class="form-group" *ngIf="editando">
                 <label>Estado</label>
                 <select [(ngModel)]="form.estado" name="estado">
@@ -335,8 +348,8 @@ export class ProductosComponent implements OnInit {
   editando = false;
   editId: number | null = null;
   form: any = {
-    codigo: '', nombre: '', descripcion: '', precioCompra: null, precioVenta: null,
-    idCategoria: null, idUnidadMedida: null, stockMinimo: 0, estado: 'activo',
+    nombre: '', descripcion: '', precioCompra: null, precioVenta: null,
+    idCategoria: null, idUnidadMedida: null, estado: 'activo',
     origen: 'comprado', proveedorIds: [] as number[]
   };
   formError = '';
@@ -422,8 +435,8 @@ export class ProductosComponent implements OnInit {
     this.editando = false;
     this.editId = null;
     this.form = {
-      codigo: '', nombre: '', descripcion: '', precioCompra: null, precioVenta: null,
-      idCategoria: null, idUnidadMedida: null, stockMinimo: 0, estado: 'activo',
+      nombre: '', descripcion: '', precioCompra: null, precioVenta: null,
+      idCategoria: null, idUnidadMedida: null, estado: 'activo',
       origen: 'comprado', proveedorIds: []
     };
     this.bomLineas = [];
@@ -441,10 +454,10 @@ export class ProductosComponent implements OnInit {
     this.crud.obtener<Producto>('productos', item.idProducto).subscribe({
       next: (prod) => {
         this.form = {
-          codigo: prod.codigo, nombre: prod.nombre, descripcion: prod.descripcion || '',
+          nombre: prod.nombre, descripcion: prod.descripcion || '',
           precioCompra: prod.precioCompra, precioVenta: prod.precioVenta,
           idCategoria: prod.idCategoria, idUnidadMedida: prod.idUnidadMedida,
-          stockMinimo: prod.stockMinimo || 0, estado: prod.estado,
+          estado: prod.estado,
           origen: prod.origen || 'comprado',
           proveedorIds: prod.proveedores ? prod.proveedores.map(p => p.idProveedor) : []
         };
@@ -498,7 +511,7 @@ export class ProductosComponent implements OnInit {
 
   guardar() {
     if (!this.form.nombre?.trim()) { this.formError = 'El nombre es obligatorio'; return; }
-    if (!this.form.precioCompra) { this.formError = 'El precio de compra es obligatorio'; return; }
+
     if (!this.form.precioVenta) { this.formError = 'El precio de venta es obligatorio'; return; }
     if (!this.form.idCategoria) { this.formError = 'La categoría es obligatoria'; return; }
     if (!this.form.idUnidadMedida) { this.formError = 'La unidad de medida es obligatoria'; return; }

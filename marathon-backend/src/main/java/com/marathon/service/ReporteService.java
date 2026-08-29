@@ -81,7 +81,8 @@ public class ReporteService {
             jpql.append(" AND p.estado = :estado");
         }
         if (f.getRegionDestino() != null && !f.getRegionDestino().isBlank()) {
-            jpql.append(" AND p.regionDestino = :region");
+            // F84: la region ya no es columna del pedido; sale de la ciudad del cliente.
+            jpql.append(" AND p.cliente.ciudad.region = :region");
         }
         jpql.append(" ORDER BY p.fechaPedido DESC");
 
@@ -118,7 +119,7 @@ public class ReporteService {
                     cliente,
                     ciudad,
                     p.getRegionDestino(),
-                    p.getTransportista(),
+                    p.getTransportistaNombre(),
                     p.getTotal(),
                     p.getDescuento(),
                     p.getEsPedidoEspecial(),

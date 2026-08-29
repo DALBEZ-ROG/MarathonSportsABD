@@ -9,6 +9,7 @@ import { EstadoListaComponent } from '../../../shared/components/estado-lista/es
 interface Ciudad {
   idCiudad: number;
   nombre: string;
+  region: string | null;
   estado: string;
 }
 
@@ -42,12 +43,13 @@ interface Ciudad {
 
       <table class="data-table" *ngIf="!loading && !cargaError && data.length > 0">
         <thead>
-          <tr><th>ID</th><th>Nombre</th><th>Estado</th><th>Acciones</th></tr>
+          <tr><th>ID</th><th>Nombre</th><th>Región</th><th>Estado</th><th>Acciones</th></tr>
         </thead>
         <tbody>
           <tr *ngFor="let item of data">
             <td>{{item.idCiudad}}</td>
             <td>{{item.nombre}}</td>
+            <td><span class="sin-clasificar" *ngIf="!item.region">sin clasificar</span>{{item.region}}</td>
             <td><span class="badge" [class.active]="item.estado==='activo'">{{item.estado}}</span></td>
             <td class="actions">
               <button class="btn-icon" (click)="editar(item)" title="Editar"><app-icon name="edit" [size]="16"/></button>
@@ -72,6 +74,21 @@ interface Ciudad {
               <label>Nombre *</label>
               <input type="text" [(ngModel)]="form.nombre" name="nombre" required maxlength="100"/>
               <small class="error" *ngIf="formError">{{formError}}</small>
+            </div>
+            <!-- F85: la región faltaba, y desde la F84 es de donde sale la región
+                 de destino de todo envío. Una ciudad sin región no enseña destino
+                 al empacar y no aparece nunca en el filtro de despachos: no falla
+                 nada, simplemente no sale. -->
+            <div class="form-group">
+              <label>Región</label>
+              <select [(ngModel)]="form.region" name="region">
+                <option value="">Sin clasificar</option>
+                <option *ngFor="let r of regiones" [value]="r">{{r}}</option>
+              </select>
+              <small class="ayuda">
+                De aquí sale la región de destino de los pedidos de esta ciudad.
+                Si se deja sin clasificar, esos pedidos no aparecerán al filtrar despachos por región.
+              </small>
             </div>
             <div class="form-group" *ngIf="editando">
               <label>Estado</label>
@@ -105,6 +122,7 @@ interface Ciudad {
   `,
   styles: [`
     /* Inherits global dark theme from styles.scss */
+    .sin-clasificar { color: var(--ms-text-muted); font-style: italic; font-size: .8rem; }
   `]
 })
 export class CiudadesComponent implements OnInit {
@@ -130,7 +148,9 @@ export class CiudadesComponent implements OnInit {
   showConfirm = false;
   editando = false;
   editId: number | null = null;
-  form = { nombre: '', estado: 'activo' };
+  form = { nombre: '', region: '', estado: 'activo' };
+  /** Las cuatro del CHECK chk_ciudad_region (F77). */
+  readonly regiones = ['Costa', 'Sierra', 'Oriente', 'Insular'];
   formError = '';
   itemEliminar: Ciudad | null = null;
   toast = '';
@@ -160,9 +180,9 @@ export class CiudadesComponent implements OnInit {
 
   cambiarPagina(p: number) { this.page = p; this.cargar(); }
 
-  abrirModal() { this.editando = false; this.editId = null; this.form = { nombre: '', estado: 'activo' }; this.formError = ''; this.showModal = true; }
+  abrirModal() { this.editando = false; this.editId = null; this.form = { nombre: '', region: '', estado: 'activo' }; this.formError = ''; this.showModal = true; }
 
-  editar(item: Ciudad) { this.editando = true; this.editId = item.idCiudad; this.form = { nombre: item.nombre, estado: item.estado }; this.formError = ''; this.showModal = true; }
+  editar(item: Ciudad) { this.editando = true; this.editId = item.idCiudad; this.form = { nombre: item.nombre, region: item.region || '', estado: item.estado }; this.formError = ''; this.showModal = true; }
 
   cerrarModal() { this.showModal = false; }
 

@@ -21,11 +21,13 @@ import com.marathon.model.Inventario;
 import com.marathon.model.MovimientoInventario;
 import com.marathon.model.Pedido;
 import com.marathon.model.Producto;
+import com.marathon.model.Transportista;
 import com.marathon.model.Usuario;
 import com.marathon.repository.DetallePedidoRepository;
 import com.marathon.repository.InventarioRepository;
 import com.marathon.repository.MovimientoInventarioRepository;
 import com.marathon.repository.PedidoRepository;
+import com.marathon.repository.TransportistaRepository;
 import com.marathon.repository.UsuarioRepository;
 
 import jakarta.persistence.EntityManager;
@@ -43,6 +45,7 @@ public class EmpaqueService {
     private final PedidoService pedidoService;
     private final ReservaStockService reservaStockService;
     private final LogService logService;
+    private final TransportistaRepository transportistaRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -55,7 +58,8 @@ public class EmpaqueService {
                           PickingService pickingService,
                           PedidoService pedidoService,
                           ReservaStockService reservaStockService,
-                          LogService logService) {
+                          LogService logService,
+                          TransportistaRepository transportistaRepository) {
         this.pedidoRepository = pedidoRepository;
         this.detallePedidoRepository = detallePedidoRepository;
         this.inventarioRepository = inventarioRepository;
@@ -65,6 +69,7 @@ public class EmpaqueService {
         this.pedidoService = pedidoService;
         this.reservaStockService = reservaStockService;
         this.logService = logService;
+        this.transportistaRepository = transportistaRepository;
     }
 
     @Transactional
@@ -82,6 +87,19 @@ public class EmpaqueService {
 
         if (!"procesado".equals(pedido.getEstado())) {
             throw new ValidationException("El pedido debe estar en estado procesado para empacar");
+        }
+
+        // F84: el transportista se busca en el catalogo, y se busca AQUI, antes
+        // de mover una sola unidad de stock. La clave ajena tambien lo impediria,
+        // pero al final de la transaccion y con un error de base que no dice que
+        // paso. Un dato malo debe parar el empaque antes de que haga trabajo.
+        Transportista transportista = transportistaRepository.findById(dto.getIdTransportista())
+                .orElseThrow(() -> new ValidationException(
+                        "El transportista elegido ya no está en el catálogo. "
+                        + "Vuelve a abrir la lista y elige otro."));
+        if (!"activo".equals(transportista.getEstado())) {
+            throw new ValidationException("«" + transportista.getNombre()
+                    + "» está dado de baja y ya no recoge envíos.");
         }
 
         Usuario usuario = usuarioRepository.findById(idUsuarioActual)
@@ -109,15 +127,16 @@ public class EmpaqueService {
         int consumidas = reservaStockService.consumirDe(idPedido);
 
         pedido.setNumeroHu(dto.getNumeroHu());
-        pedido.setTransportista(dto.getTransportista());
-        pedido.setRegionDestino(dto.getRegionDestino());
+        pedido.setTransportista(transportista);
+        // La region de destino NO se guarda: se deduce de la ciudad del cliente.
+        // Ver Pedido.getRegionDestino() y la F84.
         pedido.setFechaEmpaque(LocalDateTime.now());
         pedido.setEstado("enviado");
         pedidoRepository.save(pedido);
 
         logService.registrar(idUsuarioActual, "empaque", "confirmar",
                 "Pedido #" + idPedido + " empacado. HU: " + dto.getNumeroHu()
-                        + ". Transportista: " + dto.getTransportista()
+                        + ". Transportista: " + transportista.getNombre()
                         + ". Reservas consumidas: " + consumidas, null);
 
         return pedidoService.obtener(idPedido);

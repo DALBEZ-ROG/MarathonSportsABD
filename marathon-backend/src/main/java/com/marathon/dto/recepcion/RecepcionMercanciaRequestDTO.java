@@ -3,6 +3,7 @@ package com.marathon.dto.recepcion;
 import java.util.List;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
@@ -16,6 +17,7 @@ public class RecepcionMercanciaRequestDTO {
     @NotNull(message = "La bodega destino es obligatoria")
     private Integer idBodega;
 
+    @Size(max = 50, message = "El número de guía no puede exceder 50 caracteres")
     private String numeroGuiaRemision;
 
     private String observaciones;

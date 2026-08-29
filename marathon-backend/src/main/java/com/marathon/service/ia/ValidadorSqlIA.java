@@ -70,7 +70,11 @@ public class ValidadorSqlIA {
             "orden_produccion", "orden_produccion_consumo", "pago_proveedor",
             "pedido", "producto", "producto_proveedor", "proveedor",
             "recepcion_mercancia", "recepcion_mercancia_detalle", "reembolso_cliente",
-            "solicitud_devolucion", "solicitud_devolucion_detalle", "unidad_medida");
+            "solicitud_devolucion", "solicitud_devolucion_detalle",
+            // F84: sin estas dos, «cuanto mandamos por cada transportista» deja
+            // de poder responderse, porque el pedido ya no guarda el nombre.
+            "transportista", "transportista_cobertura",
+            "unidad_medida");
 
     /** Resultado del analisis: o vale, o hay un motivo por el que no. */
     public record Veredicto(boolean permitido, String motivo) {

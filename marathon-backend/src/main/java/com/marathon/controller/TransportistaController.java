@@ -34,12 +34,16 @@ public class TransportistaController {
     @PreAuthorize("hasAuthority('transportistas:ver')")
     public ResponseEntity<List<Map<String, Object>>> activos() {
         List<Map<String, Object>> lista = transportistaRepository
-                .findByEstadoOrderByNombreAsc("activo").stream()
+                .activosConCobertura().stream()
                 .map(t -> {
                     Map<String, Object> m = new java.util.LinkedHashMap<>();
                     m.put("idTransportista", t.getIdTransportista());
                     m.put("nombre", t.getNombre());
-                    m.put("cobertura", t.getCobertura());
+                    // F84: la cobertura era una frase ("Nacional, incluye
+                    // Oriente"). Ahora son las regiones, ordenadas, mas la nota
+                    // con lo que una lista de regiones no sabe decir.
+                    m.put("regiones", t.getRegiones().stream().sorted().toList());
+                    m.put("nota", t.getNota());
                     return m;
                 })
                 .collect(Collectors.toList());

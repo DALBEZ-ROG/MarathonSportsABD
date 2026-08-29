@@ -62,8 +62,7 @@ class EmpaqueServiceConcurrenciaTest {
     private EmpaqueRequestDTO datosDeEmpaque(String hu) {
         EmpaqueRequestDTO dto = new EmpaqueRequestDTO();
         dto.setNumeroHu(hu);
-        dto.setTransportista("Transportista de prueba");
-        dto.setRegionDestino("Region de prueba");
+        dto.setIdTransportista(1); // Servientrega, del catalogo que siembra la F77
         return dto;
     }
 

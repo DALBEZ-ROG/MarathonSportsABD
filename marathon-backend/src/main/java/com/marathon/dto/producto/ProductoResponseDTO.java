@@ -16,7 +16,6 @@ public class ProductoResponseDTO {
     private String categoriaNombre;
     private Integer idUnidadMedida;
     private String unidadMedidaNombre;
-    private Integer stockMinimo;
     private String estado;
     private String origen;
     private Boolean tieneBom;
@@ -55,8 +54,6 @@ public class ProductoResponseDTO {
     public String getUnidadMedidaNombre() { return unidadMedidaNombre; }
     public void setUnidadMedidaNombre(String unidadMedidaNombre) { this.unidadMedidaNombre = unidadMedidaNombre; }
 
-    public Integer getStockMinimo() { return stockMinimo; }
-    public void setStockMinimo(Integer stockMinimo) { this.stockMinimo = stockMinimo; }
 
     public String getEstado() { return estado; }
     public void setEstado(String estado) { this.estado = estado; }

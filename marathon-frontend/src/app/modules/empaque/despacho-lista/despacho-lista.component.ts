@@ -34,9 +34,16 @@ interface PageResponse<T> {
       </div>
 
       <div class="filters">
+        <!-- F84: era un campo de texto libre, y el filtro compara EXACTO contra
+             la región de la ciudad del cliente: escribir «costa» o «sierra »
+             devolvía cero sin decir por qué. Solo hay cuatro valores posibles,
+             así que se eligen. -->
         <div class="filter-item">
           <label>Región destino</label>
-          <input type="text" [(ngModel)]="regionDestino" placeholder="Región destino">
+          <select [(ngModel)]="regionDestino">
+            <option value="">Todas</option>
+            <option *ngFor="let r of regiones" [value]="r">{{r}}</option>
+          </select>
         </div>
         <div class="filter-item">
           <label>Desde</label>
@@ -100,7 +107,8 @@ interface PageResponse<T> {
       min-width: 0;
     }
 
-    .despacho-container > .filters .filter-item input {
+    .despacho-container > .filters .filter-item input,
+    .despacho-container > .filters .filter-item select {
       width: 100%;
       min-height: 44px;
       box-sizing: border-box;
@@ -150,6 +158,8 @@ export class DespachoListaComponent implements OnInit {
   size = 10;
   totalPages = 0;
   regionDestino = '';
+  /** Las cuatro del CHECK de ciudad.region; no hay mas (F84). */
+  readonly regiones = ['Costa', 'Sierra', 'Oriente', 'Insular'];
   desde = '';
   hasta = '';
 

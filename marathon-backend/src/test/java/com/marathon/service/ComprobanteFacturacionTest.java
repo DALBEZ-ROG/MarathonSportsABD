@@ -58,8 +58,7 @@ class ComprobanteFacturacionTest {
 
         EmpaqueRequestDTO dto = new EmpaqueRequestDTO();
         dto.setNumeroHu("HU-L6");
-        dto.setTransportista("T");
-        dto.setRegionDestino("R");
+        dto.setIdTransportista(1); // Servientrega, del catalogo que siembra la F77
         empaqueService.confirmarEmpaque(pedido.getIdPedido(), dto, fixtura.getIdUsuario());
         return pedido;
     }
@@ -128,8 +127,7 @@ class ComprobanteFacturacionTest {
         Bodega bodega = fixtura.bodegaConStock("A", 500);
         EmpaqueRequestDTO empaque = new EmpaqueRequestDTO();
         empaque.setNumeroHu("HU-L6-C");
-        empaque.setTransportista("T");
-        empaque.setRegionDestino("R");
+        empaque.setIdTransportista(1); // Servientrega, del catalogo que siembra la F77
         for (int i = 0; i < n; i++) {
             Pedido p = fixtura.pedidoRecogidoDesde(1, bodega);
             empaqueService.confirmarEmpaque(p.getIdPedido(), empaque, fixtura.getIdUsuario());

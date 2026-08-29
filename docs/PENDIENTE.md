@@ -60,10 +60,12 @@ A las fases 47-59 se suman ahora:
 | **F81** | Reportes y auditoría: dicen **qué contesta cada uno**, abren con datos, y el aviso de la exportación deja de mentir |
 | **F82** | El asistente dice que **está apagado antes** de que escribas, y qué puede leer y qué no |
 | **F83** | El asistente **funciona**: Gemini como proveedor, y el tope de filas deja de romper toda consulta con `LIMIT` |
+| **F84** | **Normalización**: la base deja de guardar cuatro veces lo que ya sabía (tres 3FN y una 1FN) |
+| **F85** | Los **formularios y la base** dicen lo mismo: se acaban los campos que se pedían y se tiraban |
 
 ---
 
-## 2. Antes de tocar nada: doce cosas que van a morderte
+## 2. Antes de tocar nada: quince cosas que van a morderte
 
 Esto no es contexto de adorno. Cada punto costó una sesión descubrirlo.
 
@@ -158,6 +160,24 @@ commitean.** La clave de cifrado de los respaldos es distinta en cada equipo.
     `styles.scss` ya define `.acciones { display: flex }`. No dio ningún error;
     solo se veía mal. Antes de bautizar una clase con una palabra genérica
     —`acciones`, `header`, `total`, `campo`— búscala en `styles.scss`.
+
+14. **La forma corta de una anotación Java solo vale si es el único elemento.**
+    `@Query("SELECT …")` es legal; en cuanto le añades `countQuery = "…"` hay que
+    nombrar el primero: `@Query(value = "SELECT …", countQuery = "…")`. Sin eso
+    es un **error de sintaxis**, no de Spring, y en la F84 llegó disfrazado: la
+    aplicación arrancaba y todas las pruebas reventaban con
+    `BeanCreationException … Unresolved compilation problems` sobre
+    `pedidoRepository`, que apunta al repositorio pero no dice que el problema
+    sea del compilador. Si un fallo de creación de bean menciona
+    «compilation problems», el fuente está roto: míralo antes de tocar Spring.
+
+15. **Hacer EAGER una asociación nueva mete un N+1 sin que nadie avise.** En la
+    F84, `pedido.transportista` pasó a ser clave ajena y Hibernate empezó a
+    pedirlo en una consulta aparte, una por cada transportista distinto de la
+    página. Con un solo transportista es una consulta de más; con diez, diez. No
+    dio error ni se notó a ojo: lo cazó `RendimientoDespachosTest`, que **cuenta
+    consultas** en vez de medir tiempo. Al añadir una asociación a una entidad
+    que se lista paginada, o va LAZY, o va con `JOIN FETCH` en la consulta.
 
 ## 3. Lo que se cerró el 2026-08-27
 
@@ -1082,6 +1102,116 @@ se puede arreglar.
 > `${GEMINI_API_KEY:}`. Y como se pegó en un chat, **hay que rotarla**: una clave
 > que ha viajado por un canal que no controlas se da por comprometida.
 
+### F84 · Normalización: cuatro cosas que la base guardaba dos veces
+
+El dueño pidió revisar si el esquema está **en 3FN como mínimo** y, si no,
+normalizarlo. Se revisó entero: 46 tablas, sus claves, sus dependencias y sus
+datos.
+
+**Lo que estaba bien, y por qué.** No hay ninguna tabla con clave compuesta y
+dependencias parciales —todas tienen clave sustituta de una sola columna, así que
+la 2FN se cumple sola—. Y los «totales» que a primera vista parecen redundantes
+(`detalle_pedido.subtotal`, `cuenta_por_pagar.saldo_pendiente`,
+`orden_produccion.costo_total`, `merma`, `costo_linea`) son **columnas
+GENERATED**: el gestor garantiza la dependencia y no puede haber anomalía. Eso no
+es guardar dos veces, es que la base calcula.
+
+**Los cuatro defectos que sí había:**
+
+| | Qué guardaba de más | Por dónde se llega ahora |
+|---|---|---|
+| 1FN | `transportista.cobertura` era una **frase** con una lista dentro: «Nacional, incluye Oriente», «Costa y Sierra» | tabla `transportista_cobertura`, una fila por región, + `nota` para el matiz |
+| 3FN | `pedido.transportista` guardaba el **nombre**, no la clave | `pedido.id_transportista` &rarr; `transportista` |
+| 3FN | `pedido.region_destino` se **tecleaba** y era deducible | `pedido` &rarr; `cliente` &rarr; `ciudad.region` |
+| 3FN | `cuenta_por_pagar.id_proveedor` se **copiaba** de la orden | `cuenta` &rarr; `factura` &rarr; `orden_compra.id_proveedor` |
+
+**La región tenía una defensa posible, y no se sostiene.** Se podría argumentar
+que es una «foto del momento del envío». En otro sistema lo sería; aquí no,
+porque **el pedido no guarda ninguna dirección de envío**: la dirección se lee
+siempre viva de `cliente.direccion_enc`. Congelar solo la región mientras la
+dirección es la actual da el peor resultado posible — un informe que dice «Costa»
+al lado de una dirección de Quito. O se congela el destino entero, o no se
+congela nada; hoy no se congela nada.
+
+**La prueba de la cuenta por pagar estaba en el código, no en la teoría.**
+`FacturaCompraService` hacía literalmente `cuenta.setProveedor(orden.getProveedor())`.
+Las 2.293 cuentas cuadraban, y nada garantizaba que siguieran cuadrando.
+
+**Lo que se miró y se deja como está, a propósito:**
+
+- `detalle_pedido.precio_unitario`, `comprobante_interno.total`,
+  `orden_produccion_consumo.costo_unitario_snapshot` — son **fotos históricas**.
+  El precio de hoy no es el precio al que se vendió.
+- `inventario.stock_actual`, `materia_prima.stock_actual` — saldos acumulados,
+  deducibles de los movimientos pero mantenidos por trigger. Es la
+  desnormalización deliberada de cualquier inventario.
+- `devolucion_proveedor_detalle.id_producto` — **parece** deducible siguiendo el
+  origen, y no lo es: **2.824 líneas de orden de compra son materia prima y no
+  tienen producto**. Quitarlo rompería el caso en vez de arreglarlo.
+- `token_revocado.correo` — `jti` es la clave y todo depende de ella; no hay
+  dependencia entre no-claves.
+
+**Cómo se comprobó que no se pierde nada.** El guion se para entero si algún
+pedido tiene un transportista que no está en el catálogo, si alguna región de
+destino no coincide con la de la ciudad de su cliente, o si alguna cuenta apunta
+a otro proveedor que su orden. Ninguna saltó: 2 pedidos migraron su
+transportista, las 2 regiones coincidían y las 2.293 cuentas también.
+
+> **Una consulta de menos, no de más.** Al hacer el transportista una clave
+> ajena, Hibernate empezó a pedirlo aparte: una consulta por cada transportista
+> distinto de la página. Lo cazó `RendimientoDespachosTest`, que **cuenta
+> consultas** en vez de medir tiempo. Se arregló con `LEFT JOIN FETCH` en
+> `findDespachados` y dejando la cobertura en LAZY con su propio `JOIN FETCH` en
+> el único sitio que la necesita.
+
+### F85 · Los formularios y la base dicen lo mismo
+
+El dueño pidió comprobar «que los campos que están en la base sean los que los
+formularios del sistema piden». Se recorrieron los 27 formularios de alta y
+edición contra las columnas. **Salieron cuatro cosas.**
+
+**1. La ficha de producto exigía un precio de compra, lo tiraba, y enseñaba el de
+venta en su lugar.** Es la peor de las cuatro. `ProductoService.toDTO` hacía
+`dto.setPrecioCompra(producto.getPrecio())` — el precio de **venta**—, así que el
+margen de cualquier producto salía exactamente cero. Y al guardar,
+`guardarProveedores` marcaba **siempre** `esProveedorPrincipal = false` y nunca
+escribía `precioCompra`: ningún producto dado de alta por la pantalla llegaba a
+tener proveedor principal ni precio de compra. No se veía mirando los datos
+porque los 105 productos del poblado inicial sí lo tienen — lo puso el seed.
+
+Ahora el precio de compra se guarda donde vive, en
+`producto_proveedor.precio_compra` del proveedor principal, y se lee de ahí.
+Deja de ser obligatorio: un producto **fabricado** no se le compra a nadie, tiene
+coste de producción. Y sin proveedor sale **nulo**, no cero — cero sería «se
+compra gratis».
+
+**2. «Stock mínimo» en la ficha del producto no se guardaba en ninguna parte.**
+El mínimo no es del producto: es del producto **en cada bodega**
+(`inventario.stock_minimo`). Un número suelto en la ficha no sabría a qué bodega
+aplicarse. El campo se ha quitado; se pone desde Inventario.
+
+**3. El formulario de proveedor pedía una ciudad que la tabla no tiene.**
+`proveedor` no tiene columna de ciudad: lo que se elegía se perdía al guardar y
+la columna «Ciudad» del listado salía siempre vacía. Se ha quitado el campo (y la
+columna del listado, que ahora enseña el correo). Ponerle ciudad al proveedor es
+una decisión con su columna y su clave ajena — queda anotada abajo.
+
+**4. El formulario de ciudad no pedía la región, y desde la F84 es
+imprescindible.** `ciudad.region` existe desde la F77 y es el único sitio de
+donde sale la región de destino de un envío. Toda ciudad creada desde la pantalla
+nacía sin región: sus pedidos no enseñaban destino al empacar y **no aparecían
+nunca** en el filtro de despachos por región. No fallaba nada; simplemente no
+salía. Ahora se pide, con las cuatro del CHECK, y el listado marca las que están
+«sin clasificar».
+
+**Y de paso, las longitudes.** Ocho campos no decían cuánto cabe mientras su
+columna sí tenía tope. Sin `@Size`, un nombre de 200 caracteres llega a
+PostgreSQL, salta por longitud (22001) y `GlobalExceptionHandler` lo traduce a
+*«La operación entra en conflicto con datos existentes. Puede que el registro ya
+exista»* — que no es lo que pasa, y manda a buscar un duplicado que no hay. Hay
+una prueba que compara **cada `@Size` con `information_schema`**, para que no
+vuelvan a separarse.
+
 ---
 
 ## 4. Lo que queda abierto
@@ -1184,6 +1314,40 @@ factura rechazada por las dos vías.
 - **La reserva de stock de los 19.058 pedidos ya en `procesado` no se
   reconstruyó.** Durante la transición el disponible es optimista respecto de
   ellos. Se corrige solo según se despachen o se anulen.
+
+### Lo que dejó abierto la revisión de formularios (F85)
+
+Son **decisiones de negocio**, no defectos: se anotan para que las tome el dueño,
+no para arreglarlas por cuenta propia.
+
+- **El RUC del proveedor vive cifrado en una columna llamada `contacto_enc`.**
+  Funciona —se escribe y se lee—, pero tiene dos consecuencias: **no se puede
+  buscar un proveedor por su RUC**, porque está cifrado, y el nombre de la
+  columna dice otra cosa que lo que guarda, así que `contacto` ya no puede usarse
+  para la persona de contacto. Es justo lo contrario de lo que se decidió para el
+  cliente en la **F73**, donde el documento se dejó **sin cifrar a propósito**
+  para poder buscarlo. Arreglarlo es una columna `proveedor.ruc` propia, sin
+  cifrar, única cuando no es nula y con su CHECK de 13 dígitos — copiando la F73.
+
+- **El proveedor no tiene ciudad.** El formulario la pedía y se perdía; se ha
+  quitado el campo. Si hace falta, es una columna `id_ciudad` con su clave ajena
+  y su índice, no un campo suelto en la pantalla.
+
+- **El código de producto es fabricado, no guardado.** `producto` no tiene
+  columna de código; el `PROD-000123` que se ve en el listado lo compone la
+  respuesta a partir del identificador. Sirve para nombrar una fila, **no** para
+  guardar el código de fábrica ni un código de barras. Eso sería una columna
+  nueva con su unicidad.
+
+- **`bodega.responsable` es texto libre y no apunta a ningún usuario.** Las tres
+  bodegas que lo tienen puesto dicen «El Toke», «Fifo» y «Pozo», que no son
+  usuarios del sistema. Si el responsable tiene que ser una persona del sistema,
+  es `id_usuario` con clave ajena; si es un nombre a mano, está bien como está.
+
+- **No se puede devolver materia prima a un proveedor.**
+  `devolucion_proveedor_detalle.id_producto` es obligatorio, y **2.824 líneas de
+  orden de compra son materia prima** y no tienen producto. Salió al mirar si esa
+  columna era redundante (F84): no lo es, pero deja el hueco a la vista.
 
 ## 5. Lo que NO hay que hacer
 

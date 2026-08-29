@@ -75,8 +75,7 @@ class ReservaStockTest {
     private EmpaqueRequestDTO datosDeEmpaque() {
         EmpaqueRequestDTO dto = new EmpaqueRequestDTO();
         dto.setNumeroHu("HU-RESERVA-001");
-        dto.setTransportista("Transportista de prueba");
-        dto.setRegionDestino("Region de prueba");
+        dto.setIdTransportista(1); // Servientrega, del catalogo que siembra la F77
         return dto;
     }
 

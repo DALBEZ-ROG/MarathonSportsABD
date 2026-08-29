@@ -24,7 +24,9 @@ interface PickingPedido {
 interface Transportista {
   idTransportista: number;
   nombre: string;
-  cobertura: string;
+  /** F84: antes era una frase («Nacional, incluye Oriente»); ahora son regiones. */
+  regiones: string[];
+  nota?: string | null;
   etiqueta?: string;
 }
 
@@ -106,25 +108,30 @@ interface PageResponse<T> {
           </div>
 
           <div class="emp-campo">
+            <label>A dónde va</label>
+            <div class="destino" *ngIf="seleccionado.ciudadDestino; else sinDestino">
+              <strong>{{seleccionado.ciudadDestino}}</strong><span *ngIf="seleccionado.regionDestino">, {{seleccionado.regionDestino}}</span>
+              <span class="dest-nota">de la ficha del cliente</span>
+            </div>
+            <ng-template #sinDestino>
+              <div class="destino aviso">Este cliente no tiene ciudad registrada.</div>
+            </ng-template>
+          </div>
+
+          <div class="emp-campo">
             <label>Transportista</label>
             <app-searchable-select
               [items]="transportistas"
               labelKey="etiqueta"
-              valueKey="nombre"
+              valueKey="idTransportista"
               placeholder="Escribe el nombre del transportista…"
-              [(ngModel)]="form.transportista"
+              [(ngModel)]="form.idTransportista"
               [ngModelOptions]="{ standalone: true }"/>
-          </div>
-
-          <div class="emp-campo">
-            <label>Región de destino</label>
-            <div class="destino" *ngIf="seleccionado.ciudadDestino">
-              Sale de la ciudad del cliente: <strong>{{seleccionado.ciudadDestino}}</strong>.
-            </div>
-            <div class="regiones">
-              <button type="button" class="reg-btn" *ngFor="let r of regiones"
-                      [class.on]="form.regionDestino === r"
-                      (click)="form.regionDestino = r">{{r}}</button>
+            <div class="cobertura" *ngIf="elegido() as t">
+              <span class="cob-tit">Llega a</span>
+              <span class="cob-reg" *ngFor="let r of t.regiones"
+                    [class.aqui]="r === seleccionado.regionDestino">{{r}}</span>
+              <span class="cob-nota" *ngIf="t.nota">{{t.nota}}</span>
             </div>
           </div>
 
@@ -200,19 +207,26 @@ interface PageResponse<T> {
                           border-radius: var(--ms-radius-sm); }
     .emp-campo textarea::placeholder { color: var(--ms-text-muted); }
 
-    .destino { font-size: .84rem; color: var(--ms-text-muted); line-height: 1.6;
-               margin-bottom: .6rem; }
-    .destino strong { color: var(--ms-text); }
+    /* F84: el destino se ENSEÑA, ya no se elige. Por eso tiene aspecto de dato
+       y no de campo: fondo plano, sin borde de caja editable. */
+    .destino { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap;
+               background: rgba(255,255,255,0.03); border-radius: var(--ms-radius-sm);
+               padding: .6rem .75rem; font-size: .95rem; color: var(--ms-text); }
+    .destino strong { color: var(--ms-text); font-weight: 600; }
+    .dest-nota { font-size: .74rem; color: var(--ms-text-muted); }
+    .destino.aviso { color: #fbbf24; font-size: .84rem; }
 
-    .regiones { display: flex; gap: .4rem; flex-wrap: wrap; }
-    .reg-btn { flex: 1; min-width: 92px; background: rgba(255,255,255,0.03);
-               border: 1px solid var(--ms-border); color: var(--ms-text-muted);
-               padding: .55rem .5rem; border-radius: var(--ms-radius-sm);
-               font-size: .84rem; cursor: pointer; font-family: inherit;
-               transition: all .15s ease; }
-    .reg-btn:hover { border-color: rgba(255,255,255,0.25); color: var(--ms-text); }
-    .reg-btn.on { background: var(--ms-gold-dim); border-color: var(--ms-gold);
-                  color: var(--ms-gold-light); font-weight: 600; }
+    /* A dónde llega el transportista elegido. Es información, no una regla: el
+       sistema no impide mandar a una región que no figure. La cobertura la puso
+       el catálogo, y quien empaca sabrá si hay excepción. */
+    .cobertura { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap;
+                 margin-top: .5rem; font-size: .76rem; }
+    .cob-tit { color: var(--ms-text-muted); }
+    .cob-reg { border: 1px solid var(--ms-border); border-radius: 999px;
+               padding: .1rem .5rem; color: var(--ms-text-muted); }
+    .cob-reg.aqui { border-color: var(--ms-gold); color: var(--ms-gold-light);
+                    font-weight: 600; }
+    .cob-nota { color: var(--ms-text-muted); font-style: italic; }
 
     .falta-algo { margin: .7rem 0 0; font-size: .78rem; color: #fbbf24;
                   text-align: right; }
@@ -233,15 +247,22 @@ export class EmpaqueListaComponent implements OnInit {
   enviando = false;
   toast = '';
   toastError = false;
-  form = { numeroHu: '', transportista: '', regionDestino: '', observacion: '' };
+  /**
+   * F84: se manda la CLAVE del transportista, no su nombre, y la región ya no
+   * se manda: el servidor la deduce de la ciudad del cliente.
+   */
+  form: { numeroHu: string; idTransportista: number | null; observacion: string } =
+      { numeroHu: '', idTransportista: null, observacion: '' };
 
   /** El catálogo de la F77. Antes el transportista se escribía a mano. */
   transportistas: Transportista[] = [];
 
-  /** Las cuatro regiones naturales del Ecuador; el CHECK de ciudad.region no admite otras. */
-  readonly regiones = ['Costa', 'Sierra', 'Oriente', 'Insular'];
-
   constructor(private http: HttpClient) {}
+
+  /** El transportista elegido, para enseñar a dónde llega mientras se decide. */
+  elegido(): Transportista | null {
+    return this.transportistas.find(t => t.idTransportista === this.form.idTransportista) ?? null;
+  }
 
   ngOnInit() {
     this.cargar();
@@ -252,10 +273,12 @@ export class EmpaqueListaComponent implements OnInit {
     this.http.get<Transportista[]>(`${environment.apiUrl}/transportistas/activos`).subscribe({
       next: res => {
         // La etiqueta lleva la cobertura porque es lo que decide la elección:
-        // saber el nombre no dice si llega al Oriente.
+        // saber el nombre no dice si llega al Oriente. F84: la cobertura ya no
+        // es una frase, son regiones, y se pintan como tales.
         this.transportistas = (res ?? []).map(t => ({
           ...t,
-          etiqueta: t.cobertura ? `${t.nombre} · ${t.cobertura}` : t.nombre
+          regiones: t.regiones ?? [],
+          etiqueta: (t.regiones?.length ? `${t.nombre} · ${t.regiones.join(', ')}` : t.nombre)
         }));
       },
       error: () => { this.transportistas = []; }
@@ -297,11 +320,10 @@ export class EmpaqueListaComponent implements OnInit {
 
   abrirModal(p: PickingPedido) {
     this.seleccionado = p;
-    this.form = { numeroHu: '', transportista: '', regionDestino: '', observacion: '' };
-    // La HU y la región vienen puestas: las dos se pueden deducir, y pedirlas en
-    // blanco solo conseguía que se tecleara cualquier cosa.
+    this.form = { numeroHu: '', idTransportista: null, observacion: '' };
+    // La HU viene puesta: se puede deducir, y pedirla en blanco solo conseguía
+    // que se tecleara cualquier cosa. La región ya ni se pide (F84): se enseña.
     this.generarHu();
-    this.form.regionDestino = p.regionDestino || '';
     this.modalAbierto = true;
   }
 
@@ -337,8 +359,8 @@ export class EmpaqueListaComponent implements OnInit {
    * Ojo: los campos pueden ser NULOS, no solo cadenas vacias.
    *
    * <p>El buscador avisa con `null` a cada letra —lo escrito a medias todavia
-   * no es una eleccion—, asi que `form.transportista` vale null mientras se
-   * teclea. Con `.trim()` directo, esta funcion reventaba DENTRO de la
+   * no es una eleccion—, asi que el valor enlazado al buscador vale null
+   * mientras se teclea. Con `.trim()` directo, esta funcion reventaba DENTRO de la
    * plantilla, y una excepcion ahi **aborta la deteccion de cambios entera**:
    * la lista del buscador se quedaba congelada enseñando los siete
    * transportistas por mucho que se filtrara. El sintoma no se parecia en nada
@@ -349,17 +371,14 @@ export class EmpaqueListaComponent implements OnInit {
   }
 
   formValido(): boolean {
-    return this.lleno(this.form.numeroHu)
-        && this.lleno(this.form.transportista)
-        && this.lleno(this.form.regionDestino);
+    return this.lleno(this.form.numeroHu) && this.form.idTransportista != null;
   }
 
   /** Decir qué falta, en vez de dejar el botón apagado sin explicación. */
   queFalta(): string {
     const faltan: string[] = [];
     if (!this.lleno(this.form.numeroHu)) { faltan.push('el número HU'); }
-    if (!this.lleno(this.form.transportista)) { faltan.push('el transportista'); }
-    if (!this.lleno(this.form.regionDestino)) { faltan.push('la región de destino'); }
+    if (this.form.idTransportista == null) { faltan.push('el transportista'); }
     if (!faltan.length) { return ''; }
     return 'Falta ' + (faltan.length === 1 ? faltan[0]
         : faltan.slice(0, -1).join(', ') + ' y ' + faltan[faltan.length - 1]) + '.';

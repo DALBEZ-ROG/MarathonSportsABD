@@ -558,16 +558,20 @@ entera. Cuando las líneas están todas completas, la pantalla te manda a Empaqu
 ### 6.2 · Empaque
 
 **Empaque** → la lista de pedidos listos, **el más reciente primero** → confirmas
-el empaque. La ventana pide tres cosas, y dos vienen ya puestas:
+el empaque. La ventana **pide dos cosas y enseña una**:
 
 | | qué es | de dónde sale |
 |---|---|---|
+| **A dónde va** | La ciudad y la región de destino. | **No se pide: se enseña.** Sale de la ficha del cliente, que es de donde salía siempre; desde la F84 la base ya no guarda una copia que pudiera contradecirla. |
 | **Número HU** | *Handling Unit*: la etiqueta del **bulto** que sale del almacén —la caja, no el pedido—. Es lo que se pega encima y por lo que se pregunta si algo se pierde. | Propuesto con el número del pedido y la fecha. Cámbialo solo si el bulto ya trae otra etiqueta. |
-| **Transportista** | Quién se lleva el bulto. | Se escribe y se elige del catálogo; cada opción dice su cobertura, porque saber el nombre no dice si llega al Oriente. |
-| **Región de destino** | La zona del país a la que va. | **Sale sola de la ciudad del cliente.** Cámbiala solo si el bulto va a otro sitio distinto de la dirección del cliente. |
+| **Transportista** | Quién se lleva el bulto. | Se escribe y se elige del catálogo. Debajo aparece **a qué regiones llega**, con la del destino resaltada. Es información, no una regla: el sistema no impide mandar a una región que no figure. |
 
 La lista de pedidos enseña también **a qué ciudad va cada uno**, para poder
 agrupar los que salen para el mismo lado.
+
+> **Si una ciudad sale sin región**, es que está sin clasificar en
+> **Datos maestros → Ciudades**. Se arregla ahí, y desde ese momento sus pedidos
+> aparecen al filtrar despachos por región.
 
 > ### Confirmar el empaque es el momento en que todo se hace real
 >

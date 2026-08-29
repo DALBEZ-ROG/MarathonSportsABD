@@ -409,7 +409,7 @@ public class PedidoService {
         dto.setNotaEspecial(pedido.getNotaEspecial());
         dto.setFechaLimiteEntrega(pedido.getFechaLimiteEntrega());
         dto.setNumeroHu(pedido.getNumeroHu());
-        dto.setTransportista(pedido.getTransportista());
+        dto.setTransportista(pedido.getTransportistaNombre());
         dto.setRegionDestino(pedido.getRegionDestino());
         dto.setFechaEmpaque(pedido.getFechaEmpaque());
         return dto;
