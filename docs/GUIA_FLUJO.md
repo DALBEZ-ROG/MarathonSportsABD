@@ -743,6 +743,15 @@ llevárselos en Excel o PDF. Cada pestaña dice qué contesta, y abre con los ú
 > **No se puede editar ni borrar desde la pantalla**, y es el sentido de tenerla:
 > una traza que se puede arreglar no prueba nada.
 
+**Asistente** (`/ia`) traduce una pregunta en castellano a una consulta y devuelve
+la tabla. **Viene apagado**: encenderlo manda la pregunta a un servicio externo, y
+eso es una decisión, no un ajuste. Con `app.ia.enabled=false` la pantalla lo dice
+al entrar en vez de dejarte escribir para nada.
+
+> **Qué puede leer.** Solo un `SELECT`, en una transacción de solo lectura, y solo
+> sobre una lista **blanca** de tablas de negocio. Usuarios, roles, permisos y la
+> bitácora quedan **fuera a propósito**: para eso está Auditoría, con su permiso.
+
 ## Tabla rápida: quién hace qué
 
 | Acción | Administrador | Compras | Producción | Bodega | Pedidos | Supervisor |

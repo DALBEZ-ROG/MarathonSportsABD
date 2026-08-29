@@ -58,6 +58,7 @@ A las fases 47-59 se suman ahora:
 | **F79** | La inspección dice **qué hace cada decisión**, y el reembolso enseña su tope en vez de rechazarlo al enviar |
 | **F80** | **Análisis del negocio**: lo más vendido y lo más comprado, quién deja más, en qué región se vende y por qué devuelven |
 | **F81** | Reportes y auditoría: dicen **qué contesta cada uno**, abren con datos, y el aviso de la exportación deja de mentir |
+| **F82** | El asistente dice que **está apagado antes** de que escribas, y qué puede leer y qué no |
 
 ---
 
@@ -987,6 +988,46 @@ Las dos pestañas dicen ahora qué son. La del historial de inventario dice algo
 no se ve y que importa: **lo escribe un disparador de la base de datos, no la
 aplicación**, así que aunque alguien tocara el stock por fuera del sistema la fila
 aparecería igual.
+
+### F82 · El asistente: una caja de texto que no iba a contestar
+
+**El módulo está apagado en esta instalación** —`app.ia.enabled=false`, que es el
+valor por defecto— y la pantalla no lo decía. Ofrecía ocho ejemplos y una caja de
+texto como si funcionara; el 503 llegaba **después** de escribir la pregunta y
+enviarla. Ahora se pregunta al entrar, con un endpoint nuevo
+(`GET /api/ia/estado`, mismo permiso), y si está apagado se dice antes de que
+nadie escriba: qué significa el interruptor, cómo se enciende, y —lo más útil—
+que **lo que casi siempre se le pregunta ya está resuelto sin IA**, con enlaces al
+análisis del negocio y a los reportes.
+
+> El endpoint devuelve solo `habilitado`. Ni la clave ni el modelo: eso es
+> configuración del servidor y el navegador no tiene por qué verla.
+
+**Y no decía qué puede ver.** Un asistente que consulta la base plantea una
+pregunta legítima —«¿puede leerlo todo?»— que la pantalla no contestaba. La
+respuesta estaba en el validador del servidor y en ningún sitio donde la viera
+quien usa la pantalla:
+
+- Solo ejecuta **una** sentencia, y tiene que ser un `SELECT`; además corre en una
+  transacción de solo lectura, así que el motor rechazaría una escritura aunque
+  colara.
+- Solo sobre una lista **blanca** de tablas de negocio: una tabla nueva queda
+  fuera mientras nadie la añada a mano, que es el lado seguro por el que
+  equivocarse.
+- **Nunca** usuarios, roles, permisos ni la bitácora. Un Supervisor no tiene por
+  qué poder pedirle al asistente los datos de sus compañeros.
+
+Eso está ahora en la propia pantalla, plegado. Lo demás son detalles de uso: la
+consulta que ejecutó se puede copiar (solo el Administrador la ve), las columnas
+numéricas se alinean a la derecha y se formatean, `total_vendido` se lee como
+«Total vendido», un error ofrece volver a preguntar, y si apagan el módulo con la
+pantalla abierta se pasa al panel de apagado en vez de dejar la caja viva.
+
+> **Se comprobaron las dos mitades sin gastar la clave del dueño.** La mitad
+> encendida se verificó arrancando el backend con `IA_ENABLED=true` **en el
+> entorno del proceso** —sin tocar ningún fichero— y mirando la pantalla **sin
+> enviar ninguna pregunta**: enviarla habría llamado a un servicio externo y eso
+> lo decide él, no yo. Después se devolvió el backend a como estaba.
 
 ---
 

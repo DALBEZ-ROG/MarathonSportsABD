@@ -46,6 +46,23 @@ public class IAController {
         return ResponseEntity.ok(iaService.consultar(request.getPregunta(), usuario.getIdUsuario()));
     }
 
+    /**
+     * Si el asistente esta encendido en esta instalacion (F82).
+     *
+     * <p>Antes solo se sabia <b>despues</b> de escribir una pregunta y enviarla:
+     * la pantalla ofrecia ejemplos y una caja de texto como si funcionara, y el
+     * 503 llegaba al final. Preguntarlo al entrar permite decirlo antes de que
+     * alguien escriba.
+     *
+     * <p>No devuelve ni la clave ni el modelo: eso es configuracion del
+     * servidor, y el navegador no tiene por que verla.
+     */
+    @GetMapping("/estado")
+    @PreAuthorize("hasAuthority('ia:consultar')")
+    public ResponseEntity<java.util.Map<String, Object>> estado() {
+        return ResponseEntity.ok(java.util.Map.of("habilitado", iaService.estaHabilitado()));
+    }
+
     @GetMapping("/ejemplos")
     @PreAuthorize("hasAuthority('ia:consultar')")
     public ResponseEntity<List<String>> ejemplos() {
