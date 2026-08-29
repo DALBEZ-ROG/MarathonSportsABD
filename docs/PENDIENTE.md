@@ -693,11 +693,19 @@ bodegas sin decir cuál tiene la mercancía**. Quien recoge tenía que adivinar 
 almacén, y equivocarse no es un error de pantalla: es un movimiento de stock
 contra una bodega que no tenía la prenda.
 
-Ahora cada línea le pregunta al inventario dónde está el producto y ofrece las
-bodegas **con existencias, con cuántas unidades hay en cada una**, ordenadas de
-más a menos. Se enseñan seis y el resto queda a un clic —un producto de catálogo
-está en casi todos los almacenes, y con siete líneas en pantalla la lista
-completa deja de leerse—. Si solo hay un sitio posible, se elige solo.
+Ahora cada línea le pregunta al inventario dónde está el producto y lo dice en el
+propio buscador. **La bodega se escribe**, con el mismo `app-searchable-select` que ya
+usaban el cliente y el producto: se teclea «BRE» y sale «Bodega BRE1 · 331
+u.». Cada opción lleva **las unidades que hay en esa bodega**, las que tienen
+existencias van primero y las demás dicen «sin existencias» —recoger de un
+almacén sin registro es raro, pero pasa—. Si solo hay un sitio posible, viene ya
+puesto.
+
+> **Primero se probó con fichas, una por bodega, y estaba mal.** Con un producto
+> de catálogo salían veinte fichas por línea, y con siete líneas en pantalla era
+> un muro. Lo pidió el dueño y tenía razón: *«solo pon un filtro así como los
+> otros para buscar en él por escrito»*. Un buscador ocupa un renglón y encuentra
+> por nombre, que es como se busca una bodega de verdad.
 
 > **Se usa el listado de inventario que ya existía, no un endpoint nuevo.** Uno
 > nuevo habría que concedérselo a los seis roles; éste ya lo tiene quien recoge.
@@ -714,6 +722,13 @@ anidados. Ahora hay una banda; la ruta del pedido se ve como cuatro puntos
 una etiqueta; la tabla tiene su fila de total; y los botones de estado llevan
 delante lo que significan: que procesar **reserva** las unidades, y que es todo o
 nada.
+
+Y una tercera del mismo tipo, que costó encontrar porque no parecía un fallo
+de apilamiento: la lista del buscador **salía recortada** porque la tarjeta de
+la línea lleva `overflow: hidden`. El z-index 1200 de la lista no pinta nada ahí
+—no la tapa nadie, la recorta su propia caja—. Se arregla con el mismo `:has()`
+que `styles.scss` ya usa para las secciones de formulario: mientras hay una lista
+abierta, la tarjeta deja de recortar y se levanta.
 
 **Dos cosas que enseñó esta fase.** La primera, que `.acciones` ya existía en
 `styles.scss` con `display: flex`, y aplanó una sección entera sin dar error

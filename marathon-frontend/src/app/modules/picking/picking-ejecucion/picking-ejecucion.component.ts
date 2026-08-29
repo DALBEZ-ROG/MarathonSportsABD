@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { AppIconComponent } from '../../../shared/components/icon/icon.component';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
 
 interface PickingLinea {
   idDetalle: number;
@@ -22,18 +23,15 @@ interface PickingLinea {
   /** F74: dónde está la mercancía. Se resuelve con el inventario que ya existía. */
   ubicaciones?: Ubicacion[];
   buscandoUbicaciones?: boolean;
-  verTodasLasBodegas?: boolean;
-  verTodasLasUbicaciones?: boolean;
+  /** Lo que ve el buscador: todas las bodegas, las que tienen stock primero. */
+  opciones?: OpcionBodega[];
 }
 
-/**
- * Cuántas bodegas se enseñan antes de plegar el resto.
- *
- * <p>Seis y no veinte: un producto de catálogo está en casi todos los almacenes,
- * y con siete líneas en pantalla la lista completa deja de leerse. Van ordenadas
- * por existencias, así que las seis primeras son las que de verdad se usan.
- */
-const MAX_BODEGAS = 6;
+/** Una entrada del buscador de bodega. La etiqueta es por lo que se filtra. */
+interface OpcionBodega {
+  idBodega: number;
+  etiqueta: string;
+}
 
 /** Una bodega que de verdad tiene existencias de este producto. */
 interface Ubicacion {
@@ -74,15 +72,18 @@ interface PickingPedido {
  *
  * <p>La de fondo: <b>el desplegable listaba las 200 bodegas sin decir cuál tiene
  * la mercancía</b>. Quien recoge tenía que adivinar el almacén, y equivocarse
- * significa un movimiento de stock contra una bodega que no lo tenía. Ahora cada
- * línea pregunta al inventario dónde está el producto y ofrece solo las bodegas
- * con existencias, con cuántas unidades hay en cada una. La lista completa sigue
- * a un clic, para el caso raro de recoger de una bodega sin registro.
+ * significa un movimiento de stock contra una bodega que no lo tenía.
+ *
+ * <p>Ahora cada línea pregunta al inventario dónde está el producto y lo dice en
+ * el propio buscador: se escribe el nombre —como en el resto de la aplicación—
+ * y cada opción lleva al lado las unidades que hay en esa bodega, con las que
+ * tienen existencias delante. Siguen estando todas, porque recoger de un almacén
+ * sin registro es raro pero pasa; lo que cambia es cuál se encuentra primero.
  */
 @Component({
   selector: 'app-picking-ejecucion',
   standalone: true,
-  imports: [CommonModule, FormsModule, AppIconComponent, RouterLink],
+  imports: [CommonModule, FormsModule, AppIconComponent, RouterLink, SearchableSelectComponent],
   template: `
     <div class="container" *ngIf="pedido as p">
 
@@ -176,43 +177,32 @@ interface PickingPedido {
               <p class="cargando" *ngIf="l.buscandoUbicaciones">Buscando dónde está…</p>
 
               <ng-container *ngIf="!l.buscandoUbicaciones">
-                <div class="bodegas" *ngIf="l.ubicaciones?.length">
-                  <button type="button" class="bod" *ngFor="let u of visibles(l)"
-                          [class.on]="l.idBodegaPicking === u.idBodega"
-                          [class.corta]="u.cantidad < l.cantidad"
-                          (click)="elegirBodega(l, u.idBodega)">
-                    <strong>{{ u.nombre }}</strong>
-                    <span>{{ u.cantidad }} u.</span>
-                  </button>
+                <!-- Se escribe, no se busca a ojo entre veinte. Cada opción lleva
+                     al lado lo que hay en esa bodega, y van ordenadas de más a
+                     menos: la primera suele ser la buena. -->
+                <app-searchable-select
+                  [items]="l.opciones || []"
+                  labelKey="etiqueta"
+                  valueKey="idBodega"
+                  placeholder="Escribe el nombre de la bodega…"
+                  [(ngModel)]="l.idBodegaPicking"
+                  [ngModelOptions]="{ standalone: true }"/>
 
-                  <!-- Un producto puede estar en veinte bodegas. Enseñarlas todas
-                       es un muro; se enseñan las que más tienen y el resto a un
-                       clic, que es como se elige de verdad. -->
-                  <button type="button" class="bod resto" *ngIf="ocultas(l) > 0"
-                          (click)="l.verTodasLasUbicaciones = true">
-                    <strong>+{{ ocultas(l) }}</strong>
-                    <span>más</span>
-                  </button>
-                </div>
+                <p class="pista-bod" *ngIf="l.ubicaciones?.length">
+                  {{ l.ubicaciones!.length }}
+                  {{ l.ubicaciones!.length === 1 ? 'bodega tiene' : 'bodegas tienen' }}
+                  este producto, y salen primero. Las demás también se pueden elegir.
+                </p>
 
                 <p class="sin-stock" *ngIf="!l.ubicaciones?.length">
                   Ninguna bodega registra existencias de este producto. Puedes
-                  elegirla igualmente de la lista completa, pero conviene revisar
-                  el inventario antes.
+                  elegir una igualmente, pero conviene revisar el inventario antes.
                 </p>
-
-                <button type="button" class="mas-bodegas" (click)="l.verTodasLasBodegas = !l.verTodasLasBodegas">
-                  {{ l.verTodasLasBodegas ? 'Ocultar la lista completa' : 'Elegir otra bodega' }}
-                </button>
-
-                <select *ngIf="l.verTodasLasBodegas" [(ngModel)]="l.idBodegaPicking" class="select-todas">
-                  <option [ngValue]="null">Sin elegir</option>
-                  <option *ngFor="let b of bodegas" [ngValue]="b.idBodega">{{ b.nombre }}</option>
-                </select>
               </ng-container>
 
               <p class="aviso-corta" *ngIf="bodegaElegidaCorta(l)">
-                Esa bodega tiene menos unidades de las que estás recogiendo.
+                Esa bodega tiene {{ existenciasElegidas(l) }} y estás recogiendo
+                {{ l.cantidadRecogida }}.
               </p>
             </div>
 
@@ -290,6 +280,13 @@ interface PickingPedido {
     .linea { background: var(--ms-bg-card); border: 1px solid var(--ms-border);
              border-left: 3px solid var(--ms-border);
              border-radius: var(--ms-radius); overflow: hidden; }
+    /* La lista del buscador se sale de la tarjeta, y la tarjeta la recortaba:
+       mientras hay una lista abierta deja de recortar y se levanta sobre las de
+       abajo. Es el mismo remedio que styles.scss aplica a .form-section, y por
+       la misma razón: el z-index 1200 de la lista solo compite dentro de su
+       caja. */
+    .linea:has(.search-select.open) { overflow: visible; position: relative; z-index: 60; }
+
     .linea.pendiente { border-left-color: #64748b; }
     .linea.parcial   { border-left-color: #d97706; }
     .linea.completa  { border-left-color: #16a34a; }
@@ -335,30 +332,9 @@ interface PickingPedido {
     .falta { margin: 0; font-size: .78rem; color: var(--ms-text-muted); line-height: 1.5; }
     .falta strong { color: #fbbf24; }
 
-    /* ── Las bodegas ───────────────────────────────────────────── */
-    .bodegas { display: flex; flex-wrap: wrap; gap: .4rem; }
-    .bod { display: flex; flex-direction: column; align-items: flex-start; gap: .1rem;
-           background: rgba(255,255,255,0.03); border: 1px solid var(--ms-border);
-           border-radius: var(--ms-radius-sm); padding: .4rem .7rem; cursor: pointer;
-           transition: all .15s ease; }
-    .bod strong { font-size: .84rem; color: var(--ms-text); font-weight: 600; }
-    .bod span { font-size: .72rem; color: var(--ms-text-muted); }
-    .bod:hover { border-color: rgba(255,255,255,0.25); }
-    .bod.on { border-color: var(--ms-gold); background: var(--ms-gold-dim); }
-    .bod.on strong { color: var(--ms-gold-light); }
-    .bod.corta strong::after { content: ' ·'; color: #fbbf24; }
-    .bod.resto { justify-content: center; border-style: dashed; }
-    .bod.resto strong { color: var(--ms-text-muted); }
-
-    .cargando, .sin-stock { margin: 0; font-size: .8rem; color: var(--ms-text-muted);
-                            line-height: 1.5; }
-    .mas-bodegas { align-self: flex-start; background: none; border: none; padding: 0;
-                   color: var(--ms-text-muted); font-size: .78rem; cursor: pointer;
-                   text-decoration: underline; text-underline-offset: 3px; font-family: inherit; }
-    .mas-bodegas:hover { color: var(--ms-gold); }
-    .select-todas { width: 100%; padding: .5rem .6rem; border-radius: var(--ms-radius-sm);
-                    background: rgba(255,255,255,0.04); border: 1px solid var(--ms-border);
-                    color: var(--ms-text); font-family: inherit; font-size: .86rem; }
+    /* ── La bodega ─────────────────────────────────────────────── */
+    .cargando, .sin-stock, .pista-bod { margin: 0; font-size: .78rem;
+                                        color: var(--ms-text-muted); line-height: 1.5; }
     .aviso-corta { margin: 0; font-size: .78rem; color: #fbbf24; }
 
     /* ── Guardar ───────────────────────────────────────────────── */
@@ -450,15 +426,38 @@ export class PickingEjecucionComponent implements OnInit {
           .filter(f => f.productoId === l.idProducto && f.cantidad > 0)
           .map(f => ({ idBodega: f.bodegaId, nombre: f.bodegaNombre, cantidad: f.cantidad }))
           .sort((a, b) => b.cantidad - a.cantidad);
-        // Si solo hay un sitio posible, se elige solo: obligar a pulsar la
-        // unica opcion no es una decision, es un tramite.
-        if (l.ubicaciones.length === 1 && !l.idBodegaPicking) {
-          l.idBodegaPicking = l.ubicaciones[0].idBodega;
-        }
+        this.armarOpciones(l);
         l.buscandoUbicaciones = false;
+        // La preseleccion va DESPUES de armar las opciones y en otro ciclo: el
+        // buscador rellena su caja de texto buscando el valor entre sus items,
+        // y si el valor llega antes que la lista se queda en blanco aunque la
+        // linea si tenga bodega.
+        if (l.ubicaciones.length === 1 && !l.idBodegaPicking) {
+          setTimeout(() => { l.idBodegaPicking = l.ubicaciones![0].idBodega; });
+        }
       },
       error: () => { l.ubicaciones = []; l.buscandoUbicaciones = false; }
     });
+  }
+
+  /**
+   * Lo que ofrece el buscador de bodega.
+   *
+   * <p>Van <b>todas</b> las bodegas, no solo las que tienen stock: hace falta
+   * poder recoger de un almacén sin registro, que es el caso raro pero real.
+   * Lo que cambia es el orden y la etiqueta — las que tienen existencias salen
+   * primero y dicen cuántas—, porque es lo que decide la elección.
+   */
+  private armarOpciones(l: PickingLinea) {
+    const conStock = (l.ubicaciones ?? []).map(u => ({
+      idBodega: u.idBodega,
+      etiqueta: u.nombre + ' · ' + u.cantidad + ' u.'
+    }));
+    const yaEstan = new Set(conStock.map(o => o.idBodega));
+    const resto = this.bodegas
+      .filter(b => !yaEstan.has(b.idBodega))
+      .map(b => ({ idBodega: b.idBodega, etiqueta: b.nombre + ' · sin existencias' }));
+    l.opciones = [...conStock, ...resto];
   }
 
   get porcentaje(): number {
@@ -497,26 +496,17 @@ export class PickingEjecucionComponent implements OnInit {
     l.cantidadRecogida = Math.max(0, Math.min(l.cantidad, Math.trunc(l.cantidadRecogida)));
   }
 
-  /** Las bodegas que se enseñan de entrada: las seis con más existencias. */
-  visibles(l: PickingLinea): Ubicacion[] {
-    const todas = l.ubicaciones ?? [];
-    return l.verTodasLasUbicaciones ? todas : todas.slice(0, MAX_BODEGAS);
-  }
-
-  ocultas(l: PickingLinea): number {
-    if (l.verTodasLasUbicaciones) return 0;
-    return Math.max(0, (l.ubicaciones?.length ?? 0) - MAX_BODEGAS);
-  }
-
-  elegirBodega(l: PickingLinea, idBodega: number) {
-    l.idBodegaPicking = l.idBodegaPicking === idBodega ? null : idBodega;
-  }
-
   /** Aviso, no bloqueo: el stock puede haberse movido desde que se cargó. */
   bodegaElegidaCorta(l: PickingLinea): boolean {
-    if (!l.idBodegaPicking || !l.ubicaciones?.length) return false;
-    const u = l.ubicaciones.find(x => x.idBodega === l.idBodegaPicking);
-    return !!u && u.cantidad < (l.cantidadRecogida || 0);
+    if (!l.idBodegaPicking || !(l.cantidadRecogida > 0)) return false;
+    const u = (l.ubicaciones ?? []).find(x => x.idBodega === l.idBodegaPicking);
+    return (u?.cantidad ?? 0) < l.cantidadRecogida;
+  }
+
+  /** Lo que dice el aviso: «tiene 3 u.» o «no tiene existencias». */
+  existenciasElegidas(l: PickingLinea): string {
+    const u = (l.ubicaciones ?? []).find(x => x.idBodega === l.idBodegaPicking);
+    return u ? u.cantidad + ' unidades' : 'sin existencias registradas';
   }
 
   guardarLinea(l: PickingLinea) {

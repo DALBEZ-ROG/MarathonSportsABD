@@ -540,11 +540,11 @@ pendiente ──► procesado ──► enviado ──► entregado
 **Picking** → la cola de pedidos por recoger → entras a uno → marcas línea por
 línea lo recogido y de qué bodega.
 
-Cada línea **te dice en qué bodegas está el producto y cuántas unidades hay en
-cada una**, de más a menos; si solo hay un sitio posible, viene ya elegido. Se
-enseñan las seis con más existencias y el resto queda tras «+N más»; «Elegir otra
-bodega» abre la lista completa, para el caso raro de sacarlo de un almacén sin
-registro.
+La bodega **se escribe**, como el cliente o el producto en el resto de la
+aplicación: tecleas «BRE» y sale «Bodega BRE1 · 331 u.». Cada opción lleva al lado
+**las unidades que hay en esa bodega**, y las que tienen existencias salen
+primero; las demás aparecen como «sin existencias», porque recoger de un almacén
+sin registro es raro pero pasa. Si solo hay un sitio posible, viene ya puesto.
 
 La cantidad se pone con **−/+** o con el botón **«Todas»**. Guardar con menos de
 lo pedido **no es un error**: deja la línea a medias y se puede terminar después.
