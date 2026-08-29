@@ -1436,6 +1436,48 @@ esconder.** Y ese SQL es lo único de todo el sistema que enseña nombres de
 tablas y columnas de verdad. Ahora se recorta en el servidor; el administrador
 lo sigue recibiendo, que es quien debe poder comprobar qué se ejecutó.
 
+### Recorrido completo de los flujos, por HTTP y con los seis roles (2026-08-29)
+
+No son las pruebas: es la aplicación arrancada, entrando con cada usuario y
+haciendo el trabajo por la API. Es lo que las 204 pruebas **no** ven, porque
+corren con `app.datasource.roles.enabled=false` y no pasan por los seis pools.
+
+**Los seis roles entran**, y la separación de permisos aguanta:
+
+| endpoint | admin | compras | producción | bodega | pedidos | supervisor |
+|---|---|---|---|---|---|---|
+| `usuarios`, `roles`, `logs` | 200 | 403 | 403 | 403 | 403 | 403 |
+| `ordenes-compra` | 200 | 200 | 403 | 403 | 403 | 403 |
+| `ordenes-produccion` | 200 | 403 | 200 | 403 | 403 | 200 |
+| `picking/pedidos` | 200 | 403 | 403 | 200 | 403 | 403 |
+| `dashboard/analitica` | 200 | 403 | 403 | 403 | 403 | 200 |
+
+**Venta y devolución** (pedido 230009): `pedidos@` lo crea → `bodega@` recoge →
+`bodega@` empaca con `idTransportista` y **la región sale sola de la ciudad
+(Sierra)** → entregado → devolución de 1 unidad → inspección «apto para reventa»
+→ reembolso. El stock hizo 447 → 445 al empacar y 445 → 446 al aceptar la
+devolución, con su movimiento y su historial, y la reserva quedó `consumida`.
+**Un reembolso de 9.999 lo paró el tope**: *«supera el valor de la mercancía
+devuelta y aceptada (87.49)»*.
+
+**Compras** (orden 2681): `compras@` la crea → la envía a aprobación →
+**intenta aprobarla él mismo y el sistema lo impide** → `admin@` aprueba →
+recepción de 5 unidades (446 → 451) → factura desde la recepción → cuenta por
+pagar de 230,00, **con el proveedor alcanzado por la factura y su orden (F84)** →
+un pago de 9.999 rechazado por exceder el saldo, y el de 230,00 aceptado: saldo 0.
+
+**Producción** (órdenes 3006 y 3007): disponibilidad de materia prima → crear →
+iniciar (consume y fotografía el coste) → completar. Con los costes que la
+pantalla precarga: 12,12 de materia + 5,00 de mano de obra + 2,57 de indirecto =
+**19,69**, unitario 9,845.
+
+> **Una observación, no un fallo.** `CompletarProduccionDTO` deja la mano de obra
+> y el indirecto **a cero por omisión**. La pantalla nunca los manda a cero
+> —los precarga desde `/costos-sugeridos`—, pero quien llame a la API en crudo
+> sin ellos obtiene una orden cuyo coste total es solo la materia prima, que es
+> justo lo que la F70 quería evitar. Es el patrón de siempre: la pantalla aplica
+> una regla que el servidor no exige. Si algún día se toca producción, ahí está.
+
 ### Spring Boot 3.2 se quedó sin soporte gratuito
 
 `pom.xml` fija **Spring Boot 3.2.x**, y el soporte gratuito de esa rama terminó
