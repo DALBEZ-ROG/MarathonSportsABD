@@ -63,10 +63,30 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UsuarioDetailsService usuarioDetailsService;
 
+    /**
+     * Si Swagger es publico. Solo en el perfil {@code dev} (F87).
+     *
+     * <p><b>Lo que habia y por que importa.</b> {@code /v3/api-docs} y
+     * {@code /swagger-ui/**} estaban en {@code permitAll()} en todos los
+     * perfiles. Sin ninguna contrasena se descargaban <b>117 KB con los 130
+     * endpoints</b>, sus parametros y los nombres de todos los campos —
+     * {@code password}, {@code numeroDocumento}, {@code tipoDocumento}
+     * incluidos—. Eso es el mapa completo de la aplicacion servido a cualquiera
+     * que sepa la direccion, y es exactamente el trabajo de reconocimiento que
+     * un atacante hace primero.
+     *
+     * <p>En {@code dev} sigue abierto, que es donde sirve. Fuera de {@code dev},
+     * ademas, {@code application.properties} apaga springdoc entero, asi que las
+     * rutas ni existen: dos cierres independientes para lo mismo.
+     */
+    private final boolean documentacionPublica;
+
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          UsuarioDetailsService usuarioDetailsService) {
+                          UsuarioDetailsService usuarioDetailsService,
+                          org.springframework.core.env.Environment entorno) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.usuarioDetailsService = usuarioDetailsService;
+        this.documentacionPublica = entorno.matchesProfiles("dev");
     }
 
     @Bean
@@ -74,14 +94,14 @@ public class SecurityConfig {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(auth -> auth
+            .authorizeHttpRequests(auth -> { if (documentacionPublica) {
+                // Solo en el perfil dev. Ver el comentario de documentacionPublica.
+                auth.requestMatchers("/swagger-ui/**", "/swagger-ui.html",
+                                     "/v3/api-docs/**").permitAll();
+            }
+            auth
                 // --- Rutas públicas ---
-                .requestMatchers(
-                    "/api/auth/**",
-                    "/swagger-ui/**",
-                    "/swagger-ui.html",
-                    "/v3/api-docs/**"
-                ).permitAll()
+                .requestMatchers("/api/auth/**").permitAll()
 
                 // --- Lista de Materiales / BOM (F27) ---
                 //   Debe declararse ANTES de las reglas generales de /api/productos/**
@@ -389,8 +409,8 @@ public class SecurityConfig {
                     .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_SUPERVISOR E-COMMERCE")
 
                 // --- Resto: autenticado ---
-                .anyRequest().authenticated()
-            )
+                .anyRequest().authenticated();
+            })
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint((request, response, authException) -> {
                     response.setStatus(HttpStatus.UNAUTHORIZED.value());

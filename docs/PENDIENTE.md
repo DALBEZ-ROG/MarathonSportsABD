@@ -63,6 +63,7 @@ A las fases 47-59 se suman ahora:
 | **F84** | **Normalización**: la base deja de guardar cuatro veces lo que ya sabía (tres 3FN y una 1FN) |
 | **F85** | Los **formularios y la base** dicen lo mismo: se acaban los campos que se pedían y se tiraban |
 | **F86** | Un parámetro que falta deja de ser un **500 anónimo** y pasa a ser un 400 que lo nombra |
+| **F87** | La **documentación de la API** deja de servirse sin contraseña, y el SQL del asistente deja de viajar a quien no es administrador |
 
 ---
 
@@ -1366,6 +1367,74 @@ restantes en 400 con su motivo.** (Uno de ellos, `verificar-disponibilidad`, da
 400 también con parámetros correctos si el producto no tiene lista de materiales
 — y lo dice: *«El producto no tiene lista de materiales definida»*. Con un
 producto fabricado de verdad devuelve 200.)
+
+### F87 · Lo que se puede aprender del sistema sin haber entrado
+
+Nació de una petición del dueño: **sacar todo el SQL del código y meterlo en
+procedimientos almacenados**, porque *«un hacker ve la petición y ya sabe cómo
+está mi base de datos»*. Se comprobó antes de tocar nada, y hay que dejar
+escrito lo que se encontró, porque la pregunta volverá.
+
+#### El SQL no viaja, y los procedimientos no habrían cambiado nada
+
+Esto es todo lo que sale del servidor en una petición normal:
+
+```
+GET /api/productos?page=0&size=1
+→ {"content":[{"idProducto":1,"nombre":"ZAP ADI...","precioVenta":60.00,...}]}
+```
+
+JSON, y **ni siquiera se parece al esquema**: `precioVenta` es la columna
+`producto.precio`, y `precioCompra` vive en otra tabla (`producto_proveedor`).
+La consulta se ejecuta dentro del servidor y no cruza la red. Con la misma
+consulta metida en un procedimiento, esa petición y esa respuesta serían
+**idénticas byte a byte**.
+
+**Y habría hecho daño.** La base tiene **2.407 privilegios a nivel de columna
+repartidos entre 6 roles** (F34, F49): es la mejor defensa del sistema, porque
+limita lo que cada rol puede tocar aunque el código se equivoque. Un
+procedimiento `SECURITY DEFINER` se ejecuta con los permisos de **su dueño**, no
+con los de quien lo llama: metería las consultas por encima de esos 2.407
+permisos. Y con `SECURITY INVOKER` se conservan, pero entonces no se gana nada
+respecto a lo que ya hay.
+
+Lo que de verdad para una inyección son las **consultas parametrizadas**, y ya
+están: se revisaron las 26 concatenaciones que hay en el código y **todas** son
+enteros (`idUsuarioActual`) o una constante; ninguna mete texto de usuario en
+una sentencia. Los procedimientos no protegen de eso por sí solos — uno que
+concatene es igual de vulnerable.
+
+> **Coste que se evitó:** ~250 consultas (155 métodos de repositorio, 52
+> `@Query`, 26 `createNativeQuery`, 15 por `JdbcTemplate`), 40 entidades JPA,
+> perder `ddl-auto=validate` —que es lo que cazó los errores de mapeo de la
+> F84— y rehacer las 199 pruebas.
+
+#### Pero la sospecha encontró dos agujeros de verdad
+
+Los dos son de **reconocimiento**: no dejan entrar, pero le dibujan el mapa a
+quien lo intente. Y eso era exactamente la preocupación del dueño, solo que
+apuntando a otro sitio.
+
+**1. `/v3/api-docs` y el Swagger UI estaban abiertos sin contraseña.** Devolvían
+**200 y 117 KB** con los **130 endpoints**, sus parámetros y los nombres de
+todos los campos — `password`, `numeroDocumento` y `tipoDocumento` incluidos.
+Estaban en `permitAll()` en **todos** los perfiles. Ahora:
+
+- `application.properties` apaga springdoc por omisión; `application-dev.properties`
+  lo enciende, que es donde sirve.
+- `SecurityConfig` condiciona el `permitAll` al perfil `dev`.
+
+Dos cierres independientes, porque uno solo se olvida. **Comprobado**: con el
+perfil normal devuelven 401; arrancando con `-Dspring-boot.run.profiles=local,dev`
+vuelven a 200.
+
+**2. El asistente mandaba el SQL a quien no debía verlo.** La pantalla lo
+escondía (`*ngIf="isAdmin"`), pero **el servidor lo enviaba igual**: cualquiera
+con `ia:consultar` —hoy también el Supervisor E-Commerce— podía leerlo en la
+respuesta con las herramientas del navegador. **Esconder en el navegador no es
+esconder.** Y ese SQL es lo único de todo el sistema que enseña nombres de
+tablas y columnas de verdad. Ahora se recorta en el servidor; el administrador
+lo sigue recibiendo, que es quien debe poder comprobar qué se ejecutó.
 
 ### Spring Boot 3.2 se quedó sin soporte gratuito
 

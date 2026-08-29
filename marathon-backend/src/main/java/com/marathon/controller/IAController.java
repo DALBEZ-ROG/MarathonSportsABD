@@ -42,8 +42,42 @@ public class IAController {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(apagado);
         }
 
-        Usuario usuario = (Usuario) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        return ResponseEntity.ok(iaService.consultar(request.getPregunta(), usuario.getIdUsuario()));
+        var autenticacion = SecurityContextHolder.getContext().getAuthentication();
+        Usuario usuario = (Usuario) autenticacion.getPrincipal();
+        IAResponseDTO respuesta = iaService.consultar(request.getPregunta(), usuario.getIdUsuario());
+
+        return ResponseEntity.ok(ocultarSqlSalvoAlAdministrador(respuesta, autenticacion));
+    }
+
+    /**
+     * El SQL generado solo viaja si quien pregunta es administrador (F87).
+     *
+     * <p><b>El problema que cierra.</b> La pantalla ya lo escondia
+     * —{@code *ngIf="isAdmin"}—, pero eso no esconde nada: el servidor lo
+     * mandaba igual, y cualquiera con {@code ia:consultar} —hoy tambien el
+     * Supervisor E-Commerce— podia leerlo en la respuesta con las herramientas
+     * del navegador. <b>Y este SQL es lo unico de todo el sistema que enseña
+     * nombres de tablas y columnas de verdad</b>: el resto de endpoints
+     * devuelven objetos JSON que no se parecen al esquema.
+     *
+     * <p>Al administrador se le sigue dando, y con motivo: es quien tiene que
+     * poder comprobar que la consulta que se ejecuto es la que dice que ejecuto.
+     *
+     * <p>Es visible para las pruebas a proposito: comprobarlo por
+     * {@code consultar()} obligaria a llamar al modelo de verdad.
+     */
+    IAResponseDTO ocultarSqlSalvoAlAdministrador(
+            IAResponseDTO respuesta,
+            org.springframework.security.core.Authentication autenticacion) {
+
+        // Ojo: el rol viaja como autoridad ROLE_ADMINISTRADOR, en mayusculas.
+        boolean esAdministrador = autenticacion != null && autenticacion.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority()));
+
+        if (!esAdministrador) {
+            respuesta.setSql(null);
+        }
+        return respuesta;
     }
 
     /**
