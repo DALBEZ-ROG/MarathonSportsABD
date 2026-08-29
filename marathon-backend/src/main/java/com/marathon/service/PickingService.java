@@ -205,6 +205,12 @@ public class PickingService {
         if (cliente != null) {
             dto.setClienteNombre(cliente.getNombre());
             dto.setClienteApellido(cliente.getApellido());
+            // F77: a donde va. El empaque lo proponia preguntandolo; ya estaba
+            // en la ficha del cliente desde que se creo el pedido.
+            if (cliente.getCiudad() != null) {
+                dto.setCiudadDestino(cliente.getCiudad().getNombre());
+                dto.setRegionDestino(cliente.getCiudad().getRegion());
+            }
         }
         dto.setFechaPedido(pedido.getFechaPedido());
         dto.setEstado(pedido.getEstado());

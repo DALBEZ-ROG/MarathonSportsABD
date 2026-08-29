@@ -22,6 +22,19 @@ public class Ciudad {
     @Column(name = "estado", nullable = false)
     private String estado;
 
+    /**
+     * Region natural a la que pertenece la ciudad (F77): Costa, Sierra, Oriente
+     * o Insular.
+     *
+     * <p><b>Vive aqui y no en el pedido</b>, que es donde estaba antes. La
+     * region de destino se tecleaba a mano en cada empaque cuando ya se sabia:
+     * el pedido tiene cliente, el cliente tiene ciudad, y la ciudad esta en una
+     * region. Pedir a mano un dato deducible es la forma segura de que acabe mal
+     * escrito.
+     */
+    @Column(name = "region", length = 20)
+    private String region;
+
     public Ciudad() {}
 
     public Integer getIdCiudad() { return idCiudad; }
@@ -29,6 +42,9 @@ public class Ciudad {
 
     public String getNombre() { return nombre; }
     public void setNombre(String nombre) { this.nombre = nombre; }
+
+    public String getRegion() { return region; }
+    public void setRegion(String region) { this.region = region; }
 
     public String getEstado() { return estado; }
     public void setEstado(String estado) { this.estado = estado; }

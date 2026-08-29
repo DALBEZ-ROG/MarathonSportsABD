@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { ModalSeguroDirective } from '../../../shared/directives/modal-seguro.directive';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
 
 interface PickingPedido {
   idPedido: number;
@@ -15,6 +16,16 @@ interface PickingPedido {
   totalLineas: number;
   lineasCompletadas: number;
   estadoPicking: string;
+  /** F77: a donde va, sacado de la ciudad del cliente. */
+  ciudadDestino?: string;
+  regionDestino?: string;
+}
+
+interface Transportista {
+  idTransportista: number;
+  nombre: string;
+  cobertura: string;
+  etiqueta?: string;
 }
 
 interface PageResponse<T> {
@@ -28,7 +39,7 @@ interface PageResponse<T> {
 @Component({
   selector: 'app-empaque-lista',
   standalone: true,
-  imports: [CommonModule, FormsModule, ModalSeguroDirective],
+  imports: [CommonModule, FormsModule, ModalSeguroDirective, SearchableSelectComponent],
   template: `
     <div class="empaque-container">
       <div class="toolbar">
@@ -42,15 +53,19 @@ interface PageResponse<T> {
            reciente primero, que es el que acabas de recoger (F52, D-42). -->
       <table class="data-table" *ngIf="!loading && pedidos.length > 0">
         <thead>
-          <tr><th>Pedido</th><th>Cliente</th><th>Fecha</th><th>Líneas</th><th>Estado</th><th></th></tr>
+          <tr><th>Pedido</th><th>Cliente</th><th>Destino</th><th>Fecha</th><th>Líneas</th><th></th></tr>
         </thead>
         <tbody>
           <tr *ngFor="let p of pedidos">
             <td class="nowrap"><strong>{{p.numeroPedido || ('# ' + p.idPedido)}}</strong></td>
             <td>{{p.clienteNombre}} {{p.clienteApellido}}</td>
+            <td class="nowrap">
+              <span *ngIf="p.ciudadDestino">{{p.ciudadDestino}}</span>
+              <span class="reg" *ngIf="p.regionDestino">{{p.regionDestino}}</span>
+              <span class="sin" *ngIf="!p.ciudadDestino">sin ciudad</span>
+            </td>
             <td class="nowrap">{{p.fechaPedido | date:'dd/MM/yyyy HH:mm'}}</td>
             <td class="nowrap">{{p.lineasCompletadas}} / {{p.totalLineas}} recogidas</td>
-            <td><span class="estado-badge">PICKING COMPLETO</span></td>
             <td class="actions">
               <button class="btn-empacar" (click)="abrirModal(p)">Confirmar empaque</button>
             </td>
@@ -61,44 +76,84 @@ interface PageResponse<T> {
 
       <!-- Modal -->
       <div class="modal-overlay" *ngIf="modalAbierto && seleccionado" appModalSeguro (cerrar)="cerrarModal()">
-        <div class="modal" (click)="$event.stopPropagation()">
-          <h3>Confirmar empaque — Pedido #{{seleccionado.idPedido}}</h3>
+        <div class="modal emp" (click)="$event.stopPropagation()">
 
-          <div class="form-group">
+          <header class="emp-cab">
+            <div>
+              <h3>Empacar {{seleccionado.numeroPedido || ('pedido #' + seleccionado.idPedido)}}</h3>
+              <p class="emp-sub">
+                {{seleccionado.clienteNombre}} {{seleccionado.clienteApellido}}
+                <span class="sep">·</span> {{seleccionado.totalLineas}}
+                {{seleccionado.totalLineas === 1 ? 'línea' : 'líneas'}} recogidas
+              </p>
+            </div>
+          </header>
+
+          <!-- Lo que de verdad pasa al pulsar el botón. Antes no lo decía nada,
+               y no es poco: descuenta el stock y da el pedido por enviado. -->
+          <p class="emp-aviso">
+            Al confirmar se <strong>descuenta el stock</strong> de las bodegas de
+            donde se recogió, se sueltan las reservas y el pedido pasa a
+            <strong>enviado</strong>. No se deshace desde aquí.
+          </p>
+
+          <div class="emp-campo">
             <label>Número HU</label>
-            <div class="hu-row">
-              <input type="text" [(ngModel)]="form.numeroHu" placeholder="HU-AAAAMMDD-001" maxlength="50">
-              <button type="button" class="btn-gen" (click)="generarHu()">Generar HU automático</button>
+            <p class="emp-ayuda">
+              <strong>HU es «Handling Unit»: la etiqueta del bulto</strong> que sale
+              del almacén — la caja, no el pedido. Es lo que se pega encima y por lo
+              que se pregunta si algo se pierde. Va propuesto con el número del
+              pedido y la fecha; cámbialo solo si el bulto ya trae otra etiqueta.
+            </p>
+            <div class="hu-fila">
+              <input type="text" [(ngModel)]="form.numeroHu" maxlength="50" class="hu-caja"/>
+              <button type="button" class="hu-otra" (click)="generarHu()">Proponer otro</button>
             </div>
           </div>
 
-          <div class="form-group">
+          <div class="emp-campo">
             <label>Transportista</label>
-            <input type="text" [(ngModel)]="form.transportista" placeholder="Transportista" maxlength="100">
+            <p class="emp-ayuda">Quién se lleva el bulto. Sale del catálogo, no se escribe a mano.</p>
+            <app-searchable-select
+              [items]="transportistas"
+              labelKey="etiqueta"
+              valueKey="nombre"
+              placeholder="Escribe el nombre del transportista…"
+              [(ngModel)]="form.transportista"
+              [ngModelOptions]="{ standalone: true }"/>
           </div>
 
-          <div class="form-group">
-            <label>Región destino</label>
-            <input type="text" [(ngModel)]="form.regionDestino" placeholder="Región destino" maxlength="100">
+          <div class="emp-campo">
+            <label>Región de destino</label>
+            <p class="emp-ayuda">
+              La zona del país a la que va, y <strong>sale sola de la ciudad del
+              cliente</strong>: ya no se teclea. Cámbiala solo si el bulto va a
+              otro sitio distinto de la dirección del cliente.
+            </p>
+            <div class="destino" *ngIf="seleccionado.ciudadDestino">
+              Va a <strong>{{seleccionado.ciudadDestino}}</strong>, que está en la
+              <strong>{{seleccionado.regionDestino || 'región sin clasificar'}}</strong>.
+            </div>
+            <div class="regiones">
+              <button type="button" class="reg-btn" *ngFor="let r of regiones"
+                      [class.on]="form.regionDestino === r"
+                      (click)="form.regionDestino = r">{{r}}</button>
+            </div>
           </div>
 
-          <div class="form-group">
-            <label>Observación</label>
-            <textarea [(ngModel)]="form.observacion" rows="2" placeholder="Observación (opcional)"></textarea>
-          </div>
-
-          <div class="resumen">
-            <h4>Resumen del pedido</h4>
-            <p><strong>Cliente:</strong> {{seleccionado.clienteNombre}} {{seleccionado.clienteApellido}}</p>
-            <p><strong>Líneas:</strong> {{seleccionado.totalLineas}}</p>
+          <div class="emp-campo">
+            <label>Observación <span class="opc">opcional</span></label>
+            <textarea [(ngModel)]="form.observacion" rows="2"
+                      placeholder="Algo que deba saber quien reciba el bulto…"></textarea>
           </div>
 
           <div class="modal-actions">
             <button class="btn-cancel" (click)="cerrarModal()">Cancelar</button>
             <button class="btn-confirm" (click)="confirmar()" [disabled]="enviando || !formValido()">
-              {{ enviando ? 'Procesando...' : 'Confirmar empaque' }}
+              {{ enviando ? 'Procesando…' : 'Confirmar empaque y enviar' }}
             </button>
           </div>
+          <p class="falta-algo" *ngIf="!formValido()">{{ queFalta() }}</p>
         </div>
       </div>
 
@@ -114,7 +169,72 @@ interface PageResponse<T> {
     </div>
   `,
   styles: [`
-    /* Inherits global dark theme from styles.scss */
+    /* ── Destino en el listado (F77) ───────────────────────────── */
+    .reg { display: inline-block; margin-left: .4rem; font-size: .68rem;
+           text-transform: uppercase; letter-spacing: .04em;
+           color: var(--ms-text-muted); background: rgba(255,255,255,0.06);
+           padding: .1rem .35rem; border-radius: 4px; }
+    .sin { color: rgba(255,255,255,0.3); font-style: italic; font-size: .84rem; }
+
+    /* ── El modal ──────────────────────────────────────────────── */
+    .emp { max-width: 620px; width: 100%; }
+    .emp-cab { margin-bottom: 1rem; }
+    .emp-cab h3 { margin: 0 0 .25rem; }
+    .emp-sub { margin: 0; color: var(--ms-text-muted); font-size: .88rem; }
+    .sep { margin: 0 .35rem; }
+
+    .emp-aviso { margin: 0 0 1.4rem; padding: .8rem 1rem; font-size: .82rem;
+                 line-height: 1.6; color: var(--ms-text-muted);
+                 background: var(--ms-gold-dim);
+                 border: 1px solid rgba(201,168,76,.3);
+                 border-radius: var(--ms-radius-sm); }
+    .emp-aviso strong { color: var(--ms-gold-light); }
+
+    .emp-campo { margin-bottom: 1.4rem; }
+    .emp-campo > label { display: block; font-size: .8rem; font-weight: 600;
+                         color: var(--ms-text); margin-bottom: .3rem; }
+    .opc { font-weight: 400; font-size: .72rem; color: var(--ms-text-muted); }
+    .emp-ayuda { margin: 0 0 .6rem; font-size: .78rem; line-height: 1.6;
+                 color: var(--ms-text-muted); }
+    .emp-ayuda strong { color: rgba(255,255,255,0.85); }
+
+    .hu-fila { display: flex; gap: .5rem; align-items: stretch; }
+    .hu-caja { flex: 1; min-width: 0; font-family: var(--ms-font-mono, monospace);
+               letter-spacing: .02em; }
+    .hu-otra { flex-shrink: 0; background: transparent;
+               border: 1px solid var(--ms-border); color: var(--ms-text-muted);
+               padding: .5rem .9rem; border-radius: var(--ms-radius-sm);
+               font-size: .8rem; cursor: pointer; font-family: inherit; }
+    .hu-otra:hover { border-color: var(--ms-gold); color: var(--ms-gold); }
+
+    /* La caja de observación se quedaba del tamaño por defecto del navegador
+       —dos renglones estrechos— porque aquí no hay .form-group que la vista. */
+    .emp-campo textarea { width: 100%; box-sizing: border-box; padding: .7rem 1rem;
+                          font-family: inherit; font-size: .9rem; resize: vertical;
+                          background: var(--ms-bg-input, #1e2430); color: var(--ms-text);
+                          border: 1px solid var(--ms-border);
+                          border-radius: var(--ms-radius-sm); }
+    .emp-campo textarea::placeholder { color: var(--ms-text-muted); }
+
+    .destino { font-size: .84rem; color: var(--ms-text-muted); line-height: 1.6;
+               margin-bottom: .6rem; }
+    .destino strong { color: var(--ms-text); }
+
+    .regiones { display: flex; gap: .4rem; flex-wrap: wrap; }
+    .reg-btn { flex: 1; min-width: 92px; background: rgba(255,255,255,0.03);
+               border: 1px solid var(--ms-border); color: var(--ms-text-muted);
+               padding: .55rem .5rem; border-radius: var(--ms-radius-sm);
+               font-size: .84rem; cursor: pointer; font-family: inherit;
+               transition: all .15s ease; }
+    .reg-btn:hover { border-color: rgba(255,255,255,0.25); color: var(--ms-text); }
+    .reg-btn.on { background: var(--ms-gold-dim); border-color: var(--ms-gold);
+                  color: var(--ms-gold-light); font-weight: 600; }
+
+    .falta-algo { margin: .7rem 0 0; font-size: .78rem; color: #fbbf24;
+                  text-align: right; }
+
+    /* La lista del buscador no puede quedar por detrás del campo siguiente. */
+    .emp-campo:has(.search-select.open) { position: relative; z-index: 60; }
   `]
 })
 export class EmpaqueListaComponent implements OnInit {
@@ -131,9 +251,32 @@ export class EmpaqueListaComponent implements OnInit {
   toastError = false;
   form = { numeroHu: '', transportista: '', regionDestino: '', observacion: '' };
 
+  /** El catálogo de la F77. Antes el transportista se escribía a mano. */
+  transportistas: Transportista[] = [];
+
+  /** Las cuatro regiones naturales del Ecuador; el CHECK de ciudad.region no admite otras. */
+  readonly regiones = ['Costa', 'Sierra', 'Oriente', 'Insular'];
+
   constructor(private http: HttpClient) {}
 
-  ngOnInit() { this.cargar(); }
+  ngOnInit() {
+    this.cargar();
+    this.cargarTransportistas();
+  }
+
+  cargarTransportistas() {
+    this.http.get<Transportista[]>(`${environment.apiUrl}/transportistas/activos`).subscribe({
+      next: res => {
+        // La etiqueta lleva la cobertura porque es lo que decide la elección:
+        // saber el nombre no dice si llega al Oriente.
+        this.transportistas = (res ?? []).map(t => ({
+          ...t,
+          etiqueta: t.cobertura ? `${t.nombre} · ${t.cobertura}` : t.nombre
+        }));
+      },
+      error: () => { this.transportistas = []; }
+    });
+  }
 
   /**
    * Cola de empaque (F52, D-42).
@@ -171,6 +314,10 @@ export class EmpaqueListaComponent implements OnInit {
   abrirModal(p: PickingPedido) {
     this.seleccionado = p;
     this.form = { numeroHu: '', transportista: '', regionDestino: '', observacion: '' };
+    // La HU y la región vienen puestas: las dos se pueden deducir, y pedirlas en
+    // blanco solo conseguía que se tecleara cualquier cosa.
+    this.generarHu();
+    this.form.regionDestino = p.regionDestino || '';
     this.modalAbierto = true;
   }
 
@@ -179,15 +326,59 @@ export class EmpaqueListaComponent implements OnInit {
     this.seleccionado = null;
   }
 
+  /**
+   * Propone la etiqueta del bulto.
+   *
+   * <p>Antes era `HU-<fecha>-<3 dígitos al azar>`, y el azar de tres cifras
+   * choca consigo mismo con muy pocos bultos el mismo día — sin decir nada,
+   * porque la columna no es única. Ahora lleva <b>el número del pedido</b>, que
+   * es lo que hace falta cuando alguien llama preguntando por una caja, y el
+   * sufijo solo distingue un segundo bulto del mismo pedido.
+   */
   generarHu() {
+    if (!this.seleccionado) { return; }
     const d = new Date();
     const fecha = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-    const sec = String(Math.floor(Math.random() * 999) + 1).padStart(3, '0');
-    this.form.numeroHu = `HU-${fecha}-${sec}`;
+    const num = String(this.seleccionado.idPedido).padStart(6, '0');
+    const previo = this.form.numeroHu;
+    let sufijo = 1;
+    // «Proponer otro» tiene que dar otro distinto, no el mismo.
+    do {
+      this.form.numeroHu = `HU-${num}-${fecha}` + (sufijo > 1 ? `-${sufijo}` : '');
+      sufijo++;
+    } while (this.form.numeroHu === previo && sufijo < 100);
+  }
+
+  /**
+   * Ojo: los campos pueden ser NULOS, no solo cadenas vacias.
+   *
+   * <p>El buscador avisa con `null` a cada letra —lo escrito a medias todavia
+   * no es una eleccion—, asi que `form.transportista` vale null mientras se
+   * teclea. Con `.trim()` directo, esta funcion reventaba DENTRO de la
+   * plantilla, y una excepcion ahi **aborta la deteccion de cambios entera**:
+   * la lista del buscador se quedaba congelada enseñando los siete
+   * transportistas por mucho que se filtrara. El sintoma no se parecia en nada
+   * a la causa.
+   */
+  private lleno(v: string | null | undefined): boolean {
+    return !!(v || '').trim();
   }
 
   formValido(): boolean {
-    return !!this.form.numeroHu.trim() && !!this.form.transportista.trim() && !!this.form.regionDestino.trim();
+    return this.lleno(this.form.numeroHu)
+        && this.lleno(this.form.transportista)
+        && this.lleno(this.form.regionDestino);
+  }
+
+  /** Decir qué falta, en vez de dejar el botón apagado sin explicación. */
+  queFalta(): string {
+    const faltan: string[] = [];
+    if (!this.lleno(this.form.numeroHu)) { faltan.push('el número HU'); }
+    if (!this.lleno(this.form.transportista)) { faltan.push('el transportista'); }
+    if (!this.lleno(this.form.regionDestino)) { faltan.push('la región de destino'); }
+    if (!faltan.length) { return ''; }
+    return 'Falta ' + (faltan.length === 1 ? faltan[0]
+        : faltan.slice(0, -1).join(', ') + ' y ' + faltan[faltan.length - 1]) + '.';
   }
 
   confirmar() {

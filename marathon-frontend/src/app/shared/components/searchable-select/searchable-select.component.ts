@@ -94,9 +94,26 @@ export class SearchableSelectComponent implements ControlValueAccessor {
     else if (event.key === 'Escape') this.cerrar();
   }
   cerrar(): void { this.abierto = false; this.indiceActivo = -1; this.onTouched(); }
+  /**
+   * Pinta en la caja lo que corresponda al valor que llega de fuera.
+   *
+   * <p><b>Ojo con el borrado de lo tecleado (F77).</b> Cada letra llama a
+   * {@link alEscribir}, que avisa al padre con `null` porque lo escrito a
+   * medias todavia no es una eleccion. Si el modelo del padre no era ya nulo
+   * —por ejemplo, si arranca como cadena vacia—, ese null lo CAMBIA, Angular
+   * responde llamando aqui, y la busqueda se borraba: la lista volvia entera a
+   * la primera letra y filtrar era imposible. Pasaba en el empaque y no en el
+   * picking solo porque alli el modelo ya nacia nulo.
+   *
+   * <p>Por eso, mientras la lista esta abierta —es decir, mientras se esta
+   * escribiendo— un valor sin correspondencia NO borra lo tecleado. Con la
+   * lista cerrada si: ahi el nulo viene de fuera de verdad, y significa
+   * limpiar.
+   */
   writeValue(value: any): void {
     const item = this.items.find(opcion => this.valueKey ? opcion?.[this.valueKey] === value : opcion === value);
-    this.busqueda = item ? this.etiqueta(item) : '';
+    if (item) { this.busqueda = this.etiqueta(item); return; }
+    if (!this.abierto) { this.busqueda = ''; }
   }
   registerOnChange(fn: (value: any) => void): void { this.onChange = fn; }
   registerOnTouched(fn: () => void): void { this.onTouched = fn; }

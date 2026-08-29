@@ -558,7 +558,16 @@ entera. Cuando las líneas están todas completas, la pantalla te manda a Empaqu
 ### 6.2 · Empaque
 
 **Empaque** → la lista de pedidos listos, **el más reciente primero** → confirmas
-el empaque e indicas el **número HU** (la etiqueta del bulto).
+el empaque. La ventana pide tres cosas, y dos vienen ya puestas:
+
+| | qué es | de dónde sale |
+|---|---|---|
+| **Número HU** | *Handling Unit*: la etiqueta del **bulto** que sale del almacén —la caja, no el pedido—. Es lo que se pega encima y por lo que se pregunta si algo se pierde. | Propuesto con el número del pedido y la fecha. Cámbialo solo si el bulto ya trae otra etiqueta. |
+| **Transportista** | Quién se lleva el bulto. | Se escribe y se elige del catálogo; cada opción dice su cobertura, porque saber el nombre no dice si llega al Oriente. |
+| **Región de destino** | La zona del país a la que va. | **Sale sola de la ciudad del cliente.** Cámbiala solo si el bulto va a otro sitio distinto de la dirección del cliente. |
+
+La lista de pedidos enseña también **a qué ciudad va cada uno**, para poder
+agrupar los que salen para el mismo lado.
 
 > ### Confirmar el empaque es el momento en que todo se hace real
 >

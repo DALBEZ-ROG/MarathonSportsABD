@@ -9,6 +9,9 @@ public class PickingPedidoDTO {
     private String numeroPedido;
     private String clienteNombre;
     private String clienteApellido;
+    /** A donde va el bulto (F77): sale del cliente, no se teclea. */
+    private String ciudadDestino;
+    private String regionDestino;
     private LocalDateTime fechaPedido;
     private String estado;
     private Boolean esPedidoEspecial;
@@ -33,6 +36,12 @@ public class PickingPedidoDTO {
 
     public String getClienteApellido() { return clienteApellido; }
     public void setClienteApellido(String clienteApellido) { this.clienteApellido = clienteApellido; }
+
+    public String getCiudadDestino() { return ciudadDestino; }
+    public void setCiudadDestino(String v) { this.ciudadDestino = v; }
+
+    public String getRegionDestino() { return regionDestino; }
+    public void setRegionDestino(String v) { this.regionDestino = v; }
 
     public LocalDateTime getFechaPedido() { return fechaPedido; }
     public void setFechaPedido(LocalDateTime fechaPedido) { this.fechaPedido = fechaPedido; }

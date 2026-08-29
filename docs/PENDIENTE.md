@@ -53,6 +53,7 @@ A las fases 47-59 se suman ahora:
 | **F74** | Picking y detalle del pedido rehechos: se acaban los recuadros encimados, y el picking **dice en qué bodega está** la mercancía |
 | **F75** | La bodega del picking **se escribe**, con el mismo buscador que el resto de la aplicación |
 | **F76** | El buscador compartido trae **su propio tamaño**: en picking medía 19 px y en el resto 44 |
+| **F77** | Qué es el **HU**, catálogo de **transportistas**, y la **región sale de la ciudad del cliente** en vez del teclado |
 
 ---
 
@@ -759,6 +760,67 @@ en las tres, exactamente lo que valían antes las otras dos.
 > **Un `line-height` de más las subió a 45 px**, es decir, cambió pantallas que
 > nadie había tocado. Un componente compartido se toca midiendo antes y después
 > **en todas** las pantallas que lo usan, no solo en la que se está arreglando.
+
+### F77 · El empaque preguntaba tres cosas que no debía preguntar así
+
+Tres preguntas del dueño delante de la ventana de confirmar empaque, y las tres
+destapaban algo.
+
+**«¿Qué es número HU?»** *Handling Unit*: la etiqueta del **bulto** que sale del
+almacén —la caja, no el pedido—. Es lo que se pega encima y por lo que se
+pregunta si algo se pierde. **No lo decía ningún sitio.** Ahora lo explica la
+propia ventana, y el número viene propuesto: antes era `HU-<fecha>-<3 cifras al
+azar>`, que choca consigo mismo con muy pocos bultos el mismo día y **sin avisar**,
+porque la columna no es única. Ahora lleva el número del pedido, que es lo que
+hace falta cuando alguien llama preguntando por una caja.
+
+**«¿Los transportistas se pueden buscar por escrito, o no hay transportista en la
+bd?»** No lo había. `pedido.transportista` era un `VARCHAR(100)` libre escrito a
+mano: en 19.000 pedidos, **un solo valor**, de una prueba. Con texto libre
+«Servientrega», «servientrega» y «Servi entrega» son tres transportistas para
+cualquier consulta, y no se puede responder «cuánto mandamos por cada uno» sin
+adivinar. Ahora hay catálogo, se elige escribiendo, y cada opción dice su
+cobertura —saber el nombre no dice si llega al Oriente—.
+
+> **El catálogo es de solo lectura desde la aplicación**, y es deliberado: dar de
+> alta un transportista es una decisión de negocio, no una casilla de la pantalla
+> de almacén. La F77 concede `SELECT` y nada más, así que la base rechaza un
+> INSERT aunque lo intente el usuario administrador. Administrarlo desde la
+> interfaz será otra fase, con su permiso y sus privilegios.
+
+**«¿Región de destino qué es? ¿No sería la ciudad del cliente que lo pidió?»**
+Tenía razón, y era el fallo de modelado más gordo de los tres: **se tecleaba un
+dato que ya se sabía**. El pedido tiene cliente, el cliente tiene ciudad, y la
+ciudad está en una región. Pedir a mano algo deducible es la forma segura de que
+acabe mal escrito.
+
+La región no es del pedido: **es de la ciudad**. Por eso la columna va en
+`ciudad`, se rellenó una vez para las 88, y el empaque la propone en lugar de
+preguntarla. Sigue siendo editable, porque un bulto puede mandarse a otro sitio,
+pero el caso normal deja de teclearse.
+
+> **Clasificar las 88 ciudades no es inventar un dato**: la región natural de una
+> ciudad ecuatoriana es un hecho geográfico. El criterio es la **provincia** del
+> cantón, para que la zona de reparto cuadre con la división administrativa —por
+> eso Puerto Quito queda en Sierra (Pichincha) y La Concordia en Costa (Santo
+> Domingo), aunque las dos estén en tierras bajas—. Salieron 47 Costa, 30 Sierra
+> y 11 Oriente; ninguna sin clasificar, y el script falla si queda alguna.
+
+**El fallo que costó una hora, y la lección.** Al probar el buscador de
+transportista, la lista **no filtraba**: se escribía «laar» y seguían saliendo los
+siete. El estado interno del componente era correcto —`busqueda: "laar"`,
+`filtradas: 1`— pero la pantalla no se repintaba.
+
+La causa no estaba ni en el buscador ni en el filtro: `formValido()` hacía
+`this.form.transportista.trim()`, y el buscador pone ese valor a `null` en cada
+letra —lo escrito a medias todavía no es una elección—. `null.trim()` lanzaba
+dentro de la **plantilla**, y una excepción ahí **aborta la detección de cambios
+entera**: el resto de la vista se queda congelado. El síntoma —«el filtro no
+filtra»— no se parecía en nada a la causa —«una validación no admite nulos»—.
+
+> **Lo que lo encontró fue mirar la consola del navegador**, no leer el código:
+> el error estaba ahí desde el principio, en rojo, diciendo exactamente qué línea.
+> Antes de teorizar sobre change detection, léela.
 
 ---
 
