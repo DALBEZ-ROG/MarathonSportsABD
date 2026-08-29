@@ -8,7 +8,15 @@
 > Todo lo que dice este documento está **sacado del código y de la base**, no de
 > lo que parece razonable. Cada regla se puede rastrear al fichero que la aplica.
 >
-> Escrito el **2026-08-28**.
+> Escrito el **2026-08-28**, revisado el **2026-08-29**.
+
+> **Versión web, para compartir con el equipo:**
+> <https://claude.ai/code/artifact/327c4d9b-3c9f-4398-a3ae-96a58c49448e>
+>
+> Es el resumen navegable de este mismo documento —las ocho estaciones, la tabla
+> de quién hace qué, el recorrido de una sentada y los mensajes que frenan—.
+> **Este fichero sigue siendo el que manda**: se mantiene junto al código y tiene
+> el detalle que la página resume. Si cambia una regla, se cambia aquí primero.
 
 ---
 
