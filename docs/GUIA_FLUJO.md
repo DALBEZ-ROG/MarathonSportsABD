@@ -602,6 +602,17 @@ Cuando el cliente recibe, se pasa el pedido a **`entregado`**
 `pedidos@marathon.com` → **Pedidos → el pedido → Solicitar devolución**
 Indicas motivo (talla incorrecta, defecto…) y las líneas. Nace en **`solicitada`**.
 
+> **Solo sobre un pedido `entregado`.** Hasta que el cliente no lo tiene no hay
+> nada que devolver, y la pantalla lo dice al abrirla en vez de dejarte
+> rellenarla para fallar al enviar.
+
+> **Lo devuelto antes gasta cupo.** Si el pedido ya tuvo una devolución, cada
+> línea enseña *comprado · ya devuelto · queda*, y el tope es lo que queda. Las
+> solicitudes **rechazadas no cuentan**: ahí no se llevó mercancía.
+
+Marcar una línea como **producto defectuoso** es lo único que puede acabar en una
+devolución al proveedor (paso 7.2).
+
 ### 7.2 · Inspeccionar — **Operador de Bodega**
 
 `bodega@marathon.com` → **Devoluciones → la solicitud → Iniciar inspección**

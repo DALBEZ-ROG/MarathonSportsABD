@@ -99,12 +99,6 @@ interface PageResponse<T> {
 
           <div class="emp-campo">
             <label>Número HU</label>
-            <p class="emp-ayuda">
-              <strong>HU es «Handling Unit»: la etiqueta del bulto</strong> que sale
-              del almacén — la caja, no el pedido. Es lo que se pega encima y por lo
-              que se pregunta si algo se pierde. Va propuesto con el número del
-              pedido y la fecha; cámbialo solo si el bulto ya trae otra etiqueta.
-            </p>
             <div class="hu-fila">
               <input type="text" [(ngModel)]="form.numeroHu" maxlength="50" class="hu-caja"/>
               <button type="button" class="hu-otra" (click)="generarHu()">Proponer otro</button>
@@ -113,7 +107,6 @@ interface PageResponse<T> {
 
           <div class="emp-campo">
             <label>Transportista</label>
-            <p class="emp-ayuda">Quién se lleva el bulto. Sale del catálogo, no se escribe a mano.</p>
             <app-searchable-select
               [items]="transportistas"
               labelKey="etiqueta"
@@ -125,14 +118,8 @@ interface PageResponse<T> {
 
           <div class="emp-campo">
             <label>Región de destino</label>
-            <p class="emp-ayuda">
-              La zona del país a la que va, y <strong>sale sola de la ciudad del
-              cliente</strong>: ya no se teclea. Cámbiala solo si el bulto va a
-              otro sitio distinto de la dirección del cliente.
-            </p>
             <div class="destino" *ngIf="seleccionado.ciudadDestino">
-              Va a <strong>{{seleccionado.ciudadDestino}}</strong>, que está en la
-              <strong>{{seleccionado.regionDestino || 'región sin clasificar'}}</strong>.
+              Sale de la ciudad del cliente: <strong>{{seleccionado.ciudadDestino}}</strong>.
             </div>
             <div class="regiones">
               <button type="button" class="reg-btn" *ngFor="let r of regiones"
@@ -194,9 +181,6 @@ interface PageResponse<T> {
     .emp-campo > label { display: block; font-size: .8rem; font-weight: 600;
                          color: var(--ms-text); margin-bottom: .3rem; }
     .opc { font-weight: 400; font-size: .72rem; color: var(--ms-text-muted); }
-    .emp-ayuda { margin: 0 0 .6rem; font-size: .78rem; line-height: 1.6;
-                 color: var(--ms-text-muted); }
-    .emp-ayuda strong { color: rgba(255,255,255,0.85); }
 
     .hu-fila { display: flex; gap: .5rem; align-items: stretch; }
     .hu-caja { flex: 1; min-width: 0; font-family: var(--ms-font-mono, monospace);

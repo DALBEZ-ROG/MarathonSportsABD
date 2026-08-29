@@ -54,6 +54,7 @@ A las fases 47-59 se suman ahora:
 | **F75** | La bodega del picking **se escribe**, con el mismo buscador que el resto de la aplicación |
 | **F76** | El buscador compartido trae **su propio tamaño**: en picking medía 19 px y en el resto 44 |
 | **F77** | Qué es el **HU**, catálogo de **transportistas**, y la **región sale de la ciudad del cliente** en vez del teclado |
+| **F78** | La devolución dice **antes** lo que la base exige: pedido entregado, y lo ya devuelto gasta cupo |
 
 ---
 
@@ -821,6 +822,44 @@ filtra»— no se parecía en nada a la causa —«una validación no admite nul
 > **Lo que lo encontró fue mirar la consola del navegador**, no leer el código:
 > el error estaba ahí desde el principio, en rojo, diciendo exactamente qué línea.
 > Antes de teorizar sobre change detection, léela.
+
+### F78 · La devolución dejaba rellenarlo todo para fallar al enviar
+
+Dos casos distintos, la misma causa: **la pantalla enseñaba menos de lo que la
+base exige**.
+
+**Uno. El pedido tiene que estar entregado**, y no lo decía en ninguna parte.
+Sobre un pedido en `procesado` se podía elegir motivo, marcar líneas y pulsar
+«Registrar solicitud» — para recibir un error al final. Ahora, si el pedido no
+está entregado el formulario **no aparece**: en su lugar se explica por qué y qué
+le falta al pedido para llegar ahí, distinto según el estado en que esté.
+
+**Dos. Lo devuelto antes gasta cupo.** La tabla solo enseñaba «cantidad comprada»
+y dejaba escribir hasta ahí, aunque una solicitud anterior ya se hubiera llevado
+media línea. El backend lo rechaza —compara contra el acumulado— pero la pantalla
+lo descubría después de escribirlo. Ahora cada línea dice **comprado · ya
+devuelto · queda**, el tope es lo que queda, y una línea agotada no se puede ni
+marcar.
+
+> **La cuenta se hace con la misma regla que el backend**: cuentan todas las
+> solicitudes menos las `rechazada`, porque en una rechazada no se llevó
+> mercancía. Si las dos cuentas se separan, la pantalla vuelve a ofrecer un tope
+> que el servidor rechaza — que es exactamente el defecto que se estaba
+> arreglando. Sale del listado que ya existía (`/devoluciones?idPedido=`), sin
+> endpoint nuevo.
+
+Lo demás de la pantalla: cabecera con cliente, fecha y estado; los seis motivos
+como tarjetas con lo que significa cada uno; un aviso —solo cuando se elige
+«producto defectuoso»— de que esa es la única causa que puede acabar en devolución
+al proveedor; el resumen de cuántas unidades y líneas van; y una línea diciendo lo
+que esto **no** hace: no devuelve dinero ni mueve stock, es una solicitud que
+bodega inspecciona.
+
+**Y se quitó la explicación de qué es un HU** de la ventana de empaque, a petición
+del dueño: *«ya los que manejan el sistema sabrán eso»*. Tenía razón — una
+definición de término no es ayuda contextual, es ruido para quien usa la pantalla
+todos los días. Lo que sí se queda es lo que la pantalla **hace**: que confirmar
+descuenta stock, y que la región sale de la ciudad del cliente.
 
 ---
 
