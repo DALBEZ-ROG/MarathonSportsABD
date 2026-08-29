@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { RouterLink } from '@angular/router';
 import { environment } from '../../../environments/environment';
 
 interface Categoria { idCategoria: number; nombre: string; }
@@ -51,19 +52,23 @@ interface MateriaPrimaOpt { idMateriaPrima: number; nombre: string; }
 @Component({
   selector: 'app-reportes',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="reportes">
-      <h1>Reportes — Marathon Sports</h1>
+      <header class="rep-cab">
+        <h1>Reportes</h1>
+        <p class="rep-sub">
+          Listados con filtros, para mirarlos aquí o llevárselos en Excel o PDF.
+          Para gráficos y rankings está <a routerLink="/analitica">el análisis del negocio</a>.
+        </p>
+      </header>
 
       <div class="tabs">
-        <button [class.active]="tab==='pedidos'" (click)="cambiarTab('pedidos')">Reporte de Pedidos</button>
-        <button [class.active]="tab==='ventas'" (click)="cambiarTab('ventas')">Ventas por Producto</button>
-        <button [class.active]="tab==='movimientos'" (click)="cambiarTab('movimientos')">Movimientos de Inventario</button>
-        <button [class.active]="tab==='costos'" (click)="cambiarTab('costos')">Costos de Producción</button>
-        <button [class.active]="tab==='consumoMp'" (click)="cambiarTab('consumoMp')">Consumo de Materia Prima</button>
-        <button [class.active]="tab==='eficiencia'" (click)="cambiarTab('eficiencia')">Eficiencia de Producción</button>
+        <button *ngFor="let t of informes" [class.active]="tab===t.clave"
+                (click)="cambiarTab(t.clave)">{{ t.titulo }}</button>
       </div>
+
+      <p class="rep-que" *ngIf="informeActual as inf">{{ inf.contesta }}</p>
 
       <!-- ===================== PANEL DE FILTROS ===================== -->
       <div class="card filtros">
@@ -89,9 +94,14 @@ interface MateriaPrimaOpt { idMateriaPrima: number; nombre: string; }
                 <option value="anulado">Anulado</option>
               </select>
             </div>
-            <div class="campo">
-              <label>Región Destino</label>
-              <input type="text" [(ngModel)]="regionDestino" placeholder="Ej: Sierra">
+            <div class="campo ancho">
+              <label>Región de destino</label>
+              <div class="opciones">
+                <button type="button" class="op" [class.on]="!regionDestino"
+                        (click)="regionDestino = ''">Todas</button>
+                <button type="button" class="op" *ngFor="let r of regiones"
+                        [class.on]="regionDestino === r" (click)="regionDestino = r">{{ r }}</button>
+              </div>
             </div>
           </ng-container>
 
@@ -156,8 +166,12 @@ interface MateriaPrimaOpt { idMateriaPrima: number; nombre: string; }
           </ng-container>
 
           <div class="campo">
-            <label>Límite (máx 1000)</label>
+            <label>Cuántas filas traer</label>
             <input type="number" [(ngModel)]="limite" min="1" max="1000">
+            <small class="pista">
+              Máximo 1000. <strong>También limita lo que se exporta</strong>: si pones
+              100, el Excel trae 100 filas, no todas.
+            </small>
           </div>
         </div>
 
@@ -177,8 +191,26 @@ interface MateriaPrimaOpt { idMateriaPrima: number; nombre: string; }
       </div>
 
       <!-- ===================== TABLA DE RESULTADOS ===================== -->
-      <div class="card" *ngIf="!cargando">
+      <div class="card resultados" *ngIf="!cargando">
         <div class="aviso" *ngIf="aviso">{{ aviso }}</div>
+
+        <div class="resultado-cab" *ngIf="filasTraidas > 0">
+          <span class="r-cifra"><strong>{{ filasTraidas | number }}</strong>
+            {{ filasTraidas === 1 ? 'fila' : 'filas' }}</span>
+          <span class="r-nota" *ngIf="filasTraidas > 100">
+            En pantalla se ven las 100 primeras; la exportación las trae todas
+            (hasta el límite que hayas puesto).
+          </span>
+          <span class="r-nota" *ngIf="filasTraidas === limite">
+            Justo el límite: es posible que haya más y estén quedando fuera.
+          </span>
+        </div>
+
+        <p class="sin-nada" *ngIf="filasTraidas === 0 && consultado">
+          No hay nada que enseñar con esos filtros entre
+          {{ desde || '(sin fecha inicial)' }} y {{ hasta || '(sin fecha final)' }}.
+          Prueba a ensanchar las fechas o a quitar algún filtro.
+        </p>
 
         <!-- PEDIDOS -->
         <table class="tabla" *ngIf="tab==='pedidos' && pedidos.length > 0">
@@ -365,7 +397,50 @@ interface MateriaPrimaOpt { idMateriaPrima: number; nombre: string; }
     </div>
   `,
   styles: [`
-    /* Inherits global dark theme from styles.scss */
+    /* ── Cabecera y explicación (F81) ──────────────────────────── */
+    .rep-cab { margin-bottom: 1.25rem; }
+    .rep-cab h1 { margin: 0 0 .3rem; font-size: 1.7rem; color: var(--ms-text); }
+    .rep-sub { margin: 0; color: var(--ms-text-muted); font-size: .92rem; line-height: 1.6; }
+    .rep-sub a { color: var(--ms-gold); text-decoration: none; }
+    .rep-sub a:hover { text-decoration: underline; }
+
+    /* La pregunta que contesta el informe abierto. Sin esto, seis pestañas
+       son seis nombres y hay que abrirlas para saber cuál sirve. */
+    .rep-que { margin: .9rem 0 1.1rem; padding: .7rem 1rem; font-size: .85rem;
+               line-height: 1.6; color: var(--ms-text-muted);
+               background: rgba(255,255,255,0.02); border-left: 2px solid var(--ms-gold);
+               border-radius: 0 var(--ms-radius-sm) var(--ms-radius-sm) 0; max-width: 90ch; }
+
+    .campo.ancho { grid-column: span 2; min-width: 260px; }
+    .opciones { display: flex; gap: .35rem; flex-wrap: wrap; }
+    .op { background: rgba(255,255,255,0.03); border: 1px solid var(--ms-border);
+          color: var(--ms-text-muted); padding: .5rem .85rem; border-radius: var(--ms-radius-sm);
+          font-size: .82rem; cursor: pointer; font-family: inherit; }
+    .op:hover { border-color: rgba(255,255,255,0.25); color: var(--ms-text); }
+    .op.on { background: var(--ms-gold-dim); border-color: var(--ms-gold);
+             color: var(--ms-gold-light); font-weight: 600; }
+
+    .pista { display: block; margin-top: .35rem; font-size: .72rem; line-height: 1.5;
+             color: var(--ms-text-muted); }
+    .pista strong { color: rgba(255,255,255,0.75); }
+
+    .resultado-cab { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap;
+                     margin-bottom: 1rem; padding-bottom: .8rem;
+                     border-bottom: 1px solid var(--ms-border); }
+    .r-cifra { font-size: .95rem; color: var(--ms-text-muted); }
+    .r-cifra strong { color: var(--ms-gold-light); font-size: 1.2rem; }
+    .r-nota { font-size: .78rem; color: var(--ms-text-muted); }
+
+    .sin-nada { margin: 0; padding: 2.5rem 1rem; text-align: center; font-size: .9rem;
+                line-height: 1.7; color: var(--ms-text-muted); }
+
+    /* La cabecera no se parte: "TRANSPORTIST A" y "DESCUENT O" en dos renglones
+       dejan de ser palabras. El texto de las celdas sí sigue partiendo, que es
+       lo que mantiene la tabla estrecha. */
+    .resultados { overflow-x: auto; }
+    .resultados .tabla th { white-space: nowrap; }
+    .resultados .tabla td.num { white-space: nowrap; }
+
     .ef-alta { color: #4ade80; font-weight: 600; }
     .ef-media { color: #fbbf24; font-weight: 600; }
     .ef-baja { color: #f87171; font-weight: 600; }
@@ -376,6 +451,34 @@ export class ReportesComponent implements OnInit {
   private apiUrl = environment.apiUrl;
 
   tab: 'pedidos' | 'ventas' | 'movimientos' | 'costos' | 'consumoMp' | 'eficiencia' = 'pedidos';
+
+  /**
+   * Qué contesta cada informe (F81).
+   *
+   * <p>Antes las seis pestañas eran seis nombres: para saber cuál servía había
+   * que abrirlas una a una y pulsar «Vista previa». La frase de debajo dice qué
+   * pregunta responde la que está abierta.
+   */
+  readonly informes = [
+    { clave: 'pedidos' as const,     titulo: 'Pedidos',
+      contesta: 'Un pedido por fila, con su cliente, su ciudad, su estado y lo que costó. Sirve para revisar un período concreto o sacar la lista de lo vendido a un cliente.' },
+    { clave: 'ventas' as const,      titulo: 'Ventas por producto',
+      contesta: 'Cuánto se vendió de cada producto, en unidades y en dinero, con el precio medio al que salió. Es el detalle que hay detrás de «lo que más sale».' },
+    { clave: 'movimientos' as const, titulo: 'Movimientos de inventario',
+      contesta: 'Cada entrada, salida, ajuste y traslado de stock, con quién lo hizo y por qué. Es de dónde salen y a dónde van las unidades.' },
+    { clave: 'costos' as const,      titulo: 'Costos de producción',
+      contesta: 'Lo que costó cada orden de producción: materia prima, mano de obra e indirectos, y el coste por unidad que sale de ahí.' },
+    { clave: 'consumoMp' as const,   titulo: 'Consumo de materia prima',
+      contesta: 'Cuánta materia prima se gastó y en cuántas órdenes. Sirve para saber qué hay que reponer antes de que pare la producción.' },
+    { clave: 'eficiencia' as const,  titulo: 'Eficiencia de producción',
+      contesta: 'Lo planificado frente a lo producido en cada orden, con la merma. Por debajo del 80 % sale en rojo.' }
+  ];
+
+  /** Las cuatro regiones del Ecuador; la de destino sale de la ciudad (F77). */
+  readonly regiones = ['Costa', 'Sierra', 'Oriente', 'Insular'];
+
+  /** Si ya se pidió algo: distingue «no hay nada» de «todavía no has buscado». */
+  consultado = false;
 
   // filtros
   desde: string | null = null;
@@ -414,6 +517,35 @@ export class ReportesComponent implements OnInit {
     this.cargarCategorias();
     this.cargarBodegas();
     this.cargarMateriasPrimas();
+    // Un mes por defecto y se busca solo: la pantalla abría en blanco y había
+    // que adivinar que hacía falta pulsar «Vista previa» para ver algo.
+    const hoy = new Date();
+    const hace30 = new Date(hoy.getTime() - 29 * 24 * 3600 * 1000);
+    this.hasta = this.comoFecha(hoy);
+    this.desde = this.comoFecha(hace30);
+    this.vistaPrevia();
+  }
+
+  private comoFecha(d: Date): string {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+         + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  get informeActual() {
+    return this.informes.find(i => i.clave === this.tab);
+  }
+
+  /** Cuántas filas trajo la consulta, sea cual sea la pestaña. */
+  get filasTraidas(): number {
+    switch (this.tab) {
+      case 'pedidos': return this.pedidos.length;
+      case 'ventas': return this.ventas.length;
+      case 'movimientos': return this.movimientos.length;
+      case 'costos': return this.costos.length;
+      case 'consumoMp': return this.consumoMp.length;
+      case 'eficiencia': return this.eficiencia.length;
+      default: return 0;
+    }
   }
 
   cargarMateriasPrimas(): void {
@@ -452,6 +584,10 @@ export class ReportesComponent implements OnInit {
     this.aviso = '';
     this.mensaje = '';
     this.sinDatos = false;
+    this.consultado = false;
+    // Cambiar de informe y quedarse mirando una tabla vacía no tiene sentido:
+    // los filtros comunes -las fechas- siguen valiendo.
+    this.vistaPrevia();
   }
 
   get totalPedidos(): number {
@@ -520,11 +656,15 @@ export class ReportesComponent implements OnInit {
         else if (this.tab === 'eficiencia') { this.eficiencia = datos; }
         else { this.movimientos = datos; }
         this.cargando = false;
+        this.consultado = true;
         this.sinDatos = datos.length === 0;
-        if (datos.length >= 100) {
-          this.aviso = `Mostrando ${Math.min(datos.length, 100)} de ${datos.length} resultados. ` +
-            `El archivo exportado incluirá todos los registros.`;
-        }
+        // El aviso que habia aqui decia que el archivo exportado incluiria
+        // TODOS los registros, y es falso: la exportacion manda el mismo
+        // filtro, con el mismo limite. Quien exportaba con limite 100 se
+        // llevaba un Excel de 100 filas creyendo que estaban todas. Lo que
+        // hace falta decir esta ahora en la cabecera del resultado, y es lo
+        // que de verdad pasa.
+        this.aviso = "";
       },
       error: () => {
         this.cargando = false;

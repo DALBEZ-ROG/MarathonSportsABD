@@ -57,6 +57,7 @@ A las fases 47-59 se suman ahora:
 | **F78** | La devolución dice **antes** lo que la base exige: pedido entregado, y lo ya devuelto gasta cupo |
 | **F79** | La inspección dice **qué hace cada decisión**, y el reembolso enseña su tope en vez de rechazarlo al enviar |
 | **F80** | **Análisis del negocio**: lo más vendido y lo más comprado, quién deja más, en qué región se vende y por qué devuelven |
+| **F81** | Reportes y auditoría: dicen **qué contesta cada uno**, abren con datos, y el aviso de la exportación deja de mentir |
 
 ---
 
@@ -948,6 +949,44 @@ las cifras; y que la serie diaria trae un punto por día.
 > **Es «por categoría» y no «por marca» porque la marca no es una tabla**: vive
 > dentro del texto de la descripción del producto («Marca: NIKE»). Agrupar por un
 > trozo de texto libre sería inventarse una dimensión que el modelo no tiene.
+
+### F81 · Reportes y auditoría: pantallas que no explicaban de qué iban
+
+**Reportes abría en blanco.** Seis pestañas con seis nombres, un panel de filtros
+y nada más: había que adivinar cuál servía, abrirla, y pulsar «Vista previa» para
+ver si traía algo. Ahora abre con **los últimos 30 días ya cargados**, y debajo de
+las pestañas hay una frase que dice **qué pregunta contesta** el informe abierto —
+que es lo que hacía falta para elegir sin abrirlos todos.
+
+**Y había un aviso que mentía.** Cuando la vista previa traía 100 filas o más,
+salía este texto:
+
+> «Mostrando 100 de N resultados. **El archivo exportado incluirá todos los
+> registros.**»
+
+Es **falso**: la exportación manda el mismo filtro, con el mismo `limite`. Quien
+exportaba con el límite en 100 se llevaba un Excel de 100 filas creyendo que
+estaban todas — y un informe incompleto que parece completo es peor que no tener
+informe. Ahora el campo se llama «cuántas filas traer», dice que **también limita
+lo que se exporta**, y cuando el resultado llega justo al límite la pantalla avisa
+de que es posible que haya más quedando fuera.
+
+**La región de destino se escribía a mano** en una caja de texto con el ejemplo
+«Ej: Sierra». Desde la F77 la región es un conjunto cerrado de cuatro valores que
+sale de la ciudad del cliente: ahora son cuatro botones. Escribir «sierra» en
+minúscula no encontraba nada y no lo decía.
+
+**En auditoría se pedía el «Producto ID» a mano**, el mismo defecto que el dueño
+señaló en el movimiento de inventario (F72): nadie se sabe los ids. Ahora es el
+buscador por nombre. Además: atajos de fecha —hoy, 7 días, 30 días, todo—, el
+número de registros que cumplen el filtro, y las acciones que mueven dinero o
+stock —aprobar, anular, reembolsar, liberar reserva— resaltadas, que son las que
+se buscan en una lista de cientos de líneas iguales.
+
+Las dos pestañas dicen ahora qué son. La del historial de inventario dice algo que
+no se ve y que importa: **lo escribe un disparador de la base de datos, no la
+aplicación**, así que aunque alguien tocara el stock por fuera del sistema la fila
+aparecería igual.
 
 ---
 

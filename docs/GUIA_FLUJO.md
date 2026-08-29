@@ -725,6 +725,24 @@ El análisis responde, sobre la ventana que elijas (30 días, 90, 12 meses o tod
 > diferencia es si el hueco se conoce: el día existió, el mes de 2003 no tiene por
 > qué haber existido en la ventana.
 
+**Reportes** (`/reportes`) son los listados con filtros, para mirarlos o
+llevárselos en Excel o PDF. Cada pestaña dice qué contesta, y abre con los últimos
+30 días ya cargados.
+
+> **«Cuántas filas traer» también limita lo que se exporta.** Si lo dejas en 100,
+> el Excel trae 100 filas, no todas. Cuando el resultado llega justo al límite, la
+> pantalla lo avisa.
+
+**Auditoría** (`/auditoria`, solo Administrador) es la traza de quién tocó qué:
+
+| pestaña | qué guarda |
+|---|---|
+| **Historial de inventario** | Cada cambio de stock con su antes y su después. Lo escribe un **disparador de la base de datos**, no la aplicación: aunque alguien tocara el stock por fuera del sistema, la fila aparecería igual. |
+| **Log de acciones** | Quién hizo qué en cada módulo. Las que mueven dinero o stock —aprobar, anular, reembolsar, liberar reserva— salen resaltadas. |
+
+> **No se puede editar ni borrar desde la pantalla**, y es el sentido de tenerla:
+> una traza que se puede arreglar no prueba nada.
+
 ## Tabla rápida: quién hace qué
 
 | Acción | Administrador | Compras | Producción | Bodega | Pedidos | Supervisor |

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 
 interface HistorialItem {
   idHistorial: number; fecha: string; producto: string; bodega: string;
@@ -17,12 +18,15 @@ interface PageResp<T> { content: T[]; totalElements: number; totalPages: number;
 @Component({
   selector: 'app-auditoria',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, SearchableSelectComponent],
   template: `
     <div class="audit-page">
       <header class="audit-header">
         <h1>Auditoría</h1>
-        <p class="audit-subtitle">Control de cambios y actividad del sistema</p>
+        <p class="audit-subtitle">
+          La traza de quién tocó qué, y cuándo. No se puede editar ni borrar desde
+          aquí: para eso sirve — si se pudiera arreglar, no probaría nada.
+        </p>
       </header>
 
       <div class="tabs">
@@ -36,12 +40,28 @@ interface PageResp<T> { content: T[]; totalElements: number; totalPages: number;
         </button>
       </div>
 
+      <p class="audit-que" *ngIf="tab==='historial'">
+        Cada cambio de stock, con el <strong>antes y el después</strong>. Lo escribe
+        un disparador de la base de datos, no la aplicación: aunque alguien tocara el
+        stock por fuera del sistema, la fila aparecería igual.
+      </p>
+      <p class="audit-que" *ngIf="tab==='logs'">
+        Qué hizo cada persona en cada módulo. Aquí no se ven los datos que cambió,
+        se ve <strong>la acción</strong>: quién aprobó, quién anuló, quién reembolsó.
+      </p>
+
       <!-- TAB HISTORIAL -->
       <div *ngIf="tab==='historial'">
         <div class="audit-filters">
-          <div class="filter-field">
-            <label>Producto ID</label>
-            <input type="text" [(ngModel)]="hProductoBusq" placeholder="Opcional..."/>
+          <div class="filter-field ancho">
+            <label>Producto</label>
+            <app-searchable-select
+              [items]="productos"
+              labelKey="nombre"
+              valueKey="idProducto"
+              placeholder="Todos — escribe para filtrar por uno…"
+              [(ngModel)]="hProductoBusq"
+              [ngModelOptions]="{ standalone: true }"/>
           </div>
           <div class="filter-field">
             <label>Bodega</label>
@@ -59,12 +79,23 @@ interface PageResp<T> { content: T[]; totalElements: number; totalPages: number;
             <input type="date" [(ngModel)]="hHasta"/>
           </div>
           <div class="filter-field filter-btn-wrap">
-            <button class="btn-search" (click)="cargarHistorial()">
+            <button class="btn-search" (click)="hPage = 0; cargarHistorial()">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               Buscar
             </button>
           </div>
         </div>
+
+        <div class="atajos">
+          <span>Atajos:</span>
+          <button type="button" *ngFor="let a of atajos"
+                  (click)="aplicarAtajo(a.dias, 'historial')">{{ a.etiqueta }}</button>
+        </div>
+
+        <p class="cuantos" *ngIf="!loadingH && hTotal >= 0">
+          <strong>{{ hTotal | number }}</strong>
+          {{ hTotal === 1 ? 'cambio de stock' : 'cambios de stock' }} con esos filtros.
+        </p>
 
         <div class="spinner" *ngIf="loadingH">Cargando...</div>
 
@@ -130,12 +161,23 @@ interface PageResp<T> { content: T[]; totalElements: number; totalPages: number;
             <input type="date" [(ngModel)]="lHasta"/>
           </div>
           <div class="filter-field filter-btn-wrap">
-            <button class="btn-search" (click)="cargarLogs()">
+            <button class="btn-search" (click)="lPage = 0; cargarLogs()">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               Buscar
             </button>
           </div>
         </div>
+
+        <div class="atajos">
+          <span>Atajos:</span>
+          <button type="button" *ngFor="let a of atajos"
+                  (click)="aplicarAtajo(a.dias, 'logs')">{{ a.etiqueta }}</button>
+        </div>
+
+        <p class="cuantos" *ngIf="!loadingL && lTotal >= 0">
+          <strong>{{ lTotal | number }}</strong>
+          {{ lTotal === 1 ? 'acción registrada' : 'acciones registradas' }} con esos filtros.
+        </p>
 
         <div class="spinner" *ngIf="loadingL">Cargando...</div>
 
@@ -149,7 +191,7 @@ interface PageResp<T> { content: T[]; totalElements: number; totalPages: number;
                 <td class="fecha-col">{{l.fecha | date:'dd/MM/yyyy HH:mm'}}</td>
                 <td>{{l.usuarioNombre ? (l.usuarioNombre+' '+l.usuarioApellido) : '—'}}</td>
                 <td><span class="modulo-badge" [attr.data-modulo]="l.modulo">{{l.modulo}}</span></td>
-                <td><span class="accion-chip">{{l.accion}}</span></td>
+                <td><span class="accion-chip" [class.sensible]="esSensible(l.accion)">{{l.accion}}</span></td>
                 <td class="desc-col">{{l.descripcion}}</td>
                 <td class="ip-col">{{l.ipAddress || '—'}}</td>
               </tr>
@@ -167,6 +209,35 @@ interface PageResp<T> { content: T[]; totalElements: number; totalPages: number;
     </div>
   `,
   styles: [`
+    /* ── Qué es cada pestaña (F81) ─────────────────────────────── */
+    .audit-que { margin: 0 0 1.1rem; padding: .7rem 1rem; font-size: .84rem;
+                 line-height: 1.6; color: rgba(255,255,255,0.45);
+                 background: rgba(255,255,255,0.02);
+                 border-left: 2px solid var(--ms-gold);
+                 border-radius: 0 8px 8px 0; max-width: 92ch; }
+    .audit-que strong { color: rgba(255,255,255,0.75); }
+
+    .filter-field.ancho { min-width: 300px; flex: 1 1 300px; }
+    .filter-field:has(.search-select.open) { position: relative; z-index: 60; }
+
+    .atajos { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap;
+              margin: .9rem 0 .2rem; }
+    .atajos > span { font-size: .76rem; color: rgba(255,255,255,0.3); margin-right: .2rem; }
+    .atajos button { background: rgba(255,255,255,0.03);
+                     border: 1px solid rgba(255,255,255,0.08);
+                     color: rgba(255,255,255,0.5); padding: .3rem .75rem;
+                     border-radius: 99px; font-size: .76rem; cursor: pointer;
+                     font-family: inherit; }
+    .atajos button:hover { border-color: #C9A84C; color: #C9A84C; }
+
+    .cuantos { margin: .8rem 0 .6rem; font-size: .85rem; color: rgba(255,255,255,0.4); }
+    .cuantos strong { color: #F4E28D; font-size: 1.05rem; }
+
+    /* Aprobar, anular, reembolsar y liberar mueven dinero o stock: en una lista
+       de cientos de líneas iguales, son las que hay que poder encontrar. */
+    .accion-chip.sensible { background: rgba(217,119,6,.16); color: #fcd34d;
+                            border-color: rgba(217,119,6,.4); }
+
     .audit-page {
       max-width: 1300px;
       padding: 2rem;
@@ -455,7 +526,21 @@ export class AuditoriaComponent implements OnInit {
 
   // Historial
   historial: HistorialItem[] = []; loadingH = false; hPage = 0; hTotalPages = 0;
-  hProductoBusq = ''; hBodega: number | null = null; hDesde = ''; hHasta = '';
+  /** Los atajos de fecha, que es como se mira una traza: hacia atrás. */
+  readonly atajos = [
+    { etiqueta: 'Hoy', dias: 0 },
+    { etiqueta: 'Últimos 7 días', dias: 6 },
+    { etiqueta: 'Últimos 30 días', dias: 29 },
+    { etiqueta: 'Todo', dias: -1 }
+  ];
+
+  /** El catálogo para el buscador de producto: antes se pedía el id a mano. */
+  productos: Array<{ idProducto: number; nombre: string }> = [];
+
+  hTotal = -1;
+  lTotal = -1;
+
+  hProductoBusq: number | null = null; hBodega: number | null = null; hDesde = ''; hHasta = '';
   bodegas: any[] = [];
 
   // Logs
@@ -465,10 +550,44 @@ export class AuditoriaComponent implements OnInit {
 
   constructor(private http: HttpClient) {}
 
+  /** Cambia las fechas y vuelve a buscar. {@code dias < 0} las quita del todo. */
+  aplicarAtajo(dias: number, cual: 'historial' | 'logs') {
+    const hoy = new Date();
+    const hasta = this.comoFecha(hoy);
+    const desde = dias < 0 ? '' : this.comoFecha(new Date(hoy.getTime() - dias * 86400000));
+    if (cual === 'historial') {
+      this.hDesde = desde; this.hHasta = dias < 0 ? '' : hasta; this.hPage = 0;
+      this.cargarHistorial();
+    } else {
+      this.lDesde = desde; this.lHasta = dias < 0 ? '' : hasta; this.lPage = 0;
+      this.cargarLogs();
+    }
+  }
+
+  private comoFecha(d: Date): string {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+         + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  /** Las acciones que mueven dinero o stock. El resto son consultas y altas. */
+  esSensible(accion: string): boolean {
+    return ['anular', 'aprobar', 'rechazar', 'reembolso', 'liberar_reserva',
+            'eliminar', 'ajuste', 'cambio_estado'].includes(accion);
+  }
+
+  private cargarProductos() {
+    this.http.get<any>(`${environment.apiUrl}/productos?page=0&size=1000&estado=activo`)
+      .subscribe({
+        next: r => { this.productos = r?.content ?? []; },
+        error: () => { this.productos = []; }
+      });
+  }
+
   ngOnInit() {
     this.http.get<any[]>(`${environment.apiUrl}/bodegas/activas`).subscribe(b => this.bodegas = b);
     this.http.get<PageResp<any>>(`${environment.apiUrl}/usuarios?page=0&size=100`).subscribe(r => this.usuarios = r.content);
     this.http.get<string[]>(`${environment.apiUrl}/logs/modulos`).subscribe(m => this.modulos = m);
+    this.cargarProductos();
     this.cargarHistorial();
     this.cargarLogs();
   }
@@ -476,12 +595,13 @@ export class AuditoriaComponent implements OnInit {
   cargarHistorial() {
     this.loadingH = true;
     let p = new HttpParams().set('page', this.hPage).set('size', 20);
-    if (this.hProductoBusq) p = p.set('idProducto', this.hProductoBusq);
+    if (this.hProductoBusq) { p = p.set('idProducto', this.hProductoBusq); }
     if (this.hBodega) p = p.set('idBodega', this.hBodega);
     if (this.hDesde) p = p.set('desde', this.hDesde + 'T00:00:00');
     if (this.hHasta) p = p.set('hasta', this.hHasta + 'T23:59:59');
     this.http.get<PageResp<HistorialItem>>(`${environment.apiUrl}/auditoria/inventario`, { params: p }).subscribe({
-      next: r => { this.historial = r.content; this.hTotalPages = r.totalPages; this.loadingH = false; },
+      next: r => { this.historial = r.content; this.hTotalPages = r.totalPages;
+                   this.hTotal = r.totalElements; this.loadingH = false; },
       error: () => { this.loadingH = false; }
     });
   }
@@ -494,7 +614,8 @@ export class AuditoriaComponent implements OnInit {
     if (this.lDesde) p = p.set('desde', this.lDesde + 'T00:00:00');
     if (this.lHasta) p = p.set('hasta', this.lHasta + 'T23:59:59');
     this.http.get<PageResp<LogItem>>(`${environment.apiUrl}/logs`, { params: p }).subscribe({
-      next: r => { this.logs = r.content; this.lTotalPages = r.totalPages; this.loadingL = false; },
+      next: r => { this.logs = r.content; this.lTotalPages = r.totalPages;
+                   this.lTotal = r.totalElements; this.loadingL = false; },
       error: () => { this.loadingL = false; }
     });
   }
