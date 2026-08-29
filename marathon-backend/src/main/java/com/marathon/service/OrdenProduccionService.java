@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.marathon.dto.PageResponseDTO;
 import com.marathon.dto.produccion.CompletarProduccionDTO;
+import com.marathon.dto.produccion.CostosSugeridosDTO;
 import com.marathon.dto.produccion.ConsumoRealItemDTO;
 import com.marathon.dto.produccion.DisponibilidadMaterialDTO;
 import com.marathon.dto.produccion.OrdenProduccionRequestDTO;
@@ -383,6 +384,84 @@ public class OrdenProduccionService {
         mov.setUsuario(usuario);
         mov.setObservacion("Producción OP #" + orden.getIdOrdenProduccion());
         movimientoInventarioRepository.save(mov);
+    }
+
+    // =================================================================
+    // Costos sugeridos al completar (F71)
+    // =================================================================
+
+    /**
+     * Tarifa de mano de obra por unidad producida.
+     *
+     * <p>Es una propiedad y no una constante por la misma razón que el IVA de la
+     * F66: no es una verdad del código, es un dato de negocio que cambia sin que
+     * cambie el programa. Aquí, además, <b>es una estimación declarada</b>: el
+     * sistema no tiene fichajes ni nóminas, así que no puede saber lo que costó
+     * de verdad una tanda. Lo que hace es proponer, y decir de dónde sale.
+     */
+    @org.springframework.beans.factory.annotation.Value("${app.produccion.mano-obra-por-unidad:2.50}")
+    private BigDecimal manoObraPorUnidad;
+
+    /**
+     * Porcentaje de costes indirectos sobre el coste directo.
+     *
+     * <p>Luz, alquiler, maquinaria: no se pueden atribuir a una prenda concreta,
+     * así que se prorratean como un porcentaje del coste directo. Es lo que hace
+     * cualquier sistema de costeo por absorción.
+     */
+    @org.springframework.beans.factory.annotation.Value("${app.produccion.indirecto-porcentaje:15}")
+    private BigDecimal indirectoPorcentaje;
+
+    /**
+     * Propone los dos costes que antes había que teclear a mano.
+     *
+     * <p>El de materia prima NO se propone: se calcula de lo que de verdad se
+     * consumió, con el coste que se fotografió al iniciar la orden (F29). Ese es
+     * un dato real y no se toca.
+     */
+    @Transactional(readOnly = true)
+    public CostosSugeridosDTO costosSugeridos(Integer idOrden, Integer cantidadProducida) {
+        OrdenProduccion orden = ordenRepository.findById(idOrden)
+                .orElseThrow(() -> new ResourceNotFoundException("Orden de producción", idOrden));
+
+        int unidades = cantidadProducida != null && cantidadProducida > 0
+                ? cantidadProducida
+                : (orden.getCantidadPlanificada() != null ? orden.getCantidadPlanificada() : 0);
+
+        BigDecimal materiales = consumoRepository
+                .findByOrdenProduccionIdOrdenProduccion(idOrden).stream()
+                .map(c -> {
+                    BigDecimal costo = c.getCostoUnitarioSnapshot() != null
+                            ? c.getCostoUnitarioSnapshot() : BigDecimal.ZERO;
+                    BigDecimal cant = c.getCantidadReal() != null
+                            ? c.getCantidadReal() : c.getCantidadTeorica();
+                    return costo.multiply(cant != null ? cant : BigDecimal.ZERO);
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+
+        BigDecimal manoObra = manoObraPorUnidad
+                .multiply(BigDecimal.valueOf(unidades))
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+
+        BigDecimal indirecto = materiales.add(manoObra)
+                .multiply(indirectoPorcentaje)
+                .divide(new BigDecimal("100"), 2, java.math.RoundingMode.HALF_UP);
+
+        BigDecimal total = materiales.add(manoObra).add(indirecto);
+
+        CostosSugeridosDTO dto = new CostosSugeridosDTO();
+        dto.setCantidad(unidades);
+        dto.setCostoMateriaPrima(materiales);
+        dto.setManoObraPorUnidad(manoObraPorUnidad);
+        dto.setCostoManoObra(manoObra);
+        dto.setIndirectoPorcentaje(indirectoPorcentaje);
+        dto.setCostoIndirecto(indirecto);
+        dto.setCostoTotal(total);
+        dto.setCostoUnitario(unidades > 0
+                ? total.divide(BigDecimal.valueOf(unidades), 2, java.math.RoundingMode.HALF_UP)
+                : BigDecimal.ZERO);
+        return dto;
     }
 
     // =================================================================

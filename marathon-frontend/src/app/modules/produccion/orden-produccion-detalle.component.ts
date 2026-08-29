@@ -86,9 +86,18 @@ import { ModalSeguroDirective } from '../../shared/directives/modal-seguro.direc
       <div class="modal-overlay" *ngIf="mostrarCompletar" appModalSeguro (cerrar)="mostrarCompletar = false">
         <div class="modal-card" (click)="$event.stopPropagation()">
           <h3>Completar producción</h3>
+          <p class="modal-sub">
+            Al confirmar, el producto terminado <strong>entra en la bodega destino</strong>
+            y la orden queda cerrada.
+          </p>
+
           <div class="form-group">
             <label>Cantidad realmente producida (máx {{op.cantidadPlanificada}}) *</label>
-            <input type="number" min="0" [max]="op.cantidadPlanificada" [(ngModel)]="completar.cantidadProducida"/>
+            <input type="number" min="0" [max]="op.cantidadPlanificada"
+                   [(ngModel)]="completar.cantidadProducida" (ngModelChange)="alCambiarCantidad()"/>
+            <small class="pista" *ngIf="completar.cantidadProducida < op.cantidadPlanificada">
+              Se planificaron {{ op.cantidadPlanificada }}. Lo que no se produjo, no entra al stock.
+            </small>
           </div>
           <label class="toggle">
             <input type="checkbox" [(ngModel)]="registrarReal"/> Registrar consumo real por material
@@ -99,14 +108,49 @@ import { ModalSeguroDirective } from '../../shared/directives/modal-seguro.direc
               <input type="number" min="0" step="0.001" [(ngModel)]="realMap[c.idMateriaPrima]"/>
             </div>
           </div>
-          <div class="form-row2">
-            <div class="form-group">
-              <label>Costo mano de obra</label>
-              <input type="number" min="0" step="0.01" [(ngModel)]="completar.costoManoObra"/>
+          <div class="costos-bloque">
+            <div class="costos-cab">
+              <span>Costos de la producción</span>
+              <button type="button" class="recalcular" (click)="pedirCostosSugeridos()"
+                      *ngIf="sugerido">volver a calcular</button>
             </div>
-            <div class="form-group">
-              <label>Costo indirecto</label>
-              <input type="number" min="0" step="0.01" [(ngModel)]="completar.costoIndirecto"/>
+
+            <p class="costos-expli" *ngIf="sugerido as g">
+              El sistema los propone: <strong>{{ g.manoObraPorUnidad | currency:'USD':'symbol':'1.2-2' }}
+              por unidad</strong> de mano de obra, e indirectos al
+              <strong>{{ g.indirectoPorcentaje }} %</strong> del costo directo.
+              No salen de ningún fichaje ni de ninguna factura —el sistema no los tiene—
+              así que <strong>puedes cambiarlos</strong> si sabes lo que costó de verdad.
+            </p>
+
+            <div class="form-row2">
+              <div class="form-group">
+                <label>Costo mano de obra</label>
+                <input type="number" min="0" step="0.01" [(ngModel)]="completar.costoManoObra"/>
+              </div>
+              <div class="form-group">
+                <label>Costo indirecto</label>
+                <input type="number" min="0" step="0.01" [(ngModel)]="completar.costoIndirecto"/>
+              </div>
+            </div>
+
+            <div class="costos-total" *ngIf="sugerido as g">
+              <div class="ct-fila">
+                <span>Materia prima consumida</span>
+                <strong>{{ g.costoMateriaPrima | currency:'USD':'symbol':'1.2-2' }}</strong>
+              </div>
+              <div class="ct-fila">
+                <span>+ mano de obra e indirectos</span>
+                <strong>{{ (num(completar.costoManoObra) + num(completar.costoIndirecto)) | currency:'USD':'symbol':'1.2-2' }}</strong>
+              </div>
+              <div class="ct-fila fuerte">
+                <span>Costo total</span>
+                <strong>{{ costoTotalPrevisto() | currency:'USD':'symbol':'1.2-2' }}</strong>
+              </div>
+              <div class="ct-fila" *ngIf="completar.cantidadProducida > 0">
+                <span>Por unidad</span>
+                <strong>{{ (costoTotalPrevisto() / completar.cantidadProducida) | currency:'USD':'symbol':'1.2-4' }}</strong>
+              </div>
             </div>
           </div>
           <div class="form-group">
@@ -124,6 +168,30 @@ import { ModalSeguroDirective } from '../../shared/directives/modal-seguro.direc
     </div>
   `,
   styles: [`
+    .modal-sub { color: rgba(255,255,255,0.55); font-size: .85rem; line-height: 1.55;
+                 margin: -.4rem 0 1rem; }
+    .modal-sub strong { color: rgba(255,255,255,0.85); }
+    .pista { font-size: .75rem; color: rgba(255,255,255,0.45); margin-top: .3rem; display: block; }
+
+    .costos-bloque { border: 1px solid rgba(201,168,76,0.3); border-radius: 10px;
+                     padding: .9rem 1rem; margin: 1rem 0; background: rgba(201,168,76,0.04); }
+    .costos-cab { display: flex; justify-content: space-between; align-items: center;
+                  font-size: .72rem; text-transform: uppercase; letter-spacing: .07em;
+                  color: rgba(255,255,255,0.5); margin-bottom: .6rem; }
+    .recalcular { background: none; border: none; color: #C9A84C; font-size: .72rem;
+                  cursor: pointer; text-decoration: underline; text-transform: none;
+                  letter-spacing: 0; padding: 0; }
+    .costos-expli { font-size: .78rem; color: rgba(255,255,255,0.5); line-height: 1.6;
+                    margin: 0 0 .9rem; }
+    .costos-expli strong { color: rgba(255,255,255,0.8); }
+    .costos-total { border-top: 1px solid rgba(255,255,255,0.08); margin-top: .8rem; padding-top: .7rem; }
+    .ct-fila { display: flex; justify-content: space-between; gap: 1rem;
+               font-size: .82rem; color: rgba(255,255,255,0.55); margin-bottom: .35rem; }
+    .ct-fila strong { color: rgba(255,255,255,0.85); font-variant-numeric: tabular-nums; }
+    .ct-fila.fuerte { border-top: 1px solid rgba(201,168,76,0.35); padding-top: .5rem;
+                      margin-top: .5rem; }
+    .ct-fila.fuerte strong { color: #C9A84C; font-size: 1.05rem; }
+
     .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
     .detail-card { display: flex; flex-direction: column; gap: .35rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; padding: .85rem 1rem; }
     .detail-card.wide { grid-column: 1 / -1; }
@@ -158,6 +226,9 @@ export class OrdenProduccionDetalleComponent implements OnInit {
   mostrarCompletar = false;
   registrarReal = false;
   completar: any = { cantidadProducida: 0, observaciones: '' };
+  /** La propuesta del servidor. Se usa para prellenar y para explicar de dónde sale. */
+  sugerido: any = null;
+  private timerCostos: any;
   realMap: { [id: number]: number } = {};
   toast = '';
   toastError = false;
@@ -193,10 +264,48 @@ export class OrdenProduccionDetalleComponent implements OnInit {
 
   abrirCompletar() {
     this.completar = { cantidadProducida: this.op.cantidadPlanificada, costoManoObra: 0, costoIndirecto: 0, observaciones: '' };
+    this.pedirCostosSugeridos();
     this.registrarReal = false;
     this.realMap = {};
     (this.op.consumos || []).forEach((c: any) => { this.realMap[c.idMateriaPrima] = c.cantidadTeorica; });
     this.mostrarCompletar = true;
+  }
+
+  num(v: any): number { return Number(v) || 0; }
+
+  costoTotalPrevisto(): number {
+    return this.num(this.sugerido?.costoMateriaPrima)
+         + this.num(this.completar.costoManoObra)
+         + this.num(this.completar.costoIndirecto);
+  }
+
+  /** Al cambiar la cantidad cambia la mano de obra, que va por unidad. */
+  alCambiarCantidad() {
+    clearTimeout(this.timerCostos);
+    this.timerCostos = setTimeout(() => this.pedirCostosSugeridos(), 350);
+  }
+
+  /**
+   * Pide al servidor lo que propone que cueste esta orden (F71).
+   *
+   * **Lo calcula el servidor y no la pantalla** a propósito: las tarifas son
+   * propiedades de la aplicación, no números escritos en el navegador, y así
+   * cambiarlas no obliga a recompilar el front. Si la llamada falla se deja lo
+   * que hubiera: quedarse sin propuesta es peor que quedarse sin explicación,
+   * pero mucho mejor que no poder completar la orden.
+   */
+  pedirCostosSugeridos() {
+    if (!this.op) { return; }
+    const cant = this.completar.cantidadProducida || this.op.cantidadPlanificada || 0;
+    this.api.get<any>(`ordenes-produccion/${this.op.idOrdenProduccion}/costos-sugeridos?cantidadProducida=${cant}`)
+      .subscribe({
+        next: res => {
+          this.sugerido = res;
+          this.completar.costoManoObra = res.costoManoObra;
+          this.completar.costoIndirecto = res.costoIndirecto;
+        },
+        error: () => { /* sin propuesta: los campos quedan como estén */ }
+      });
   }
 
   completarProduccion() {

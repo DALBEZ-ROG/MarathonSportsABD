@@ -47,6 +47,7 @@ A las fases 47-59 se suman ahora:
 | **F68** | La devolución a proveedor **explica de dónde nace**, en qué punto está y qué toca hacer |
 | **F69** | Si el proveedor repone, se crea una orden de compra **que no se puede facturar** |
 | **F70** | La recepción de mercancía rehecha, el botón del PDF partido en dos, y el aire que les faltaba a las pantallas de detalle |
+| **F71** | Las dos pantallas de producción, y **la mano de obra y los indirectos calculados** en vez de tecleados |
 
 ---
 
@@ -533,6 +534,46 @@ se quedaron **sin el `padding` que este daba**. Y el botón de volver era una
 flecha fina con un texto, sin caja ni área donde pinchar. Las dos cosas se
 arreglan en `styles.scss`, en un sitio y no en cada componente: `.btn-volver` es
 ahora un botón con borde, relleno y foco visible. **No cambia lo que hace.**
+
+### F71 · Producción: lo que cuesta deja de teclearse a mano
+
+**La pregunta del dueño:** al completar una orden salían dos campos —costo de
+mano de obra y costo indirecto— y él no sabía qué poner. *«¿eso no debería salir
+calculado automáticamente en base a lo que se produzca?»*
+
+Tenía razón, y el efecto de no saberlo era peor de lo que parece: **se dejaban en
+cero**, y con cero el análisis de costes decía que fabricar sale exactamente lo
+que vale la materia prima. Una cifra falsa presentada como buena.
+
+**Ahora el sistema los propone.** No salen de ningún fichaje ni de ninguna
+factura de luz —el sistema no los tiene— sino de dos tarifas configurables, que
+es lo que hace un costeo por absorción cuando no hay datos reales:
+
+```
+mano de obra = tarifa por unidad × unidades producidas
+indirecto    = porcentaje × (materia prima + mano de obra)
+```
+
+La mano de obra escala con las **unidades** porque fabricar cada una cuesta un
+rato de trabajo; el indirecto se aplica como **porcentaje del coste directo**,
+que es como se prorratean de verdad la luz, el alquiler y la maquinaria.
+
+**Y siguen siendo editables**, que es la otra mitad de lo que pidió: si esa tanda
+llevó horas extra, se escribe lo que costó. Lo que se evita es el cero por
+omisión. El modal dice de dónde salen los números, para que nadie los tome por
+un dato medido.
+
+Las tarifas son propiedades: `app.produccion.mano-obra-por-unidad` (2,50) y
+`app.produccion.indirecto-porcentaje` (15). El cálculo vive en el **servidor**
+—`GET /api/ordenes-produccion/{id}/costos-sugeridos`— para que cambiar una
+tarifa no obligue a recompilar el front.
+
+**Las dos pantallas, además.** «Nueva orden de producción» gana el panel de
+coste: materia prima por unidad, total, precio de venta y **margen**, antes de
+crear nada — sale del mismo cálculo de la F29 que usa la pantalla de costes, así
+que no es una cuenta paralela. Y cuando el producto no tiene lista de materiales
+—**11 de los 14 fabricados**, desde la F59— lo dice y explica dónde se define,
+en vez de quedarse mudo con un botón bloqueado.
 
 ---
 

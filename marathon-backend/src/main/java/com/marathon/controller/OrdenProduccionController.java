@@ -76,6 +76,22 @@ public class OrdenProduccionController {
         return ResponseEntity.ok(ordenProduccionService.iniciar(id, usuario.getIdUsuario()));
     }
 
+    /**
+     * Lo que el sistema propone que cueste esta orden (F71).
+     *
+     * <p>Se pide con la cantidad que se va a producir porque la mano de obra
+     * escala con ella: al cambiar el número en la pantalla, la propuesta se
+     * recalcula. Los dos importes siguen siendo editables — esto propone, no
+     * impone.
+     */
+    @GetMapping("/{id}/costos-sugeridos")
+    @PreAuthorize("hasAuthority('produccion:ver')")
+    public ResponseEntity<com.marathon.dto.produccion.CostosSugeridosDTO> costosSugeridos(
+            @PathVariable Integer id,
+            @RequestParam(required = false) Integer cantidadProducida) {
+        return ResponseEntity.ok(ordenProduccionService.costosSugeridos(id, cantidadProducida));
+    }
+
     @PutMapping("/{id}/completar")
     @PreAuthorize("hasAuthority('produccion:completar')")
     public ResponseEntity<OrdenProduccionResponseDTO> completar(
