@@ -1315,6 +1315,39 @@ factura rechazada por las dos vías.
   reconstruyó.** Durante la transición el disponible es optimista respecto de
   ellos. Se corrige solo según se despachen o se anulen.
 
+### Spring Boot 3.2 se quedó sin soporte gratuito
+
+`pom.xml` fija **Spring Boot 3.2.x**, y el soporte gratuito de esa rama terminó
+el **2024-12-31** (el comercial, el 2025-12-31). No es un fallo: la aplicación
+funciona y las 198 pruebas pasan. Es deuda, y **se decidió no tocarla ahora**
+(2026-08-29), porque un salto de versión mayor puede mover Spring Security,
+Hibernate y la configuración de las pruebas, y eso no es trabajo de un rato en un
+sistema que ya está entregado.
+
+Cuando se retome, el orden razonable es: primero el **parche dentro de la misma
+rama** (3.2.12, sin cambios de API, solo correcciones), pasar las 198 pruebas, y
+solo entonces plantear el salto a 3.5.x leyendo sus notas de migración.
+
+Son los **cuatro únicos avisos** que quedan en el panel de problemas del IDE.
+
+### El panel del IDE mentía, y por partida doble
+
+Anotado porque volverá a pasar y hace perder una tarde:
+
+- El 2026-08-29 el panel marcaba **18 errores** en `FormulariosContraLaBaseTest`
+  («no se resuelve `com.marathon.soporte`»). **No existía ninguno**: `mvn clean
+  test-compile` daba `BUILD SUCCESS` y otros doce tests importaban ese mismo
+  paquete sin quejarse. Era el índice del IDE sin refrescar, y se arregló
+  **tocando el fichero** para que lo volviera a leer. Regla: antes de perseguir
+  un error del panel, **compila a mano**; si Maven no lo ve, no está.
+- Y marcaba **186 avisos de «Null type safety»** que javac no emite (el backend
+  compila con cero). Salían porque Spring Data declara sus parámetros `@NonNull`
+  y este proyecto no usa anotaciones de nulabilidad, así que el análisis avisaba
+  en casi toda llamada a un repositorio. Se apagó **solo para este proyecto** en
+  `marathon-backend/.settings/org.eclipse.jdt.core.prefs`, que explica por qué;
+  se deshace borrando el fichero. El motivo no fue el ruido sino lo que tapaba:
+  186 falsos positivos esconden los de verdad — que es exactamente lo que pasó.
+
 ### Lo que dejó abierto la revisión de formularios (F85)
 
 Son **decisiones de negocio**, no defectos: se anotan para que las tome el dueño,
