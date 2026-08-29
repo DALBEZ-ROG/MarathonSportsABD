@@ -57,9 +57,21 @@ public class EjecutorConsultaIA {
         entityManager.createNativeQuery("SET LOCAL statement_timeout = '" + TIEMPO_MAXIMO + "'")
                 .executeUpdate();
 
+        // El tope de filas se pone ENVOLVIENDO la consulta, no con setMaxResults.
+        //
+        // Con una consulta nativa, setMaxResults hace que Hibernate le pegue al
+        // final un "fetch first ? rows only"; si el SQL ya traia su propio LIMIT
+        // -y lo trae en cuanto alguien pregunta "los 3 productos mas vendidos"-
+        // quedaban las dos clausulas seguidas y PostgreSQL respondia "error de
+        // sintaxis en o cerca de «fetch»". Es decir: la pregunta mas natural que
+        // se le puede hacer al asistente era justo la que no funcionaba.
+        //
+        // Envolverla respeta el LIMIT de dentro y añade el nuestro por fuera,
+        // que es el que manda.
         @SuppressWarnings("unchecked")
-        List<Tuple> filas = entityManager.createNativeQuery(sql, Tuple.class)
-                .setMaxResults(MAX_FILAS)
+        List<Tuple> filas = entityManager
+                .createNativeQuery("select * from (" + sinPuntoYComaFinal(sql)
+                                   + ") as consulta_ia limit " + MAX_FILAS, Tuple.class)
                 .getResultList();
 
         List<Map<String, Object>> resultados = new ArrayList<>();
@@ -72,5 +84,14 @@ public class EjecutorConsultaIA {
             resultados.add(mapa);
         }
         return resultados;
+    }
+
+    /** Un punto y coma al final rompe la subconsulta que la envuelve. */
+    private String sinPuntoYComaFinal(String sql) {
+        String limpio = sql == null ? "" : sql.trim();
+        while (limpio.endsWith(";")) {
+            limpio = limpio.substring(0, limpio.length() - 1).trim();
+        }
+        return limpio;
     }
 }

@@ -59,6 +59,7 @@ A las fases 47-59 se suman ahora:
 | **F80** | **Análisis del negocio**: lo más vendido y lo más comprado, quién deja más, en qué región se vende y por qué devuelven |
 | **F81** | Reportes y auditoría: dicen **qué contesta cada uno**, abren con datos, y el aviso de la exportación deja de mentir |
 | **F82** | El asistente dice que **está apagado antes** de que escribas, y qué puede leer y qué no |
+| **F83** | El asistente **funciona**: Gemini como proveedor, y el tope de filas deja de romper toda consulta con `LIMIT` |
 
 ---
 
@@ -1028,6 +1029,58 @@ pantalla abierta se pasa al panel de apagado en vez de dejar la caja viva.
 > entorno del proceso** —sin tocar ningún fichero— y mirando la pantalla **sin
 > enviar ninguna pregunta**: enviarla habría llamado a un servicio externo y eso
 > lo decide él, no yo. Después se devolvió el backend a como estaba.
+
+### F83 · El asistente ya contesta, y por el camino había un fallo de verdad
+
+El dueño consiguió una clave de Google Gemini y pidió enchufarla. Tres cosas
+salieron de ahí, y la segunda es la que importa.
+
+**1. El proveedor es ahora una pieza intercambiable.** Hasta aquí el servicio
+hablaba con Anthropic desde dentro: el cuerpo de la petición, las cabeceras y el
+camino dentro del JSON estaban escritos en medio de la lógica, así que cambiar de
+proveedor obligaba a tocar el mismo método que valida y ejecuta el SQL — la parte
+que no debe moverse. Ahora hay una interfaz de un solo método: **recibe dos textos
+y devuelve uno**. Validar que es un `SELECT`, ejecutarlo en solo lectura y no
+filtrar el error de PostgreSQL al cliente sigue igual y no depende de quién
+conteste. Se elige con `app.ia.proveedor`.
+
+**2. Y entonces apareció el fallo que llevaba ahí desde el principio.** Con el
+asistente ya contestando, la primera pregunta de verdad —«los 3 productos más
+vendidos»— devolvía *«no se pudo ejecutar la consulta, prueba a reformular la
+pregunta»*. La consulta que escribió el modelo era correcta.
+
+El ejecutor acotaba las filas con `setMaxResults(500)`. Sobre una consulta
+**nativa**, eso hace que Hibernate le pegue al final un
+`fetch first ? rows only`; si el SQL ya traía su propio `LIMIT` quedaban las dos
+cláusulas seguidas y PostgreSQL respondía *«error de sintaxis en o cerca de
+fetch»*. Es decir: **la pregunta más natural que se le puede hacer a un asistente
+—«dame los N primeros»— era justo la que no funcionaba**, y el mensaje apuntaba a
+donde no era: a la redacción de la pregunta, cuando el problema estaba en cómo se
+ejecutaba.
+
+Ahora el tope se pone **envolviendo** la consulta (`select * from (…) limit 500`),
+que respeta el LIMIT de dentro y añade el de la casa por fuera. Cuatro pruebas lo
+fijan, y ninguna llama a ningún modelo: ejecutan SQL de la forma que devuelve el
+asistente, que es la parte que tiene que aguantar.
+
+**3. Gemini se satura, y eso no puede costarle la pregunta al usuario.** El
+servicio devuelve 503 «high demand» con bastante frecuencia y casi siempre se le
+pasa en segundos. Se reintenta hasta tres veces con espera creciente, y **solo**
+lo que tiene sentido reintentar: saturación (503) y límite de ritmo (429). Una
+clave inválida o un modelo que no existe no mejoran esperando. El cuerpo del error
+de Google va al log del servidor y se traduce a una frase que dice qué arreglar
+—«la clave no es válida», «el modelo está saturado»—, porque «400 Bad Request» no
+se puede arreglar.
+
+> **El modelo por defecto es `gemini-3.6-flash`.** El de la documentación de
+> Google, `gemini-flash-latest`, apunta a uno que devolvía 503 una vez tras otra;
+> y `gemini-2.5-flash` responde 404: *«no longer available to new users»*.
+> Comprobado con la clave del proyecto, no supuesto.
+
+> **La clave no está en el repositorio.** Vive en `application-local.properties`,
+> que está en `.gitignore`; `application.properties` solo lleva el marcador
+> `${GEMINI_API_KEY:}`. Y como se pegó en un chat, **hay que rotarla**: una clave
+> que ha viajado por un canal que no controlas se da por comprometida.
 
 ---
 
