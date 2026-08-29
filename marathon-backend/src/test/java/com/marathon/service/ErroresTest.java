@@ -96,8 +96,9 @@ class ErroresTest {
         var respuesta = manejador.handleIntegridad(ex);
 
         assertThat(respuesta.getStatusCode().value()).isEqualTo(409);
-        assertThat(respuesta.getBody()).isNotNull();
-        assertThat(respuesta.getBody().getMessage())
+        var cuerpo = respuesta.getBody();
+        assertThat(cuerpo).isNotNull();
+        assertThat(cuerpo.getMessage())
                 .doesNotContainIgnoringCase("uq_producto_nombre")
                 .doesNotContainIgnoringCase("duplicate key");
     }

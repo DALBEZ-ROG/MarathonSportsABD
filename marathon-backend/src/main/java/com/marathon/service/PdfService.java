@@ -31,7 +31,6 @@ import com.marathon.dto.pedido.DetallePedidoResponseDTO;
 public class PdfService {
 
     private static final DeviceRgb MARATHON_GREEN = new DeviceRgb(45, 90, 39); // #2d5a27
-    private static final DeviceRgb GRIS_CLARO = new DeviceRgb(245, 245, 245);
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     public byte[] generarComprobanteInternoPDF(ComprobanteResponseDTO c) {
@@ -313,5 +312,5 @@ public class PdfService {
 
     private String nz(String s) { return s != null ? s : "-"; }
 
-    private String fmt(BigDecimal b) { return b != null ? b.setScale(2, BigDecimal.ROUND_HALF_UP).toString() : "0.00"; }
+    private String fmt(BigDecimal b) { return b != null ? b.setScale(2, java.math.RoundingMode.HALF_UP).toString() : "0.00"; }
 }

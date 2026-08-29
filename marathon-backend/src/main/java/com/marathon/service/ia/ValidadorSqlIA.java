@@ -1,6 +1,5 @@
 package com.marathon.service.ia;
 
-import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
@@ -102,13 +101,15 @@ public class ValidadorSqlIA {
             return Veredicto.no("La consulta no es SQL valido y no se ejecutara.");
         }
 
-        List<Statement> lista = sentencias.getStatements();
-        if (lista == null || lista.size() != 1) {
+        // `Statements` ES una List<Statement> (extiende ArrayList), asi que se
+        // recorre directamente. `getStatements()` esta deprecado desde 4.7 y
+        // devolvia esa misma lista.
+        if (sentencias.size() != 1) {
             return Veredicto.no("Solo se admite una sentencia por consulta; se recibieron "
-                    + (lista == null ? 0 : lista.size()) + ".");
+                    + sentencias.size() + ".");
         }
 
-        Statement sentencia = lista.get(0);
+        Statement sentencia = sentencias.get(0);
         if (!(sentencia instanceof Select)) {
             return Veredicto.no("Solo se admiten consultas de lectura (SELECT). "
                     + "Se recibio: " + sentencia.getClass().getSimpleName() + ".");
@@ -116,7 +117,10 @@ public class ValidadorSqlIA {
 
         Set<String> usadas;
         try {
-            usadas = new TablesNamesFinder().getTableList(sentencia).stream()
+            // getTables() en vez de getTableList(): el segundo esta deprecado y
+            // devuelve List. Aqui daba igual, porque el resultado se recoge en
+            // un Set de todas formas.
+            usadas = new TablesNamesFinder().getTables(sentencia).stream()
                     .map(t -> t.toLowerCase(Locale.ROOT))
                     // El modelo puede cualificar con el esquema: public.pedido
                     .map(t -> t.contains(".") ? t.substring(t.lastIndexOf('.') + 1) : t)

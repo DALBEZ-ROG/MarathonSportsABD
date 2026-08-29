@@ -16,20 +16,17 @@ import com.marathon.dto.log.LogAccionResponseDTO;
 import com.marathon.model.LogAccion;
 import com.marathon.model.Usuario;
 import com.marathon.repository.LogAccionRepository;
-import com.marathon.repository.UsuarioRepository;
 
 @Service
 public class LogService {
 
     private final LogAccionRepository logAccionRepository;
-    private final UsuarioRepository usuarioRepository;
 
     @jakarta.persistence.PersistenceContext
     private jakarta.persistence.EntityManager entityManager;
 
-    public LogService(LogAccionRepository logAccionRepository, UsuarioRepository usuarioRepository) {
+    public LogService(LogAccionRepository logAccionRepository) {
         this.logAccionRepository = logAccionRepository;
-        this.usuarioRepository = usuarioRepository;
     }
 
     /**

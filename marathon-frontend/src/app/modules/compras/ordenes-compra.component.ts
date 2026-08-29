@@ -12,7 +12,7 @@ interface OrdenCompra {
   fechaOrden: string;
   estado: string;
   total: number;
-  proveedor: ProveedorSimple;
+  proveedor?: ProveedorSimple;
 }
 
 @Component({

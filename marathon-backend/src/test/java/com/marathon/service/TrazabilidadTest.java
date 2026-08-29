@@ -17,7 +17,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.marathon.model.Usuario;
-import com.marathon.repository.UsuarioRepository;
 import com.marathon.soporte.FixturaVenta;
 
 /**
@@ -30,7 +29,6 @@ class TrazabilidadTest {
 
     @Autowired private ProductoService productoService;
     @Autowired private FixturaVenta fixtura;
-    @Autowired private UsuarioRepository usuarioRepository;
     @Autowired private UsuarioDetailsService usuarioDetailsService;
     @Autowired private JdbcTemplate jdbc;
 

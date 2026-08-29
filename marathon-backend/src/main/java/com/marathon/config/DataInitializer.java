@@ -48,10 +48,15 @@ public class DataInitializer implements CommandLineRunner {
 
         // Primera ejecución: crear roles, permisos y usuario admin
         // 1. Crear roles
+        // Solo el de administrador se guarda: es el unico que se usa mas abajo,
+        // para el usuario admin. Los otros tres se CREAN igual —la llamada es lo
+        // que importa—, pero desde la F48 sus permisos los reparte
+        // sql/fase48_matriz_permisos.sql, asi que aqui no hay nada que hacer con
+        // ellos. Quedaban guardados en variables que nadie leia.
         Rol admin = crearRol("Administrador", "Gestión total del sistema");
-        Rol supervisor = crearRol("Supervisor E-Commerce", "Dashboard, KPIs y reportes");
-        Rol operadorBodega = crearRol("Operador de Bodega", "Picking, empaque y stock");
-        Rol operadorPedidos = crearRol("Operador de Pedidos", "Registro y seguimiento de pedidos");
+        crearRol("Supervisor E-Commerce", "Dashboard, KPIs y reportes");
+        crearRol("Operador de Bodega", "Picking, empaque y stock");
+        crearRol("Operador de Pedidos", "Registro y seguimiento de pedidos");
 
         // 2 y 3. El reparto de permisos ya NO se hace aqui. Lo hace
         //        sql/fase48_matriz_permisos.sql, y hay un motivo concreto.

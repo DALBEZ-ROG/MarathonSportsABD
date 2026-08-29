@@ -20,7 +20,7 @@ interface OrdenCompra {
   idOrdenCompra: number;
   estado: string;
   esReposicion?: boolean;
-  proveedor: { nombre: string };
+  proveedor?: { nombre: string };
   detalles: DetalleOc[];
 }
 

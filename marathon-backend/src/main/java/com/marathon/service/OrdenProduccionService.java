@@ -97,7 +97,9 @@ public class OrdenProduccionService {
         if (cantidad == null || cantidad < 1) {
             throw new ValidationException("La cantidad a producir debe ser al menos 1");
         }
-        Producto producto = productoRepository.findById(idProducto)
+        // La llamada NO sobra aunque no se guarde el resultado: es la que
+        // comprueba que el producto existe y levanta el 404 si no.
+        productoRepository.findById(idProducto)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto", idProducto));
 
         List<ListaMateriales> bom = listaMaterialesRepository

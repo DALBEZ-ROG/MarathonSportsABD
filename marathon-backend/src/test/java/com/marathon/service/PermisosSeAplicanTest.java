@@ -124,9 +124,10 @@ class PermisosSeAplicanTest {
         var respuesta = pedidoController.crear(
                 pedidoDe(2), SecurityContextHolder.getContext().getAuthentication());
 
-        assertThat(respuesta.getBody()).isNotNull();
-        fixtura.seguirPedido(respuesta.getBody().getIdPedido());
-        assertThat(respuesta.getBody().getEstado()).isEqualTo("pendiente");
+        var cuerpo = respuesta.getBody();
+        assertThat(cuerpo).isNotNull();
+        fixtura.seguirPedido(cuerpo.getIdPedido());
+        assertThat(cuerpo.getEstado()).isEqualTo("pendiente");
     }
 
     @Test

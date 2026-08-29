@@ -18,7 +18,6 @@ import com.marathon.dto.auth.RefreshTokenRequestDTO;
 import com.marathon.exception.DemasiadosIntentosException;
 import com.marathon.exception.ValidationException;
 import com.marathon.model.Usuario;
-import com.marathon.repository.UsuarioRepository;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -28,7 +27,6 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final UsuarioDetailsService usuarioDetailsService;
     private final JwtUtils jwtUtils;
-    private final UsuarioRepository usuarioRepository;
     private final LogService logService;
     private final HttpServletRequest httpServletRequest;
     private final LimitadorDeIntentos limitador;
@@ -37,7 +35,6 @@ public class AuthService {
     public AuthService(AuthenticationManager authenticationManager,
                        UsuarioDetailsService usuarioDetailsService,
                        JwtUtils jwtUtils,
-                       UsuarioRepository usuarioRepository,
                        LogService logService,
                        HttpServletRequest httpServletRequest,
                        LimitadorDeIntentos limitador,
@@ -45,7 +42,6 @@ public class AuthService {
         this.authenticationManager = authenticationManager;
         this.usuarioDetailsService = usuarioDetailsService;
         this.jwtUtils = jwtUtils;
-        this.usuarioRepository = usuarioRepository;
         this.logService = logService;
         this.httpServletRequest = httpServletRequest;
         this.limitador = limitador;

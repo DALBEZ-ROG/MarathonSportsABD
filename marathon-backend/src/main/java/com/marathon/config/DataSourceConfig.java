@@ -50,7 +50,7 @@ public class DataSourceConfig {
 
     @Bean
     @Primary
-    public DataSource dataSource(DataSourceProperties porDefecto, RoleDataSourceProperties roles) {
+    DataSource dataSource(DataSourceProperties porDefecto, RoleDataSourceProperties roles) {
 
         HikariDataSource poolAdministrador = porDefecto
                 .initializeDataSourceBuilder()

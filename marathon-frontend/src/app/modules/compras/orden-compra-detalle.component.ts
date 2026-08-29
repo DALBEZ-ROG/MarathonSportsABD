@@ -25,9 +25,11 @@ interface OrdenCompra {
   estado: string;
   total: number;
   observaciones: string;
-  proveedor: { idProveedor: number; nombre: string };
-  usuarioSolicitante: { nombre: string; apellido: string };
-  usuarioAprobador: { nombre: string; apellido: string };
+  /** El backend solo lo rellena si la orden tiene proveedor cargado. */
+  proveedor?: { idProveedor: number; nombre: string };
+  usuarioSolicitante?: { nombre: string; apellido: string };
+  /** Solo existe cuando la orden ya se aprobó: id_usuario_aprobador es NULLABLE. */
+  usuarioAprobador?: { nombre: string; apellido: string };
   detalles: Detalle[];
 }
 
@@ -74,7 +76,7 @@ interface Recepcion {
         </div>
         <div class="detail-card" *ngIf="oc.usuarioAprobador">
           <span class="label">Aprobador</span>
-          <span>{{oc.usuarioAprobador?.nombre}} {{oc.usuarioAprobador?.apellido}} ({{oc.fechaAprobacion | date:'dd/MM/yyyy HH:mm'}})</span>
+           <span>{{oc.usuarioAprobador.nombre}} {{oc.usuarioAprobador.apellido}} ({{oc.fechaAprobacion | date:'dd/MM/yyyy HH:mm'}})</span>
         </div>
         <div class="detail-card wide" *ngIf="oc.observaciones">
           <span class="label">Observaciones</span><span>{{oc.observaciones}}</span>

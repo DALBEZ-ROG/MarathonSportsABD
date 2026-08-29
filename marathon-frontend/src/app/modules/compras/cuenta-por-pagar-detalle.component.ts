@@ -25,7 +25,8 @@ interface CuentaDetalle {
   saldoPendiente: number;
   fechaVencimiento: string;
   estado: string;
-  pagos: Pago[];
+  /** CuentaPorPagarService solo los trae si se piden (incluirPagos). */
+  pagos?: Pago[];
 }
 
 /** Lo que se está pagando, traído de la orden que originó la factura. */
