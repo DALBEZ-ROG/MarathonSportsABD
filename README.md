@@ -178,7 +178,8 @@ La matriz completa de qué ve y qué puede hacer cada rol está en **[MATRIZ_ROL
 | **Dashboard** | KPIs segmentados por rol |
 | **Reportes** | 6 reportes con exportación Excel y PDF |
 | **Asistente IA** | Consultas en lenguaje natural (SELECT-only) |
-| **Auditoría** | Log de acciones e historial de inventario |
+| **Auditoría** | Cuatro pestañas: rastro por usuario, cambios campo a campo, log de acciones e historial de inventario |
+| **Respaldos y recuperación** | Respaldo manual y automático (02:00), borrado total simulado y restauración, todo desde la web |
 
 ### Compras (F21–F23)
 | Módulo | Descripción |

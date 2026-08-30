@@ -265,3 +265,81 @@ aplicación con el rol real.
 `ddl-auto=validate` valida las entidades contra el esquema y no al revés, así que
 una tabla sin entidad no rompe el arranque — y mapearla invitaría a que alguien
 escribiera en ella desde Java, que es justo lo que el diseño impide.
+
+---
+
+## 10. `auditoria_cambios` sale a la web (F92)
+
+Hasta esta fase, la bitácora más detallada del sistema —la única que guarda el
+valor **anterior** de cada campo— solo se consultaba por `psql`. Existía desde la
+F40, funcionaba, y en la práctica no la miraba nadie.
+
+### 10.1 Las cuatro pestañas, y qué pregunta contesta cada una
+
+La pantalla `/auditoria` pasa de dos pestañas a cuatro, y se abre por la nueva:
+
+| Pestaña | Fuente | Contesta |
+|---|---|---|
+| **Rastro por usuario** | las tres bitácoras | «¿por dónde anduvo esta persona?» |
+| **Cambios en datos** | `auditoria_cambios` | «¿qué valor tenía este dato antes?» |
+| Log de acciones | `log_accion` | «¿quién aprobó, anuló, reembolsó?» |
+| Historial de inventario | `historial_inventario` | «¿quién movió este stock?» |
+
+El orden es el de las preguntas, no el de las tablas: se entra por «quién tocó
+qué» y desde ahí se salta al detalle. Cada línea del rastro lleva a la pestaña
+correspondiente **con los filtros ya puestos**, que es lo que evita tener que
+volver a escribir el nombre a mano y equivocarse.
+
+### 10.2 Por qué el rastro son recuentos y no una línea de tiempo
+
+La tentación era fusionar las tres bitácoras en una lista cronológica. Un
+`UNION ALL` paginado sobre tres tablas de más de un millón de filas obliga a
+materializar y ordenar las tres **enteras** para poder dar la primera página.
+
+Se devuelven recuentos por sitio —que es lo que contesta la pregunta— y el salto
+al detalle usa índice.
+
+### 10.3 El caso que la pantalla marca en ámbar
+
+`usuario_app` nulo con `usuario_bd` presente significa **un cambio hecho fuera de
+la aplicación**: por `psql`, por un script, o por alguien con la credencial. Es
+justo el caso que más le interesa a una auditoría (§2), y en una lista de miles
+de filas iguales se perdía en un guion.
+
+Ahora sale como una etiqueta ámbar que dice «fuera de la app», con la cuenta de
+PostgreSQL en el título.
+
+### 10.4 El defecto de rendimiento que apareció por el camino
+
+Medido en esta base antes de tocar nada:
+
+```
+SELECT ... FROM log_accion ORDER BY fecha DESC, id_log DESC LIMIT 20
+    -> 9,8 SEGUNDOS
+```
+
+`log_accion` tenía **un solo índice, el de la clave primaria**. Con 200.000 filas
+no se notaba; con el millón y medio de la F91, la primera página de la pestaña
+«Log de acciones» ordenaba la tabla entera cada vez que alguien la abría. Añadir
+filtros por usuario y por módulo encima de eso habría multiplicado el problema.
+
+`fase92_control_respaldos.sql` crea seis índices `CONCURRENTLY`. Después:
+
+| Consulta | Antes | Después |
+|---|--:|--:|
+| Primera página del log | 9 801 ms | **11 ms** |
+
+El orden de las columnas no es cosmético: `(id_usuario, fecha DESC)` sirve para
+«lo que hizo esta persona, lo más reciente primero», que es la consulta de la
+pantalla. Al revés no serviría.
+
+### 10.5 Lo que NO cambia
+
+`auditoria_cambios` sigue **sin mapearse como entidad JPA**, y sigue siendo
+append-only incluso para el administrador. Se lee con SQL nativo desde
+`AuditoriaCambiosService`. Que no exista como entidad es parte de la garantía:
+una entidad queda al alcance de un `save()` accidental o de un `cascade` desde
+otra clase.
+
+La pantalla de respaldos puede vaciarla, pero solo marcando una casilla que está
+apagada por omisión y que dice lo que hace (ESTRATEGIA_RESPALDO.md §11.5).

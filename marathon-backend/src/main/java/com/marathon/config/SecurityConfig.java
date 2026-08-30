@@ -281,6 +281,17 @@ public class SecurityConfig {
                 .requestMatchers("/api/logs/**").hasAuthority("ROLE_ADMINISTRADOR")
                 .requestMatchers("/api/auditoria/**").hasAuthority("ROLE_ADMINISTRADOR")
 
+                // --- Respaldos (F92) ---
+                //   El Supervisor entra a MIRAR el diario: tiene SELECT sobre
+                //   control.respaldo y control.operacion en la base, igual que ya
+                //   lo tiene sobre auditoria_cambios. Lo que no puede es tomar,
+                //   restaurar ni borrar, y eso lo deciden los cuatro permisos
+                //   'respaldos:*' del @PreAuthorize de cada método — aquí solo se
+                //   abre la puerta del módulo.
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/respaldos/**")
+                    .hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_SUPERVISOR E-COMMERCE")
+                .requestMatchers("/api/respaldos/**").hasAuthority("ROLE_ADMINISTRADOR")
+
                 // --- Órdenes de Compra (F21): Encargado de Compras o Administrador ---
                 .requestMatchers(org.springframework.http.HttpMethod.GET,
                     "/api/ordenes-compra", "/api/ordenes-compra/**"

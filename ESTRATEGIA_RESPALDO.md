@@ -628,3 +628,179 @@ eliminar `data.reemplazado_<fecha>` para recuperar espacio.
 | Cifrar la configuración, no la base | Los secretos son el activo sensible; la base está en un volumen local |
 | Git como respaldo del código | Copiar código a ZIP perdería el historial |
 | Monitoreo por ausencia | Un job que dejó de correr no genera errores que mirar |
+
+---
+
+## 11. La capa lógica: respaldar y restaurar desde la web (F92)
+
+Todo lo anterior sigue igual y sigue siendo la copia de seguridad de verdad.
+Esta sección añade una **segunda capa** con otro propósito, y la distinción
+importa porque las dos se llaman «respaldo» y no sirven para lo mismo.
+
+### 11.1 Por qué no bastaba con la capa física
+
+La pantalla nueva pide poder **restaurar desde el navegador**. Con
+`pg_basebackup` eso no se puede hacer, y no es cuestión de programarlo mejor:
+
+- Un respaldo físico se restaura **parando el servicio de PostgreSQL y
+  reemplazando el directorio de datos**. La aplicación web estaría serrando la
+  rama en la que se sienta: su propia conexión muere a mitad.
+- Exige privilegios de administrador de Windows sobre el servicio.
+- Al terminar, la aplicación está caída y nadie ha visto el resultado.
+
+Un volcado **lógico** (`pg_dump` / `pg_restore`) se restaura con el servidor
+encendido, sobre la base en caliente. Ese es el motivo, y el único.
+
+### 11.2 Las dos capas, repartidas
+
+| | Física — `pg_basebackup` | Lógica — `pg_dump` (F92) |
+|---|---|---|
+| Dónde vive | Tareas Programadas de Windows | Dentro de la aplicación |
+| Corre con el backend apagado | **Sí** | No |
+| Para qué | Disco muerto, clúster corrupto | Punto de retorno a mano, simulacro |
+| Cómo se restaura | Parando el servicio | Con el servidor encendido |
+| Quién la dispara | El sistema operativo | Un administrador, desde la pantalla |
+
+**La física no se retira ni se degrada.** Si el backend está apagado a las 02:00
+no hay respaldo lógico esa noche, y eso es aceptable precisamente porque la
+física no depende de él.
+
+### 11.3 Medido en esta base (12 GB, 50,8 M filas)
+
+| Operación | Tiempo | Resultado |
+|---|--:|---|
+| Volcado `-Fd -j 4 -Z 1` | **29 s** | 2,43 GB en disco |
+| Borrado de 39 tablas (`TRUNCATE`) | **0,7 s** | 46,4 M filas |
+| Restauración sobre base vacía | **3 min 46 s** | sin errores |
+| Restauración sobre base llena | **4 min 53 s** | sin errores |
+
+La restauración sobre una base llena es un minuto más lenta porque `--clean`
+tiene que borrar 12 GB antes de escribir. Es el caso normal, así que es el
+número que se enseña en la pantalla.
+
+`-j 4` no es un adorno: con `-j 1` el volcado se va a varios minutos, y ahí un
+botón en una pantalla deja de ser una idea razonable.
+
+### 11.4 El esquema `control`: lo único que sobrevive
+
+El diario de respaldos vive en un esquema propio, y esa es la decisión que
+sostiene el diseño entero. Tiene que sobrevivir justo a las dos operaciones que
+registra:
+
+- El **borrado** vacía las tablas de negocio. Un diario entre ellas se borraría
+  a sí mismo del registro.
+- La **restauración** reemplaza `public` con el contenido del volcado. Un diario
+  ahí dentro volvería al estado que tenía cuando se tomó ese respaldo, y perdería
+  la fila que dice «fulano restauró hoy».
+
+Con el diario fuera, `pg_dump --exclude-schema=control` lo deja fuera del
+volcado y `pg_restore --clean` —que solo borra lo que el volcado contiene— no lo
+toca. **Verificado**: tras restaurar sobre una base recién vaciada, `control`
+conservaba las tres filas de las tres operaciones, con su autor y su IP.
+
+### 11.5 Qué NO borra el borrado, y por qué
+
+`usuario`, `usuario_rol`, `rol`, `permiso`, `rol_permiso` y `token_revocado` se
+conservan siempre. **Sin ellos nadie puede volver a entrar**, y quien acaba de
+borrar la base se quedaría fuera del sistema justo cuando necesita pulsar
+«Restaurar». Un simulacro del que no se puede volver no es un simulacro.
+
+`auditoria_cambios` y `log_accion` se conservan **salvo que se marque la casilla**.
+La F40 dejó `auditoria_cambios` en append-only incluso para el administrador
+(AUDITORIA.md §2); un botón web que la vaciara por omisión desharía esa decisión
+de tapadillo.
+
+`historial_inventario` **sí se va siempre**, y no por elección: tiene clave ajena
+contra `inventario`, y `TRUNCATE` exige que toda tabla que apunte a otra que se
+vacía esté también en la lista. La pantalla enseña la lista completa antes de
+pedir la confirmación precisamente para que eso no sea una sorpresa.
+
+La lista se calcula con el **cierre transitivo de las claves ajenas** consultando
+`pg_constraint`, no escrita a mano: una lista a mano se queda vieja en cuanto
+alguien añade una tabla, y se queda vieja en silencio.
+
+### 11.6 Modo mantenimiento, y el fallo que apareció al probarlo
+
+Mientras dura la restauración, cualquier petición a `/api/**` recibe un **503**
+con un mensaje legible y `Retry-After`. Sin eso, una petición que llegue a mitad
+no se encuentra un dato viejo: se encuentra una tabla que no existe.
+
+Dejar `/api/respaldos/**` fuera del 503 **no bastó**, y solo se vio probándolo:
+a los cuatro segundos de empezar, `GET /api/respaldos/estado` devolvía **401**.
+La causa es que el filtro JWT resuelve el token *consultando la tabla `usuario`*
+en cada petición —a propósito desde la F48—, y esa tabla se está reemplazando.
+Es decir: la única pantalla que tenía que sobrevivir era la primera en caerse.
+
+La salida es servir ese estado **desde memoria**, antes de que la cadena de
+seguridad toque la base: el progreso de la tarea más una foto de los contadores
+tomada antes de empezar. Ningún dato de negocio, y nada que el propio 503 no
+revele ya.
+
+### 11.7 La barra de progreso, y por qué mentía
+
+`pg_restore` no publica su avance por ningún lado salvo `--verbose`. Se cuenta
+cuántos objetos trae el volcado con `pg_restore --list` y cuántos anuncia
+`--verbose`, y el cociente es el porcentaje.
+
+En la primera prueba la barra saltaba al 99 % a los cuarenta segundos y ahí se
+quedaba cuatro minutos. El motivo era propio: la salida de los procesos se
+recortaba a 8 KB para no llenar el diario de ruido, y ese recorte se aplicaba
+**también** a `--list`, que devolvía 100 objetos en vez de 709. El recorte ahora
+solo actúa en la corrida con `--verbose`, que es la que lo necesitaba.
+
+Es el mismo tipo de error que el `RETURNING` de la F40: una decisión razonable
+tomada en un sitio, aplicada sin querer a un caso donde significaba otra cosa.
+
+### 11.8 La credencial
+
+`pg_dump` y el `TRUNCATE` sobre `auditoria_cambios` necesitan superusuario, que
+`usr_admin_marathon` deliberadamente no es. La contraseña **no está en ningún
+fichero del repositorio**: llega por variable de entorno del proceso, igual que
+la clave de cifrado de la F41, y la pone `scripts\cifrado\iniciar_backend.ps1`
+leyéndola del `.env`.
+
+Sin ella la aplicación arranca igual y la pantalla se declara «no disponible»
+diciendo exactamente qué falta y cómo arreglarlo, en vez de ofrecer botones que
+van a fallar.
+
+### 11.9 Retención de la capa lógica
+
+Se conservan en disco los **7 puntos más recientes** (`app.respaldo.retencion`),
+y la purga corre al terminar cada respaldo.
+
+No es un detalle menor: un respaldo automático de 2,4 GB cada noche son **73 GB
+al mes**, y el día que se llene el volumen el que se cae no es la pantalla de
+respaldos, es el servidor de base de datos. La capa física ya tenía su retención
+(§5); esta necesitaba la suya.
+
+**Se borra la carpeta, nunca la fila del diario.** Son dos cosas distintas: la
+fila dice que el respaldo *se hizo* —eso es historia y no se reescribe— y la
+carpeta dice si *todavía se puede usar*. El punto purgado deja de ofrecer el
+botón de restaurar y su mensaje explica que fue la retención, no que alguien lo
+borrara a mano. En una lista con un hueco, saber cuál de las dos cosas pasó es
+exactamente lo que hace falta.
+
+`app.respaldo.retencion=0` desactiva la purga, y es una opción legítima si los
+respaldos van a un volumen que se vacía por otro medio.
+
+### 11.10 Lo que esta capa NO resuelve
+
+Dicho en voz alta, para que no se descubra el día que haga falta:
+
+- **Si el backend está apagado a las 02:00, no hay respaldo lógico esa noche.**
+  Es la contrapartida de tenerlo dentro de la aplicación (§11.2). Los respaldos
+  físicos no dependen de esto.
+- **Durante la restauración no se puede iniciar sesión.** `AuthService` lee la
+  tabla `usuario`, que es una de las que se están reemplazando. Quien ya tiene la
+  sesión abierta sigue viendo la pantalla de respaldos; quien llegue nuevo tendrá
+  que esperar los cuatro o cinco minutos.
+- **El 503 de mantenimiento no tiene pantalla propia.** Las demás vistas reciben
+  el error y lo enseñan como cualquier otro fallo de red. Cerrarlo bien pediría
+  un interceptor HTTP que reconozca el 503 y muestre un aviso general; no se ha
+  hecho porque quien restaura se queda en la pantalla de respaldos, que sí lo
+  explica.
+- **El volcado se guarda sin cifrar**, en `C:\respaldos\marathon\web`. Contiene
+  los datos personales ya cifrados en columna (F41), así que los contactos de
+  cliente y proveedor siguen ilegibles sin la clave; el resto de la base, no.
+  Vale lo mismo que decir que el volumen de respaldos hay que tratarlo como
+  material sensible.

@@ -84,6 +84,11 @@ export const routes: Routes = [
   { path: 'reportes', loadComponent: () => import('./modules/reportes/reportes.component').then(m => m.ReportesComponent), canActivate: [authGuard, rolGuard], data: { roles: ['Administrador', 'Supervisor E-Commerce'] } },
   { path: 'ia', loadComponent: () => import('./modules/ia/ia-chat.component').then(m => m.IAChatComponent), canActivate: [authGuard, rolGuard], data: { roles: ['Administrador', 'Supervisor E-Commerce'] } },
   { path: 'auditoria', loadComponent: () => import('./modules/auditoria/auditoria.component').then(m => m.AuditoriaComponent), canActivate: [authGuard, rolGuard], data: { rol: 'Administrador' } },
+  // F92 — respaldar, borrar y restaurar desde la web. El Supervisor entra a
+  //   MIRAR el diario (el backend le da 'respaldos:ver' y SELECT sobre el
+  //   esquema control); los tres botones que destruyen algo exigen permisos que
+  //   solo tiene el Administrador, y eso lo decide el servidor, no esta ruta.
+  { path: 'respaldos', loadComponent: () => import('./modules/respaldos/respaldos.component').then(m => m.RespaldosComponent), canActivate: [authGuard, rolGuard], data: { roles: ['Administrador', 'Supervisor E-Commerce'] } },
   { path: '', redirectTo: 'login', pathMatch: 'full' },
   { path: '**', redirectTo: 'login' }
 ];

@@ -9,7 +9,7 @@ Proyecto de Administración de Bases de Datos · 32 fases · 37 tablas · 24 tri
 
 ## Preparación previa
 
-- [ ] Backend corriendo en `http://localhost:8080`
+- [ ] Backend corriendo en `http://localhost:8080`, arrancado con `scripts/cifrado/iniciar_backend.ps1`. **No vale `mvn spring-boot:run` a secas**: ese script es el que mete en el entorno del proceso la clave de cifrado (sin ella los contactos de cliente y proveedor salen vacíos) y la credencial de respaldo (sin ella la pantalla de Respaldos se declara «no disponible»)
 - [ ] Frontend corriendo en `http://localhost:4300`
 - [ ] BD con `seed_marathon_sports.sql` **y** `fase31_seed_demo_bloques_nuevos.sql` aplicados
 - [ ] Una terminal `psql` abierta en `mod_venta_inve` para las pruebas de integridad en BD
@@ -194,7 +194,7 @@ UPDATE orden_produccion SET costo_materia_prima = 1 WHERE id_orden_produccion = 
 
 ---
 
-## Cierre — Asistente IA y auditoría (4 min)
+## Cierre — Asistente IA, auditoría y recuperación (10 min)
 
 ### Asistente IA · usuario `admin@marathon.com`
 - [ ] **Asistente IA** → consultar en lenguaje natural, por ejemplo:
@@ -205,7 +205,25 @@ UPDATE orden_produccion SET costo_materia_prima = 1 WHERE id_orden_produccion = 
 > Requiere API key de Anthropic en `application-local.properties`. Si no está configurada, saltar esta parte.
 
 ### Auditoría
-- [ ] **Auditoría → Log de Acciones** → mostrar la traza de las operaciones de esta demo, con usuario, módulo, acción e IP
+- [ ] **Auditoría → Rastro por usuario** → elegir a `admin@marathon.com` y enseñar de una sola pantalla en qué módulos trabajó, qué datos cambió y qué stock movió durante la demo
+- [ ] Pinchar una línea del desglose: salta al detalle con los filtros ya puestos
+- [ ] **Auditoría → Cambios en datos** → enseñar el **antes y el después** de un campo concreto, y desplegar la fila para ver la transacción completa
+- [ ] Si aparece alguna fila en ámbar («fuera de la app»), señalarla: es un cambio hecho por `psql` o por un script, no por el sistema. Es el caso que más le interesa a una auditoría
+- [ ] **Auditoría → Log de Acciones** → la traza de las operaciones de esta demo, con usuario, módulo, acción e IP
+
+### Recuperación ante desastre · usuario `admin@marathon.com`
+
+> Es la parte que más impresiona y la que más puede salir mal si se improvisa.
+> Contar con **6 minutos** y no meterla si va justo de tiempo.
+
+- [ ] **Respaldos y recuperación** → «Guardar un punto ahora», con una nota. Tarda **unos 30 segundos** y la barra avanza de verdad
+- [ ] Enseñar la vista previa del borrado: **39 tablas y unos 46 millones de registros**. Señalar que `historial_inventario` está en la lista aunque no se haya marcado nada — se va porque cuelga del inventario por clave ajena
+- [ ] Explicar qué NO se borra: usuarios y roles (si no, nadie podría volver a entrar) y el diario de esta pantalla (vive en un esquema aparte que no entra en los volcados)
+- [ ] Teclear `BORRAR mod_venta_inve` y borrar. Tarda **menos de un segundo**
+- [ ] Abrir cualquier otra pantalla: **no hay datos**. El desastre es real
+- [ ] Volver a Respaldos → «Restaurar» sobre el punto recién tomado, teclear `RESTAURAR mod_venta_inve`
+- [ ] Mientras dura (**4-5 minutos**): abrir otra pestaña del sistema y enseñar el **503 «en mantenimiento»**. La pantalla de respaldos sigue viva porque se responde desde memoria, sin tocar la base
+- [ ] Al terminar: los datos están de vuelta, y el **diario conserva las dos operaciones** con quién las hizo y desde qué IP
 
 ---
 
@@ -218,6 +236,7 @@ UPDATE orden_produccion SET costo_materia_prima = 1 WHERE id_orden_produccion = 
 5. **Trazabilidad completa de stock:** todo cambio de inventario queda en `historial_inventario` con usuario y timestamp, vía trigger alimentado por `SET LOCAL app.current_user_id`.
 6. **Triple capa de seguridad:** `rolGuard` en el frontend, `SecurityConfig` en el backend, constraints y triggers en la BD.
 7. **Deuda técnica documentada y priorizada** por fase, con lo pospuesto declarado y justificado en `DEUDA_TECNICA.md`. El criterio en la fase final fue estabilidad para la demo sobre cerrar el 100 %.
+8. **La recuperación está probada, no supuesta.** El respaldo lógico se toma en 29 s y se restaura en 4-5 min, medido sobre la base de 12 GB y 50,8 M de filas — y el ciclo completo (respaldar → vaciar 46 M de registros → restaurar) se ha ejecutado de extremo a extremo. El diario de la operación vive en un esquema que los volcados excluyen a propósito: es lo único que sobrevive al desastre, y por eso puede decir quién lo provocó.
 
 ---
 

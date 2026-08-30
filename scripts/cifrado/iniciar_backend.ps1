@@ -83,6 +83,35 @@ $clave = [System.Text.Encoding]::UTF8.GetString(
 $env:MARATHON_CRYPTO_KEY = $clave
 $clave = $null
 
+# -----------------------------------------------------------------------------
+# F92: la credencial de RESPALDO, por el mismo camino
+# -----------------------------------------------------------------------------
+# La pantalla «Respaldos y recuperacion» ejecuta pg_dump y pg_restore, y eso
+# necesita el superusuario: usr_admin_marathon deliberadamente no lo es (ver
+# scripts\backup\config.ps1). Esa contrasena no puede vivir en
+# application.properties, que se sube al repositorio, ni en
+# application-local.properties, que es un sitio mas donde olvidarla.
+#
+# Se lee del .env —que ya esta en .gitignore y ya la tiene, porque los scripts
+# de respaldo la usan— y se pasa al JVM en una variable del PROCESO, que muere
+# con el. Sin esto la aplicacion arranca igual: la pantalla se declara «no
+# disponible» y dice exactamente que falta.
+$envArch = Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path '.env'
+if (Test-Path $envArch) {
+    foreach ($linea in Get-Content $envArch) {
+        if ($linea -match '^\s*(PG_SUPERUSER|PG_SUPERUSER_PASSWORD|DB_PORT)\s*=\s*(.+?)\s*$') {
+            Set-Item -Path "Env:\$($Matches[1])" -Value $Matches[2]
+        }
+    }
+    if ($env:PG_SUPERUSER_PASSWORD) {
+        Write-Host "Credencial de respaldo cargada en el entorno del proceso."
+    } else {
+        Write-Host "AVISO: el .env no trae PG_SUPERUSER_PASSWORD. La pantalla de respaldos quedara desactivada."
+    }
+} else {
+    Write-Host "AVISO: no hay .env en $envArch. La pantalla de respaldos quedara desactivada."
+}
+
 # El java del PATH es 1.8 y no sirve para Spring Boot 3.
 $env:JAVA_HOME = $JavaHome
 $env:PATH      = "$JavaHome\bin;$env:PATH"
@@ -103,5 +132,6 @@ try {
 }
 finally {
     Pop-Location
-    Remove-Item Env:\MARATHON_CRYPTO_KEY -ErrorAction SilentlyContinue
+    Remove-Item Env:\MARATHON_CRYPTO_KEY   -ErrorAction SilentlyContinue
+    Remove-Item Env:\PG_SUPERUSER_PASSWORD -ErrorAction SilentlyContinue
 }

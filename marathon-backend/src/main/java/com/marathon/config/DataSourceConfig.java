@@ -50,13 +50,18 @@ public class DataSourceConfig {
 
     @Bean
     @Primary
-    DataSource dataSource(DataSourceProperties porDefecto, RoleDataSourceProperties roles) {
+    DataSource dataSource(DataSourceProperties porDefecto, RoleDataSourceProperties roles,
+                          RegistroDePools registro) {
 
         HikariDataSource poolAdministrador = porDefecto
                 .initializeDataSourceBuilder()
                 .type(HikariDataSource.class)
                 .build();
         poolAdministrador.setPoolName("pool-" + RoleRoutingDataSource.CLAVE_ADMINISTRADOR);
+        // F92: se apunta cada pool segun se crea. Una restauracion deja los
+        // planes preparados del servidor apuntando a tablas que ya no existen,
+        // y hay que poder reciclarlos todos. Ver RegistroDePools.
+        registro.registrar(poolAdministrador);
 
         if (!roles.isEnabled()) {
             log.warn("Enrutado por rol DESACTIVADO (app.datasource.roles.enabled=false): "
@@ -93,6 +98,7 @@ public class DataSourceConfig {
             pool.setMinimumIdle(roles.getMinimumIdle());
 
             pools.put(clave, pool);
+            registro.registrar(pool);
             log.info("Pool '{}' -> usuario de base de datos '{}'", clave, credencial.getUsername());
         });
 
