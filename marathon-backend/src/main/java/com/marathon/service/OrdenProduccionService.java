@@ -499,7 +499,8 @@ public class OrdenProduccionService {
         // F54: busqueda por texto, sin la cual encontrar un registro concreto
         // entre miles era pasar paginas una a una.
         Page<OrdenProduccion> result = ordenRepository.buscar(
-                Filtros.vacioComoNulo(estado), idProducto, Filtros.vacioComoNulo(busqueda), pageable);
+                Filtros.vacioComoNulo(estado), idProducto, Filtros.textoSiNoEsNumero(busqueda),
+                Filtros.numeroDeDocumento(busqueda), pageable);
         List<OrdenProduccionResponseDTO> content = result.getContent().stream()
                 .map(o -> toDTO(o, false))
                 .collect(Collectors.toList());

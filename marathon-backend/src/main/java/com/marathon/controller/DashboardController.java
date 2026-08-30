@@ -56,7 +56,7 @@ public class DashboardController {
      */
     @GetMapping("/resumen")
     public ResponseEntity<DashboardResumenDTO> getResumen(
-            @RequestParam(defaultValue = "30d") String periodo) {
+            @RequestParam(name = "periodo", defaultValue = "30d") String periodo) {
         return ResponseEntity.ok(dashboardResumenService.resumen(periodo));
     }
 
@@ -76,7 +76,7 @@ public class DashboardController {
     @GetMapping("/ventas-por-dia")
     @PreAuthorize("hasAuthority('dashboard:ver')")
     public ResponseEntity<List<VentaDiaDTO>> getVentasPorDia(
-            @RequestParam(defaultValue = "7") int dias) {
+            @RequestParam(name = "dias", defaultValue = "7") int dias) {
         return ResponseEntity.ok(dashboardService.getVentasPorDia(dias));
     }
 
@@ -89,7 +89,7 @@ public class DashboardController {
     @GetMapping("/top-productos")
     @PreAuthorize("hasAuthority('dashboard:ver')")
     public ResponseEntity<List<TopProductoDTO>> getTopProductos(
-            @RequestParam(defaultValue = "5") int limite) {
+            @RequestParam(name = "limite", defaultValue = "5") int limite) {
         return ResponseEntity.ok(dashboardService.getTopProductos(limite));
     }
 
@@ -105,7 +105,7 @@ public class DashboardController {
     @GetMapping("/analitica")
     @PreAuthorize("hasAuthority('dashboard:ver')")
     public ResponseEntity<AnaliticaDTO> getAnalitica(
-            @RequestParam(defaultValue = "30d") String periodo) {
+            @RequestParam(name = "periodo", defaultValue = "30d") String periodo) {
         return ResponseEntity.ok(analiticaService.analitica(periodo));
     }
 

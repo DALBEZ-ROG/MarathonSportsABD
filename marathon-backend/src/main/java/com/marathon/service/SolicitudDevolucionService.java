@@ -144,7 +144,8 @@ public class SolicitudDevolucionService {
         // F54: busqueda por texto, sin la cual encontrar un registro concreto
         // entre miles era pasar paginas una a una.
         Page<SolicitudDevolucion> result = solicitudRepository.buscar(
-                Filtros.vacioComoNulo(estado), idPedido, Filtros.numeroDePedido(busqueda), pageable);
+                Filtros.vacioComoNulo(estado), idPedido, Filtros.textoSiNoEsNumero(busqueda),
+                Filtros.numeroDeDocumento(busqueda), pageable);
 
         List<SolicitudDevolucionResponseDTO> content = result.getContent().stream()
                 .map(this::toDTO).collect(Collectors.toList());

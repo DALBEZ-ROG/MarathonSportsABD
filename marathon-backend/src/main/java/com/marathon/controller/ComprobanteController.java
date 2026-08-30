@@ -30,27 +30,27 @@ public class ComprobanteController {
     @GetMapping
     @PreAuthorize("hasAuthority('comprobantes:ver')")
     public ResponseEntity<PageResponseDTO<ComprobanteResponseDTO>> listar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String numero) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "numero", required = false) String numero) {
         return ResponseEntity.ok(comprobanteService.listar(page, size, numero));
     }
 
     @GetMapping("/pedido/{idPedido}")
     @PreAuthorize("hasAuthority('comprobantes:ver')")
-    public ResponseEntity<ComprobanteResponseDTO> obtenerPorPedido(@PathVariable Integer idPedido) {
+    public ResponseEntity<ComprobanteResponseDTO> obtenerPorPedido(@PathVariable(name = "idPedido") Integer idPedido) {
         return ResponseEntity.ok(comprobanteService.obtenerPorPedido(idPedido));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('comprobantes:ver')")
-    public ResponseEntity<ComprobanteResponseDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<ComprobanteResponseDTO> obtener(@PathVariable(name = "id") Integer id) {
         return ResponseEntity.ok(comprobanteService.obtener(id));
     }
 
     @GetMapping("/{id}/pdf")
     @PreAuthorize("hasAuthority('comprobantes:ver')")
-    public ResponseEntity<byte[]> descargarPDF(@PathVariable Integer id) {
+    public ResponseEntity<byte[]> descargarPDF(@PathVariable(name = "id") Integer id) {
         ComprobanteResponseDTO comprobante = comprobanteService.obtener(id);
         byte[] pdf = comprobanteService.descargarPDF(id);
 
@@ -64,14 +64,14 @@ public class ComprobanteController {
 
     @PostMapping("/pedido/{idPedido}/generar")
     @PreAuthorize("hasAuthority('comprobantes:emitir')")
-    public ResponseEntity<ComprobanteResponseDTO> generar(@PathVariable Integer idPedido) {
+    public ResponseEntity<ComprobanteResponseDTO> generar(@PathVariable(name = "idPedido") Integer idPedido) {
         Usuario usuario = (Usuario) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return ResponseEntity.ok(comprobanteService.generarComprobante(idPedido, usuario.getIdUsuario()));
     }
 
     @PostMapping("/{id}/anular")
     @PreAuthorize("hasAuthority('comprobantes:anular')")
-    public ResponseEntity<ComprobanteResponseDTO> anular(@PathVariable Integer id) {
+    public ResponseEntity<ComprobanteResponseDTO> anular(@PathVariable(name = "id") Integer id) {
         Usuario usuario = (Usuario) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return ResponseEntity.ok(comprobanteService.anular(id, usuario.getIdUsuario()));
     }

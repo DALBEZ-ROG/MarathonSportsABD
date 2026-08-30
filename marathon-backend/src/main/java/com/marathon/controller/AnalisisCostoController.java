@@ -25,15 +25,15 @@ public class AnalisisCostoController {
 
     @GetMapping("/fabricar-vs-comprar/{idProducto}")
     @PreAuthorize("hasAuthority('analisis_costos:ver')")
-    public ResponseEntity<AnalisisFabricarVsComprarDTO> fabricarVsComprar(@PathVariable Integer idProducto) {
+    public ResponseEntity<AnalisisFabricarVsComprarDTO> fabricarVsComprar(@PathVariable(name = "idProducto") Integer idProducto) {
         return ResponseEntity.ok(analisisCostoService.analizarFabricarVsComprar(idProducto));
     }
 
     @GetMapping("/productos-fabricados")
     @PreAuthorize("hasAuthority('analisis_costos:ver')")
     public ResponseEntity<PageResponseDTO<CostoProductoFabricadoDTO>> productosFabricados(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size) {
         return ResponseEntity.ok(analisisCostoService.listarCostosPorProducto(page, size));
     }
 }

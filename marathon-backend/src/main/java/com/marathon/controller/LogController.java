@@ -24,12 +24,12 @@ public class LogController {
     @GetMapping
     @PreAuthorize("hasAuthority('logs:ver')")
     public ResponseEntity<PageResponseDTO<LogAccionResponseDTO>> listar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) Integer idUsuario,
-            @RequestParam(required = false) String modulo,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime desde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime hasta) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "idUsuario", required = false) Integer idUsuario,
+            @RequestParam(name = "modulo", required = false) String modulo,
+            @RequestParam(name = "desde", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime desde,
+            @RequestParam(name = "hasta", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime hasta) {
         return ResponseEntity.ok(logService.listar(page, size, idUsuario, modulo, desde, hasta));
     }
 

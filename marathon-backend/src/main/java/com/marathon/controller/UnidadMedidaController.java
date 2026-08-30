@@ -33,15 +33,15 @@ public class UnidadMedidaController {
     @GetMapping
     @PreAuthorize("hasAuthority('unidades_medida:ver')")
     public ResponseEntity<PageResponseDTO<UnidadMedidaResponseDTO>> listar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String nombre) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "nombre", required = false) String nombre) {
         return ResponseEntity.ok(unidadMedidaService.listar(page, size, nombre));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('unidades_medida:ver')")
-    public ResponseEntity<UnidadMedidaResponseDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<UnidadMedidaResponseDTO> obtener(@PathVariable(name = "id") Integer id) {
         return ResponseEntity.ok(unidadMedidaService.obtener(id));
     }
 
@@ -53,14 +53,14 @@ public class UnidadMedidaController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('unidades_medida:editar')")
-    public ResponseEntity<UnidadMedidaResponseDTO> actualizar(@PathVariable Integer id,
+    public ResponseEntity<UnidadMedidaResponseDTO> actualizar(@PathVariable(name = "id") Integer id,
                                                                @Valid @RequestBody UnidadMedidaRequestDTO dto) {
         return ResponseEntity.ok(unidadMedidaService.actualizar(id, dto));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('unidades_medida:eliminar')")
-    public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
+    public ResponseEntity<Void> eliminar(@PathVariable(name = "id") Integer id) {
         unidadMedidaService.eliminar(id);
         return ResponseEntity.noContent().build();
     }

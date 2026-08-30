@@ -46,11 +46,13 @@ public interface OrdenProduccionRepository extends JpaRepository<OrdenProduccion
     @Query("SELECT o FROM OrdenProduccion o WHERE "
          + "(:estado IS NULL OR o.estado = :estado) "
          + "AND (:idProducto IS NULL OR o.producto.idProducto = :idProducto) "
-         + "AND (:texto IS NULL "
-         + "     OR CAST(o.idOrdenProduccion AS string) LIKE CONCAT('%', CAST(:texto AS string), '%') "
-         + "     OR LOWER(o.producto.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))")
+         + "AND (:numero IS NULL OR o.idOrdenProduccion = :numero) "
+         + "AND (:texto IS NULL OR EXISTS ("
+         + "     SELECT 1 FROM Producto pr WHERE pr = o.producto"
+         + "       AND LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%'))))")
     Page<OrdenProduccion> buscar(@Param("estado") String estado,
                                  @Param("idProducto") Integer idProducto,
                                  @Param("texto") String texto,
+                                 @Param("numero") Long numero,
                                  Pageable pageable);
 }

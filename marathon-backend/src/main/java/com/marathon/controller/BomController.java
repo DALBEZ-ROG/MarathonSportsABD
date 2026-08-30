@@ -40,7 +40,7 @@ public class BomController {
     @GetMapping("/bom")
     @PreAuthorize("hasAuthority('bom:ver')")
     public ResponseEntity<List<ListaMaterialesResponseDTO>> obtenerBom(
-            @PathVariable Integer idProducto) {
+            @PathVariable(name = "idProducto") Integer idProducto) {
         return ResponseEntity.ok(listaMaterialesService.obtenerBomDeProducto(idProducto));
     }
 
@@ -48,7 +48,7 @@ public class BomController {
     @PutMapping("/bom")
     @PreAuthorize("hasAuthority('bom:editar')")
     public ResponseEntity<List<ListaMaterialesResponseDTO>> definirBom(
-            @PathVariable Integer idProducto,
+            @PathVariable(name = "idProducto") Integer idProducto,
             @Valid @RequestBody ListaMaterialesItemDTO dto,
             Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
@@ -59,7 +59,7 @@ public class BomController {
     // GET /api/productos/{idProducto}/costo-estimado  (F29)
     @GetMapping("/costo-estimado")
     @PreAuthorize("hasAuthority('analisis_costos:ver')")
-    public ResponseEntity<CostoProduccionEstimadoDTO> costoEstimado(@PathVariable Integer idProducto) {
+    public ResponseEntity<CostoProduccionEstimadoDTO> costoEstimado(@PathVariable(name = "idProducto") Integer idProducto) {
         return ResponseEntity.ok(listaMaterialesService.calcularCostoEstimado(idProducto));
     }
 
@@ -67,7 +67,7 @@ public class BomController {
     @PutMapping("/origen")
     @PreAuthorize("hasAuthority('bom:editar')")
     public ResponseEntity<ProductoResponseDTO> cambiarOrigen(
-            @PathVariable Integer idProducto,
+            @PathVariable(name = "idProducto") Integer idProducto,
             @RequestBody Map<String, String> body,
             Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();

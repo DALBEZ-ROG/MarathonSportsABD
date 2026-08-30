@@ -25,24 +25,24 @@ public class CuentaPorPagarController {
     @GetMapping
     @PreAuthorize("hasAuthority('cuentas_por_pagar:ver')")
     public ResponseEntity<PageResponseDTO<CuentaPorPagarResponseDTO>> listar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String estado,
-            @RequestParam(required = false) Integer idProveedor,
-            @RequestParam(required = false) String busqueda) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "estado", required = false) String estado,
+            @RequestParam(name = "idProveedor", required = false) Integer idProveedor,
+            @RequestParam(name = "busqueda", required = false) String busqueda) {
         return ResponseEntity.ok(cuentaService.listar(page, size, estado, idProveedor, busqueda));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('cuentas_por_pagar:ver')")
-    public ResponseEntity<CuentaPorPagarResponseDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<CuentaPorPagarResponseDTO> obtener(@PathVariable(name = "id") Integer id) {
         return ResponseEntity.ok(cuentaService.obtener(id));
     }
 
     @GetMapping("/resumen-proveedor/{idProveedor}")
     @PreAuthorize("hasAuthority('cuentas_por_pagar:ver')")
     public ResponseEntity<CuentaPorPagarService.ResumenProveedorDTO> resumenPorProveedor(
-            @PathVariable Integer idProveedor) {
+            @PathVariable(name = "idProveedor") Integer idProveedor) {
         return ResponseEntity.ok(cuentaService.resumenPorProveedor(idProveedor));
     }
 }

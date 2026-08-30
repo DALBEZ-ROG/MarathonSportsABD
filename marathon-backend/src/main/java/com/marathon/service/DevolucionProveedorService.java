@@ -239,7 +239,8 @@ public class DevolucionProveedorService {
         // F54: busqueda por texto, sin la cual encontrar un registro concreto
         // entre miles era pasar paginas una a una.
         Page<DevolucionProveedor> result = devolucionRepository.buscar(
-                Filtros.vacioComoNulo(estado), idProveedor, Filtros.vacioComoNulo(busqueda), pageable);
+                Filtros.vacioComoNulo(estado), idProveedor, Filtros.textoSiNoEsNumero(busqueda),
+                Filtros.numeroDeDocumento(busqueda), pageable);
 
         List<DevolucionProveedorResponseDTO> content = result.getContent().stream()
                 .map(this::toDTO).collect(Collectors.toList());

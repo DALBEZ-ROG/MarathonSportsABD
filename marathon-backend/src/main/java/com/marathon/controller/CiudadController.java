@@ -33,16 +33,16 @@ public class CiudadController {
     @GetMapping
     @PreAuthorize("hasAuthority('ciudades:ver')")
     public ResponseEntity<PageResponseDTO<CiudadResponseDTO>> listar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String nombre,
-            @RequestParam(required = false) String estado) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "nombre", required = false) String nombre,
+            @RequestParam(name = "estado", required = false) String estado) {
         return ResponseEntity.ok(ciudadService.listar(page, size, nombre, estado));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('ciudades:ver')")
-    public ResponseEntity<CiudadResponseDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<CiudadResponseDTO> obtener(@PathVariable(name = "id") Integer id) {
         return ResponseEntity.ok(ciudadService.obtener(id));
     }
 
@@ -54,14 +54,14 @@ public class CiudadController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('ciudades:editar')")
-    public ResponseEntity<CiudadResponseDTO> actualizar(@PathVariable Integer id,
+    public ResponseEntity<CiudadResponseDTO> actualizar(@PathVariable(name = "id") Integer id,
                                                          @Valid @RequestBody CiudadRequestDTO dto) {
         return ResponseEntity.ok(ciudadService.actualizar(id, dto));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('ciudades:eliminar')")
-    public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
+    public ResponseEntity<Void> eliminar(@PathVariable(name = "id") Integer id) {
         ciudadService.eliminar(id);
         return ResponseEntity.noContent().build();
     }

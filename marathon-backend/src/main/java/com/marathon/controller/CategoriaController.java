@@ -33,15 +33,15 @@ public class CategoriaController {
     @GetMapping
     @PreAuthorize("hasAuthority('categorias:ver')")
     public ResponseEntity<PageResponseDTO<CategoriaResponseDTO>> listar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String nombre) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "nombre", required = false) String nombre) {
         return ResponseEntity.ok(categoriaService.listar(page, size, nombre));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('categorias:ver')")
-    public ResponseEntity<CategoriaResponseDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<CategoriaResponseDTO> obtener(@PathVariable(name = "id") Integer id) {
         return ResponseEntity.ok(categoriaService.obtener(id));
     }
 
@@ -53,14 +53,14 @@ public class CategoriaController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('categorias:editar')")
-    public ResponseEntity<CategoriaResponseDTO> actualizar(@PathVariable Integer id,
+    public ResponseEntity<CategoriaResponseDTO> actualizar(@PathVariable(name = "id") Integer id,
                                                             @Valid @RequestBody CategoriaRequestDTO dto) {
         return ResponseEntity.ok(categoriaService.actualizar(id, dto));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('categorias:eliminar')")
-    public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
+    public ResponseEntity<Void> eliminar(@PathVariable(name = "id") Integer id) {
         categoriaService.eliminar(id);
         return ResponseEntity.noContent().build();
     }

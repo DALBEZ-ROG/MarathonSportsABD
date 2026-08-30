@@ -43,13 +43,76 @@ public class DashboardService {
         this.ordenProduccionRepository = ordenProduccionRepository;
     }
 
+    // =====================================================================
+    // F94 — Memoria corta para los recuentos del tablero
+    // =====================================================================
+    // Los KPIs son catorce recuentos sobre tablas de millón y medio de filas.
+    // Individualmente ninguno es escandaloso (30–215 ms); sumados son un
+    // segundo largo, y el tablero es la primera pantalla despues de entrar.
+    //
+    // POR QUE UNA MEMORIA CORTA Y NO MAS INDICES. Ya no es un problema de
+    // indices: son agregados que tienen que recorrer lo que cuentan. «Cuantos
+    // pedidos hay pendientes» no se puede saber sin contarlos.
+    //
+    // POR QUE ES ACEPTABLE AQUI Y NO EN OTRO SITIO. Un panel de indicadores se
+    // mira para hacerse una idea, no para decidir sobre una fila concreta.
+    // Que diga 1.482 cuando hace veinte segundos pasaron a 1.483 no cambia
+    // ninguna decision. En un listado, en cambio, ver una fila que ya no esta
+    // SI importa — y por eso los listados no llevan memoria.
+    //
+    // Es deliberadamente casera y no una libreria de cache: son veinte lineas,
+    // se ve entera, y no anade una dependencia por un panel.
+    @org.springframework.beans.factory.annotation.Value("${app.tablero.segundos-memoria:20}")
+    private long segundosMemoria;
+
+    private record Recordado<T>(T valor, long instante) {}
+
+    private final java.util.Map<String, Recordado<Object>> memoria =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    @SuppressWarnings("unchecked")
+    private <T> T recordar(String clave, java.util.function.Supplier<T> calcular) {
+        if (segundosMemoria <= 0) {
+            return calcular.get();   // 0 desactiva la memoria; queda el camino de siempre
+        }
+        long ahora = System.currentTimeMillis();
+        Recordado<Object> guardado = memoria.get(clave);
+        if (guardado != null && ahora - guardado.instante() < segundosMemoria * 1000) {
+            return (T) guardado.valor();
+        }
+        T fresco = calcular.get();
+        memoria.put(clave, new Recordado<>(fresco, ahora));
+        return fresco;
+    }
+
+    /**
+     * F94: los cinco recuentos por estado salen de UNA consulta agrupada.
+     *
+     * <p>Eran cinco {@code countByEstado(...)} seguidos —cinco recorridos de la
+     * tabla de pedidos, 1,5 millones de filas cada uno— para repartir el mismo
+     * total en cinco casillas. La consulta agrupada ya existía desde antes:
+     * {@code pedidosPorEstado()}, que es la que alimenta el gráfico de al lado.
+     * Se reutiliza en lugar de volver a preguntar cinco veces.
+     *
+     * <p>Un estado sin ningún pedido no aparece en el resultado agrupado, y ahí
+     * el cero SÍ es el valor correcto: significa que no hay ninguno.
+     */
     public DashboardKpisDTO getKpis() {
+        return recordar("kpis", this::calcularKpis);
+    }
+
+    private DashboardKpisDTO calcularKpis() {
         DashboardKpisDTO dto = new DashboardKpisDTO();
-        dto.setPedidosPendientes(pedidoRepository.countByEstado("pendiente"));
-        dto.setPedidosProcesados(pedidoRepository.countByEstado("procesado"));
-        dto.setPedidosEnviados(pedidoRepository.countByEstado("enviado"));
-        dto.setPedidosEntregados(pedidoRepository.countByEstado("entregado"));
-        dto.setPedidosAnulados(pedidoRepository.countByEstado("anulado"));
+
+        java.util.Map<String, Long> porEstado = new java.util.HashMap<>();
+        for (com.marathon.dto.dashboard.EstadoPedidoDTO e : pedidoRepository.pedidosPorEstado()) {
+            porEstado.put(e.getEstado(), e.getCantidad());
+        }
+        dto.setPedidosPendientes(porEstado.getOrDefault("pendiente", 0L));
+        dto.setPedidosProcesados(porEstado.getOrDefault("procesado", 0L));
+        dto.setPedidosEnviados(porEstado.getOrDefault("enviado", 0L));
+        dto.setPedidosEntregados(porEstado.getOrDefault("entregado", 0L));
+        dto.setPedidosAnulados(porEstado.getOrDefault("anulado", 0L));
         dto.setPedidosHoy(pedidoRepository.contarPedidosHoy());
         dto.setTotalVentasHoy(pedidoRepository.totalVentasHoy());
         dto.setTotalVentasMes(pedidoRepository.totalVentasMes());
@@ -74,9 +137,40 @@ public class DashboardService {
         return pedidoRepository.pedidosPorEstado();
     }
 
+    /**
+     * F94: el agregado no toca producto ni categoría; los nombres se buscan
+     * después, solo para los que salen. Ver
+     * {@code DetallePedidoRepository.topProductosCrudo}.
+     */
     public List<TopProductoDTO> getTopProductos(int limite) {
         int limiteClamp = Math.max(1, Math.min(20, limite));
-        return detallePedidoRepository.topProductos(PageRequest.of(0, limiteClamp));
+        return recordar("top-" + limiteClamp, () -> calcularTopProductos(limiteClamp));
+    }
+
+    private List<TopProductoDTO> calcularTopProductos(int limiteClamp) {
+        List<Object[]> filas = detallePedidoRepository.topProductosCrudo(PageRequest.of(0, limiteClamp));
+
+        List<Integer> ids = filas.stream()
+                .map(f -> ((Number) f[0]).intValue())
+                .toList();
+        // Una consulta para los diez nombres, no una por fila.
+        java.util.Map<Integer, com.marathon.model.Producto> porId = new java.util.HashMap<>();
+        for (com.marathon.model.Producto p : productoRepository.findAllById(ids)) {
+            porId.put(p.getIdProducto(), p);
+        }
+
+        List<TopProductoDTO> top = new java.util.ArrayList<>();
+        for (Object[] f : filas) {
+            Integer id = ((Number) f[0]).intValue();
+            com.marathon.model.Producto p = porId.get(id);
+            top.add(new TopProductoDTO(
+                    id,
+                    p != null ? p.getNombre() : null,
+                    p != null && p.getCategoria() != null ? p.getCategoria().getNombre() : null,
+                    ((Number) f[1]).longValue(),
+                    (java.math.BigDecimal) f[2]));
+        }
+        return top;
     }
 
     public List<MovimientoResumenDTO> getMovimientosHoy() {

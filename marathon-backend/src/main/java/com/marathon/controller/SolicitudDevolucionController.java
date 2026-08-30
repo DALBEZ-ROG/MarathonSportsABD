@@ -36,17 +36,17 @@ public class SolicitudDevolucionController {
     @GetMapping
     @PreAuthorize("hasAuthority('devoluciones:ver')")
     public ResponseEntity<PageResponseDTO<SolicitudDevolucionResponseDTO>> listar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String estado,
-            @RequestParam(required = false) Integer idPedido,
-            @RequestParam(required = false) String busqueda) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "estado", required = false) String estado,
+            @RequestParam(name = "idPedido", required = false) Integer idPedido,
+            @RequestParam(name = "busqueda", required = false) String busqueda) {
         return ResponseEntity.ok(service.listar(page, size, estado, idPedido, busqueda));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('devoluciones:ver')")
-    public ResponseEntity<SolicitudDevolucionResponseDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<SolicitudDevolucionResponseDTO> obtener(@PathVariable(name = "id") Integer id) {
         return ResponseEntity.ok(service.obtener(id));
     }
 
@@ -63,7 +63,7 @@ public class SolicitudDevolucionController {
     @PutMapping("/{id}/iniciar-inspeccion")
     @PreAuthorize("hasAuthority('devoluciones:inspeccionar')")
     public ResponseEntity<SolicitudDevolucionResponseDTO> iniciarInspeccion(
-            @PathVariable Integer id, Authentication authentication) {
+            @PathVariable(name = "id") Integer id, Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
         return ResponseEntity.ok(service.iniciarInspeccion(id, usuario.getIdUsuario()));
     }
@@ -71,7 +71,7 @@ public class SolicitudDevolucionController {
     @PutMapping("/{id}/inspeccionar")
     @PreAuthorize("hasAuthority('devoluciones:inspeccionar')")
     public ResponseEntity<SolicitudDevolucionResponseDTO> inspeccionar(
-            @PathVariable Integer id,
+            @PathVariable(name = "id") Integer id,
             @Valid @RequestBody InspeccionRequestDTO dto,
             Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
@@ -81,7 +81,7 @@ public class SolicitudDevolucionController {
     @PostMapping("/{id}/reembolso")
     @PreAuthorize("hasAuthority('devoluciones:reembolsar')")
     public ResponseEntity<SolicitudDevolucionResponseDTO> registrarReembolso(
-            @PathVariable Integer id,
+            @PathVariable(name = "id") Integer id,
             @Valid @RequestBody ReembolsoRequestDTO dto,
             Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();

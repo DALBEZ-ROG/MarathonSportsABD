@@ -18,4 +18,18 @@ public interface UsuarioRolRepository extends JpaRepository<UsuarioRol, Integer>
     boolean existsByRolIdRol(Integer idRol);
 
     List<UsuarioRol> findByUsuarioIdUsuario(Integer idUsuario);
+
+    /**
+     * Solo los NOMBRES de los roles de una persona (F94).
+     *
+     * <p>Como {@link RolPermisoRepository#permisosDeUsuario}, esto lo paga cada
+     * peticion. Traer las entidades {@code UsuarioRol} completas para leerles el
+     * nombre del rol obliga a cargar tambien el {@code Rol}; una proyeccion de
+     * cadenas resuelve lo mismo con una consulta y sin entidades en el contexto
+     * de persistencia.
+     */
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT r.nombre FROM UsuarioRol ur JOIN ur.rol r WHERE ur.usuario.idUsuario = :idUsuario")
+    List<String> nombresDeRol(
+        @org.springframework.data.repository.query.Param("idUsuario") Integer idUsuario);
 }

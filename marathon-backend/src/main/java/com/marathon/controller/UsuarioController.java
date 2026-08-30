@@ -36,16 +36,16 @@ public class UsuarioController {
     @GetMapping
     @PreAuthorize("hasAuthority('usuarios:ver')")
     public ResponseEntity<PageResponseDTO<UsuarioResponseDTO>> listar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String nombre,
-            @RequestParam(required = false) String estado) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "nombre", required = false) String nombre,
+            @RequestParam(name = "estado", required = false) String estado) {
         return ResponseEntity.ok(usuarioService.listar(page, size, nombre, estado));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('usuarios:ver')")
-    public ResponseEntity<UsuarioResponseDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<UsuarioResponseDTO> obtener(@PathVariable(name = "id") Integer id) {
         return ResponseEntity.ok(usuarioService.obtener(id));
     }
 
@@ -57,13 +57,13 @@ public class UsuarioController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('usuarios:editar')")
-    public ResponseEntity<UsuarioResponseDTO> actualizar(@PathVariable Integer id,
+    public ResponseEntity<UsuarioResponseDTO> actualizar(@PathVariable(name = "id") Integer id,
                                                           @Valid @RequestBody UsuarioUpdateDTO dto) {
         return ResponseEntity.ok(usuarioService.actualizar(id, dto));
     }
 
     @PutMapping("/{id}/password")
-    public ResponseEntity<Void> cambiarPassword(@PathVariable Integer id,
+    public ResponseEntity<Void> cambiarPassword(@PathVariable(name = "id") Integer id,
                                                  @Valid @RequestBody UsuarioCambiarPasswordDTO dto) {
         // Este endpoint lo puede llamar cualquier usuario autenticado sobre su
         // propia cuenta, pero escribe en la tabla usuario, que en la base solo
@@ -76,7 +76,7 @@ public class UsuarioController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('usuarios:eliminar')")
-    public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
+    public ResponseEntity<Void> eliminar(@PathVariable(name = "id") Integer id) {
         usuarioService.eliminar(id);
         return ResponseEntity.noContent().build();
     }

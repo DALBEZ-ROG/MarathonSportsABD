@@ -35,17 +35,17 @@ public class OrdenCompraController {
     @GetMapping
     @PreAuthorize("hasAuthority('compras:ver')")
     public ResponseEntity<PageResponseDTO<OrdenCompraResponseDTO>> listar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String estado,
-            @RequestParam(required = false) Integer idProveedor,
-            @RequestParam(required = false) String busqueda) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "estado", required = false) String estado,
+            @RequestParam(name = "idProveedor", required = false) Integer idProveedor,
+            @RequestParam(name = "busqueda", required = false) String busqueda) {
         return ResponseEntity.ok(ordenCompraService.listar(page, size, estado, idProveedor, busqueda));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('compras:ver')")
-    public ResponseEntity<OrdenCompraResponseDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<OrdenCompraResponseDTO> obtener(@PathVariable(name = "id") Integer id) {
         return ResponseEntity.ok(ordenCompraService.obtener(id));
     }
 
@@ -67,7 +67,7 @@ public class OrdenCompraController {
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('compras:crear')")
     public ResponseEntity<OrdenCompraResponseDTO> actualizar(
-            @PathVariable Integer id,
+            @PathVariable(name = "id") Integer id,
             @Valid @RequestBody OrdenCompraRequestDTO dto,
             Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
@@ -76,7 +76,7 @@ public class OrdenCompraController {
     }
 
     @PutMapping("/{id}/estado")
-    public ResponseEntity<OrdenCompraResponseDTO> cambiarEstado(@PathVariable Integer id,
+    public ResponseEntity<OrdenCompraResponseDTO> cambiarEstado(@PathVariable(name = "id") Integer id,
                                                                 @Valid @RequestBody CambioEstadoOrdenCompraDTO dto,
                                                                 Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();

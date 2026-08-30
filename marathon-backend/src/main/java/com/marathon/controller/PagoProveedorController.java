@@ -43,7 +43,7 @@ public class PagoProveedorController {
     @GetMapping("/cuenta/{idCuentaPagar}")
     @PreAuthorize("hasAuthority('pagos_proveedor:ver')")
     public ResponseEntity<List<PagoProveedorResponseDTO>> listarPorCuenta(
-            @PathVariable Integer idCuentaPagar) {
+            @PathVariable(name = "idCuentaPagar") Integer idCuentaPagar) {
         return ResponseEntity.ok(pagoService.listarPorCuenta(idCuentaPagar));
     }
 }

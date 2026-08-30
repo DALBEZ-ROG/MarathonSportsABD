@@ -82,7 +82,7 @@ public class AuditoriaController {
      */
     @GetMapping("/cambios/transaccion/{txid}")
     @PreAuthorize("hasAuthority('auditoria:ver')")
-    public ResponseEntity<List<CambioDatoDTO>> porTransaccion(@PathVariable long txid) {
+    public ResponseEntity<List<CambioDatoDTO>> porTransaccion(@PathVariable(name = "txid") long txid) {
         return ResponseEntity.ok(cambiosService.porTransaccion(txid));
     }
 

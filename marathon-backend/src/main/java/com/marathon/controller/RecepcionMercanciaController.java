@@ -41,7 +41,7 @@ public class RecepcionMercanciaController {
 
     @GetMapping("/orden/{idOrdenCompra}")
     @PreAuthorize("hasAuthority('recepciones:ver')")
-    public ResponseEntity<List<RecepcionMercanciaResponseDTO>> listarPorOrden(@PathVariable Integer idOrdenCompra) {
+    public ResponseEntity<List<RecepcionMercanciaResponseDTO>> listarPorOrden(@PathVariable(name = "idOrdenCompra") Integer idOrdenCompra) {
         return ResponseEntity.ok(recepcionService.listarPorOrden(idOrdenCompra));
     }
 }

@@ -33,16 +33,16 @@ public class FacturaCompraController {
     @GetMapping
     @PreAuthorize("hasAuthority('facturas_compra:ver')")
     public ResponseEntity<PageResponseDTO<FacturaCompraResponseDTO>> listar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String estado,
-            @RequestParam(required = false) Integer idProveedor) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "estado", required = false) String estado,
+            @RequestParam(name = "idProveedor", required = false) Integer idProveedor) {
         return ResponseEntity.ok(facturaService.listar(page, size, estado, idProveedor));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('facturas_compra:ver')")
-    public ResponseEntity<FacturaCompraResponseDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<FacturaCompraResponseDTO> obtener(@PathVariable(name = "id") Integer id) {
         return ResponseEntity.ok(facturaService.obtener(id));
     }
 
@@ -66,7 +66,7 @@ public class FacturaCompraController {
     @PostMapping("/orden/{idOrdenCompra}/desde-recepcion")
     @PreAuthorize("hasAuthority('facturas_compra:registrar')")
     public ResponseEntity<FacturaCompraResponseDTO> crearDesdeRecepcion(
-            @PathVariable Integer idOrdenCompra, Authentication authentication) {
+            @PathVariable(name = "idOrdenCompra") Integer idOrdenCompra, Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(facturaService.crearDesdeRecepcion(idOrdenCompra, usuario.getIdUsuario()));
@@ -76,14 +76,14 @@ public class FacturaCompraController {
     @GetMapping("/orden/{idOrdenCompra}")
     @PreAuthorize("hasAuthority('facturas_compra:ver')")
     public ResponseEntity<java.util.List<FacturaCompraResponseDTO>> deLaOrden(
-            @PathVariable Integer idOrdenCompra) {
+            @PathVariable(name = "idOrdenCompra") Integer idOrdenCompra) {
         return ResponseEntity.ok(facturaService.deLaOrden(idOrdenCompra));
     }
 
     /** El documento en PDF, listo para imprimir o archivar. */
     @GetMapping("/{id}/pdf")
     @PreAuthorize("hasAuthority('facturas_compra:ver')")
-    public ResponseEntity<byte[]> pdf(@PathVariable Integer id) {
+    public ResponseEntity<byte[]> pdf(@PathVariable(name = "id") Integer id) {
         FacturaCompraResponseDTO f = facturaService.obtener(id);
         byte[] pdf = facturaService.pdf(id);
 
@@ -97,7 +97,7 @@ public class FacturaCompraController {
 
     @PostMapping("/{id}/anular")
     @PreAuthorize("hasAuthority('facturas_compra:anular')")
-    public ResponseEntity<FacturaCompraResponseDTO> anular(@PathVariable Integer id,
+    public ResponseEntity<FacturaCompraResponseDTO> anular(@PathVariable(name = "id") Integer id,
                                                            Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
         return ResponseEntity.ok(facturaService.anular(id, usuario.getIdUsuario()));

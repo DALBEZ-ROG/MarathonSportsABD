@@ -53,14 +53,14 @@ public class EmpaqueController {
     @GetMapping("/pedidos/listos")
     @PreAuthorize("hasAuthority('empaque:ver')")
     public ResponseEntity<PageResponseDTO<PickingPedidoDTO>> listarListosParaEmpacar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size) {
         return ResponseEntity.ok(pickingService.listarPedidosParaEmpacar(page, size));
     }
 
     @PostMapping("/pedidos/{idPedido}/confirmar")
     @PreAuthorize("hasAuthority('empaque:confirmar')")
-    public ResponseEntity<PedidoResponseDTO> confirmarEmpaque(@PathVariable Integer idPedido,
+    public ResponseEntity<PedidoResponseDTO> confirmarEmpaque(@PathVariable(name = "idPedido") Integer idPedido,
                                                               @Valid @RequestBody EmpaqueRequestDTO dto) {
         Usuario usuario = (Usuario) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return ResponseEntity.ok(empaqueService.confirmarEmpaque(idPedido, dto, usuario.getIdUsuario()));
@@ -69,11 +69,11 @@ public class EmpaqueController {
     @GetMapping("/pedidos")
     @PreAuthorize("hasAuthority('empaque:ver')")
     public ResponseEntity<PageResponseDTO<PedidoResponseDTO>> listarDespachados(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String regionDestino,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime desde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime hasta) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "regionDestino", required = false) String regionDestino,
+            @RequestParam(name = "desde", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime desde,
+            @RequestParam(name = "hasta", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime hasta) {
         return ResponseEntity.ok(empaqueService.listarDespachados(page, size, regionDestino, desde, hasta));
     }
 }

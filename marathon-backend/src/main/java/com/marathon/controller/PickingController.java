@@ -36,20 +36,20 @@ public class PickingController {
     @GetMapping("/pedidos")
     @PreAuthorize("hasAuthority('picking:ver')")
     public ResponseEntity<PageResponseDTO<PickingPedidoDTO>> listarPedidos(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size) {
         return ResponseEntity.ok(pickingService.listarPedidosParaPicking(page, size));
     }
 
     @GetMapping("/pedidos/{idPedido}")
     @PreAuthorize("hasAuthority('picking:ver')")
-    public ResponseEntity<PickingPedidoDTO> obtenerPedido(@PathVariable Integer idPedido) {
+    public ResponseEntity<PickingPedidoDTO> obtenerPedido(@PathVariable(name = "idPedido") Integer idPedido) {
         return ResponseEntity.ok(pickingService.obtenerPickingPedido(idPedido));
     }
 
     @PutMapping("/pedidos/{idPedido}/lineas")
     @PreAuthorize("hasAuthority('picking:ejecutar')")
-    public ResponseEntity<PickingLineaDTO> actualizarLinea(@PathVariable Integer idPedido,
+    public ResponseEntity<PickingLineaDTO> actualizarLinea(@PathVariable(name = "idPedido") Integer idPedido,
                                                            @Valid @RequestBody PickingUpdateDTO dto) {
         Usuario usuario = (Usuario) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return ResponseEntity.ok(pickingService.actualizarLinea(idPedido, dto, usuario.getIdUsuario()));
@@ -57,7 +57,7 @@ public class PickingController {
 
     @GetMapping("/pedidos/{idPedido}/estado")
     @PreAuthorize("hasAuthority('picking:ver')")
-    public ResponseEntity<Map<String, Object>> verificarEstado(@PathVariable Integer idPedido) {
+    public ResponseEntity<Map<String, Object>> verificarEstado(@PathVariable(name = "idPedido") Integer idPedido) {
         PickingPedidoDTO pedido = pickingService.obtenerPickingPedido(idPedido);
 
         Map<String, Object> response = new LinkedHashMap<>();

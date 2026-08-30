@@ -25,11 +25,15 @@ public interface InventarioRepository extends JpaRepository<Inventario, Integer>
      * queda de un articulo concreto habia que recorrer las paginas a mano.
      * Se busca por nombre de producto y por nombre de bodega.
      */
+    // F94 — EXISTS, para que producto y bodega no entren en el FROM cuando no se
+    // está buscando por texto. Ver la nota larga en PedidoRepository.buscar.
     @Query("SELECT i FROM Inventario i WHERE "
          + "(:idBodega IS NULL OR i.bodega.idBodega = :idBodega) "
          + "AND (:texto IS NULL "
-         + "     OR LOWER(i.producto.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')) "
-         + "     OR LOWER(i.bodega.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))")
+         + "     OR EXISTS (SELECT 1 FROM Producto pr WHERE pr = i.producto "
+         + "                  AND LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%'))) "
+         + "     OR EXISTS (SELECT 1 FROM Bodega bo WHERE bo = i.bodega "
+         + "                  AND LOWER(bo.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%'))))")
     Page<Inventario> buscar(@Param("idBodega") Integer idBodega,
                             @Param("texto") String texto,
                             Pageable pageable);
@@ -78,10 +82,26 @@ public interface InventarioRepository extends JpaRepository<Inventario, Integer>
      * quinientas. Con eso, la misma pregunta —«¿cuantas referencias hay que
      * reponer?»— tenia dos respuestas segun donde se mirara: 116 en Inventario
      * y 220 en el tablero.
+     *
+     * <h3>F94 — {@code JOIN FETCH} y acotada</h3>
+     *
+     * <p>Dos problemas, medidos: <b>9,5 segundos</b> por carga.
+     *
+     * <p>El primero, que devolvía las 50.153 filas bajo mínimos de golpe. La
+     * pantalla que la consume solo usa el <i>número</i> para pintar un aviso, y
+     * quien mira la lista va a reponer — nadie repone cincuenta mil referencias
+     * de una sentada. El total exacto lo da {@link #contarProductosStockBajo()}.
+     *
+     * <p>El segundo, el {@code ORDER BY i.producto.nombre} sin traerse el
+     * producto: cada fila del resultado pedía después su producto y su bodega
+     * una a una al construir el DTO. {@code JOIN FETCH} los trae en la misma
+     * consulta.
      */
-    @Query("SELECT i FROM Inventario i WHERE i.stockActual <= i.stockMinimo AND i.stockMinimo > 0 "
-         + "ORDER BY i.producto.nombre ASC, i.bodega.nombre ASC")
-    List<Inventario> findBajoMinimo();
+    @Query("SELECT i FROM Inventario i "
+         + "JOIN FETCH i.producto p JOIN FETCH i.bodega b "
+         + "WHERE i.stockActual <= i.stockMinimo AND i.stockMinimo > 0 "
+         + "ORDER BY p.nombre ASC, b.nombre ASC")
+    List<Inventario> findBajoMinimo(org.springframework.data.domain.Pageable pageable);
 
     @Query("SELECT i FROM Inventario i WHERE i.bodega.idBodega = :idBodega AND i.stockActual <= :umbral")
     List<Inventario> findStockBajoByBodega(@Param("idBodega") Integer idBodega, @Param("umbral") int umbral);

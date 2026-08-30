@@ -35,13 +35,13 @@ public class ProductoController {
     @GetMapping
     @PreAuthorize("hasAuthority('productos:ver')")
     public ResponseEntity<PageResponseDTO<ProductoResponseDTO>> listar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String nombre,
-            @RequestParam(required = false) String estado,
-            @RequestParam(required = false) Integer idCategoria,
-            @RequestParam(required = false) String origen,
-            @RequestParam(required = false) Integer idProveedor) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "nombre", required = false) String nombre,
+            @RequestParam(name = "estado", required = false) String estado,
+            @RequestParam(name = "idCategoria", required = false) Integer idCategoria,
+            @RequestParam(name = "origen", required = false) String origen,
+            @RequestParam(name = "idProveedor", required = false) Integer idProveedor) {
         return ResponseEntity.ok(productoService.listar(page, size, nombre, estado, idCategoria, origen, idProveedor));
     }
 
@@ -62,7 +62,7 @@ public class ProductoController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('productos:ver')")
-    public ResponseEntity<ProductoResponseDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<ProductoResponseDTO> obtener(@PathVariable(name = "id") Integer id) {
         return ResponseEntity.ok(productoService.obtener(id));
     }
 
@@ -74,14 +74,14 @@ public class ProductoController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('productos:editar')")
-    public ResponseEntity<ProductoResponseDTO> actualizar(@PathVariable Integer id,
+    public ResponseEntity<ProductoResponseDTO> actualizar(@PathVariable(name = "id") Integer id,
                                                            @Valid @RequestBody ProductoRequestDTO dto) {
         return ResponseEntity.ok(productoService.actualizar(id, dto));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('productos:eliminar')")
-    public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
+    public ResponseEntity<Void> eliminar(@PathVariable(name = "id") Integer id) {
         productoService.eliminar(id);
         return ResponseEntity.noContent().build();
     }

@@ -92,7 +92,8 @@ public class PedidoService {
         // 230.000 pedidos, encontrar uno era pasar paginas. Ahora es una sola
         // consulta con todos los filtros opcionales.
         Page<Pedido> result = pedidoRepository.buscar(
-                Filtros.vacioComoNulo(estado), desde, hasta, Filtros.numeroDePedido(busqueda), pageable);
+                Filtros.vacioComoNulo(estado), desde, hasta, Filtros.textoSiNoEsNumero(busqueda),
+                Filtros.numeroDeDocumento(busqueda), pageable);
 
         List<PedidoResponseDTO> content = result.getContent().stream()
                 .map(this::toDTO)

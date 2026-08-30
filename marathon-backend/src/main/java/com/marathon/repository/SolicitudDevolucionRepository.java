@@ -21,14 +21,20 @@ public interface SolicitudDevolucionRepository extends JpaRepository<SolicitudDe
     /** Listado con filtros y busqueda por numero de solicitud, pedido o cliente (F54). */
     @Query("SELECT s FROM SolicitudDevolucion s WHERE "
          + "(:estado IS NULL OR s.estado = :estado) "
+         // `s.pedido.idPedido` es la CLAVE AJENA de solicitud_devolucion, no una
+         // columna de pedido: Hibernate la lee de la propia fila y no necesita
+         // join. Se deja tal cual — lo que hay que evitar es nombrar columnas
+         // que vivan en la otra tabla, como `s.pedido.cliente.nombre`.
          + "AND (:idPedido IS NULL OR s.pedido.idPedido = :idPedido) "
-         + "AND (:texto IS NULL "
-         + "     OR CAST(s.idSolicitud AS string) LIKE CONCAT('%', CAST(:texto AS string), '%') "
-         + "     OR CAST(s.pedido.idPedido AS string) LIKE CONCAT('%', CAST(:texto AS string), '%') "
-         + "     OR LOWER(s.pedido.cliente.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')) "
-         + "     OR LOWER(s.pedido.cliente.apellido) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))")
+         + "AND (:numero IS NULL OR s.idSolicitud = :numero OR s.pedido.idPedido = :numero) "
+         // F94 — EXISTS. Ver la nota larga en PedidoRepository.buscar.
+         + "AND (:texto IS NULL OR EXISTS ("
+         + "     SELECT 1 FROM Cliente c WHERE c = s.pedido.cliente AND ("
+         + "         LOWER(c.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')) "
+         + "      OR LOWER(c.apellido) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))))")
     Page<SolicitudDevolucion> buscar(@Param("estado") String estado,
                                      @Param("idPedido") Integer idPedido,
                                      @Param("texto") String texto,
+                                     @Param("numero") Long numero,
                                      Pageable pageable);
 }

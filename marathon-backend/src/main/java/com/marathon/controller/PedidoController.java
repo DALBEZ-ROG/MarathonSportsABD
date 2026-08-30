@@ -35,27 +35,27 @@ public class PedidoController {
     @GetMapping
     @PreAuthorize("hasAuthority('pedidos:ver')")
     public ResponseEntity<PageResponseDTO<PedidoResponseDTO>> listar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String estado,
-            @RequestParam(required = false) String fechaDesde,
-            @RequestParam(required = false) String busqueda,
-            @RequestParam(required = false) String fechaHasta) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "estado", required = false) String estado,
+            @RequestParam(name = "fechaDesde", required = false) String fechaDesde,
+            @RequestParam(name = "busqueda", required = false) String busqueda,
+            @RequestParam(name = "fechaHasta", required = false) String fechaHasta) {
         return ResponseEntity.ok(pedidoService.listar(page, size, estado, fechaDesde, fechaHasta, busqueda));
     }
 
     @GetMapping("/especiales")
     @PreAuthorize("hasAuthority('pedidos:ver')")
     public ResponseEntity<PageResponseDTO<PedidoResponseDTO>> listarEspeciales(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String tipoEspecial) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "tipoEspecial", required = false) String tipoEspecial) {
         return ResponseEntity.ok(pedidoService.listarEspeciales(page, size, tipoEspecial));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('pedidos:ver')")
-    public ResponseEntity<PedidoResponseDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<PedidoResponseDTO> obtener(@PathVariable(name = "id") Integer id) {
         return ResponseEntity.ok(pedidoService.obtener(id));
     }
 
@@ -69,7 +69,7 @@ public class PedidoController {
     }
 
     @PutMapping("/{id}/estado")
-    public ResponseEntity<PedidoResponseDTO> cambiarEstado(@PathVariable Integer id,
+    public ResponseEntity<PedidoResponseDTO> cambiarEstado(@PathVariable(name = "id") Integer id,
                                                             @Valid @RequestBody CambioEstadoDTO dto) {
         return ResponseEntity.ok(pedidoService.cambiarEstado(id, dto));
     }

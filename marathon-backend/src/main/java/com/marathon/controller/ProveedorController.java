@@ -33,16 +33,16 @@ public class ProveedorController {
     @GetMapping
     @PreAuthorize("hasAuthority('proveedores:ver')")
     public ResponseEntity<PageResponseDTO<ProveedorResponseDTO>> listar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String nombre,
-            @RequestParam(required = false) String estado) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "nombre", required = false) String nombre,
+            @RequestParam(name = "estado", required = false) String estado) {
         return ResponseEntity.ok(proveedorService.listar(page, size, nombre, estado));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('proveedores:ver')")
-    public ResponseEntity<ProveedorResponseDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<ProveedorResponseDTO> obtener(@PathVariable(name = "id") Integer id) {
         return ResponseEntity.ok(proveedorService.obtener(id));
     }
 
@@ -54,14 +54,14 @@ public class ProveedorController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('proveedores:editar')")
-    public ResponseEntity<ProveedorResponseDTO> actualizar(@PathVariable Integer id,
+    public ResponseEntity<ProveedorResponseDTO> actualizar(@PathVariable(name = "id") Integer id,
                                                             @Valid @RequestBody ProveedorRequestDTO dto) {
         return ResponseEntity.ok(proveedorService.actualizar(id, dto));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('proveedores:eliminar')")
-    public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
+    public ResponseEntity<Void> eliminar(@PathVariable(name = "id") Integer id) {
         proveedorService.eliminar(id);
         return ResponseEntity.noContent().build();
     }

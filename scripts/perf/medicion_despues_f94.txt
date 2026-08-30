@@ -1,0 +1,46 @@
+Clientes · lista                                68 ms  200
+Clientes · filtro nombre                       355 ms  200
+Clientes · filtro estado                       138 ms  200
+Clientes · buscador pedido                      12 ms  200
+Productos · lista                               76 ms  200
+Productos · filtro nombre                      127 ms  200
+Productos · buscador pedido                     11 ms  200
+Proveedores · lista                             66 ms  200
+Proveedores · filtro nombre                     12 ms  200
+Usuarios · lista                                90 ms  200
+Usuarios · filtro nombre                        82 ms  200
+Pedidos · lista                                 90 ms  200
+Pedidos · filtro estado                         92 ms  200
+Pedidos · busqueda                              11 ms  200
+Pedidos · especiales                           138 ms  200
+Inventario · lista                              55 ms  200
+Inventario · busqueda                          443 ms  200
+Inventario · stock bajo                         20 ms  200
+Comprobantes · lista                            81 ms  200
+Comprobantes · filtro numero                    10 ms  200
+Ordenes compra · lista                          62 ms  200
+Ordenes compra · filtro estado                  41 ms  200
+Ordenes compra · busqueda                      291 ms  200
+Materia prima · lista                           59 ms  200
+Materia prima · filtro nombre                   10 ms  200
+Materia prima · stock bajo                      13 ms  200
+Produccion · lista                              65 ms  200
+Produccion · filtro estado                      46 ms  200
+Devoluciones · lista                           448 ms  200
+Devoluciones · filtro estado                     9 ms  200
+Dev. proveedor · lista                          78 ms  200
+Facturas compra · lista                         78 ms  200
+Cuentas por pagar · lista                       73 ms  200
+Cuentas por pagar · filtro estado               10 ms  200
+Auditoria · cambios                             86 ms  200
+Auditoria · cambios filtrados                   94 ms  200
+Auditoria · historial inventario                76 ms  200
+Auditoria · log acciones                        75 ms  200
+Auditoria · log por modulo                      87 ms  200
+Tablero · resumen                              566 ms  200
+Tablero · kpis                                   7 ms  200
+Tablero · ventas por dia                        13 ms  200
+Tablero · top productos                          7 ms  200
+Tablero · pedidos por estado                    92 ms  200
+Picking · pendientes                            45 ms  200
+Empaque · listos                               198 ms  200

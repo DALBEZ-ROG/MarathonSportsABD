@@ -47,7 +47,7 @@ public class PermisoController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('roles:ver')")
-    public ResponseEntity<List<PermisoResponseDTO>> listar(@RequestParam(required = false) String modulo) {
+    public ResponseEntity<List<PermisoResponseDTO>> listar(@RequestParam(name = "modulo", required = false) String modulo) {
         if (modulo != null && !modulo.isEmpty()) {
             return ResponseEntity.ok(permisoService.listarPorModulo(modulo));
         }

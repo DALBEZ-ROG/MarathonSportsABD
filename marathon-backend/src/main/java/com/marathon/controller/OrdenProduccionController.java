@@ -36,25 +36,25 @@ public class OrdenProduccionController {
     @GetMapping("/verificar-disponibilidad")
     @PreAuthorize("hasAuthority('produccion:ver')")
     public ResponseEntity<VerificacionDisponibilidadDTO> verificarDisponibilidad(
-            @RequestParam Integer idProducto,
-            @RequestParam Integer cantidad) {
+            @RequestParam(name = "idProducto") Integer idProducto,
+            @RequestParam(name = "cantidad") Integer cantidad) {
         return ResponseEntity.ok(ordenProduccionService.verificarDisponibilidad(idProducto, cantidad));
     }
 
     @GetMapping
     @PreAuthorize("hasAuthority('produccion:ver')")
     public ResponseEntity<PageResponseDTO<OrdenProduccionResponseDTO>> listar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String estado,
-            @RequestParam(required = false) Integer idProducto,
-            @RequestParam(required = false) String busqueda) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "estado", required = false) String estado,
+            @RequestParam(name = "idProducto", required = false) Integer idProducto,
+            @RequestParam(name = "busqueda", required = false) String busqueda) {
         return ResponseEntity.ok(ordenProduccionService.listar(page, size, estado, idProducto, busqueda));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('produccion:ver')")
-    public ResponseEntity<OrdenProduccionResponseDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<OrdenProduccionResponseDTO> obtener(@PathVariable(name = "id") Integer id) {
         return ResponseEntity.ok(ordenProduccionService.obtener(id));
     }
 
@@ -71,7 +71,7 @@ public class OrdenProduccionController {
     @PutMapping("/{id}/iniciar")
     @PreAuthorize("hasAuthority('produccion:iniciar')")
     public ResponseEntity<OrdenProduccionResponseDTO> iniciar(
-            @PathVariable Integer id, Authentication authentication) {
+            @PathVariable(name = "id") Integer id, Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
         return ResponseEntity.ok(ordenProduccionService.iniciar(id, usuario.getIdUsuario()));
     }
@@ -87,15 +87,15 @@ public class OrdenProduccionController {
     @GetMapping("/{id}/costos-sugeridos")
     @PreAuthorize("hasAuthority('produccion:ver')")
     public ResponseEntity<com.marathon.dto.produccion.CostosSugeridosDTO> costosSugeridos(
-            @PathVariable Integer id,
-            @RequestParam(required = false) Integer cantidadProducida) {
+            @PathVariable(name = "id") Integer id,
+            @RequestParam(name = "cantidadProducida", required = false) Integer cantidadProducida) {
         return ResponseEntity.ok(ordenProduccionService.costosSugeridos(id, cantidadProducida));
     }
 
     @PutMapping("/{id}/completar")
     @PreAuthorize("hasAuthority('produccion:completar')")
     public ResponseEntity<OrdenProduccionResponseDTO> completar(
-            @PathVariable Integer id,
+            @PathVariable(name = "id") Integer id,
             @Valid @RequestBody CompletarProduccionDTO dto,
             Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
@@ -105,7 +105,7 @@ public class OrdenProduccionController {
     @PutMapping("/{id}/cancelar")
     @PreAuthorize("hasAuthority('produccion:cancelar')")
     public ResponseEntity<OrdenProduccionResponseDTO> cancelar(
-            @PathVariable Integer id, Authentication authentication) {
+            @PathVariable(name = "id") Integer id, Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
         return ResponseEntity.ok(ordenProduccionService.cancelar(id, usuario.getIdUsuario()));
     }

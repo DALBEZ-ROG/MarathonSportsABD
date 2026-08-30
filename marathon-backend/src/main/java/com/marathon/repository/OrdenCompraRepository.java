@@ -28,11 +28,13 @@ public interface OrdenCompraRepository extends JpaRepository<OrdenCompra, Intege
     @Query("SELECT o FROM OrdenCompra o WHERE "
          + "(:estado IS NULL OR o.estado = :estado) "
          + "AND (:idProveedor IS NULL OR o.proveedor.idProveedor = :idProveedor) "
-         + "AND (:texto IS NULL "
-         + "     OR CAST(o.idOrdenCompra AS string) LIKE CONCAT('%', CAST(:texto AS string), '%') "
-         + "     OR LOWER(o.proveedor.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))")
+         + "AND (:numero IS NULL OR o.idOrdenCompra = :numero) "
+         + "AND (:texto IS NULL OR EXISTS ("
+         + "     SELECT 1 FROM Proveedor pr WHERE pr = o.proveedor"
+         + "       AND LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%'))))")
     Page<OrdenCompra> buscar(@Param("estado") String estado,
                              @Param("idProveedor") Integer idProveedor,
                              @Param("texto") String texto,
+                             @Param("numero") Long numero,
                              Pageable pageable);
 }

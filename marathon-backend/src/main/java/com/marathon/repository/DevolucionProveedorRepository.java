@@ -20,11 +20,13 @@ public interface DevolucionProveedorRepository extends JpaRepository<DevolucionP
     @Query("SELECT d FROM DevolucionProveedor d WHERE "
          + "(:estado IS NULL OR d.estado = :estado) "
          + "AND (:idProveedor IS NULL OR d.proveedor.idProveedor = :idProveedor) "
-         + "AND (:texto IS NULL "
-         + "     OR CAST(d.idDevolucionProv AS string) LIKE CONCAT('%', CAST(:texto AS string), '%') "
-         + "     OR LOWER(d.proveedor.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))")
+         + "AND (:numero IS NULL OR d.idDevolucionProv = :numero) "
+         + "AND (:texto IS NULL OR EXISTS ("
+         + "     SELECT 1 FROM Proveedor pr WHERE pr = d.proveedor"
+         + "       AND LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%'))))")
     Page<DevolucionProveedor> buscar(@Param("estado") String estado,
                                      @Param("idProveedor") Integer idProveedor,
                                      @Param("texto") String texto,
+                                     @Param("numero") Long numero,
                                      Pageable pageable);
 }

@@ -37,16 +37,16 @@ public class MateriaPrimaController {
     @GetMapping
     @PreAuthorize("hasAuthority('materia_prima:ver')")
     public ResponseEntity<PageResponseDTO<MateriaPrimaResponseDTO>> listar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String nombre,
-            @RequestParam(required = false) String estado) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "nombre", required = false) String nombre,
+            @RequestParam(name = "estado", required = false) String estado) {
         return ResponseEntity.ok(materiaPrimaService.listar(page, size, nombre, estado));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('materia_prima:ver')")
-    public ResponseEntity<MateriaPrimaResponseDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<MateriaPrimaResponseDTO> obtener(@PathVariable(name = "id") Integer id) {
         return ResponseEntity.ok(materiaPrimaService.obtener(id));
     }
 
@@ -58,14 +58,14 @@ public class MateriaPrimaController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('materia_prima:editar')")
-    public ResponseEntity<MateriaPrimaResponseDTO> actualizar(@PathVariable Integer id,
+    public ResponseEntity<MateriaPrimaResponseDTO> actualizar(@PathVariable(name = "id") Integer id,
                                                               @Valid @RequestBody MateriaPrimaRequestDTO dto) {
         return ResponseEntity.ok(materiaPrimaService.actualizar(id, dto));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('materia_prima:eliminar')")
-    public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
+    public ResponseEntity<Void> eliminar(@PathVariable(name = "id") Integer id) {
         materiaPrimaService.eliminar(id);
         return ResponseEntity.noContent().build();
     }
@@ -84,22 +84,34 @@ public class MateriaPrimaController {
     @GetMapping("/{id}/movimientos")
     @PreAuthorize("hasAuthority('materia_prima:ver')")
     public ResponseEntity<PageResponseDTO<MovimientoMateriaPrimaResponseDTO>> listarMovimientos(
-            @PathVariable Integer id,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @PathVariable(name = "id") Integer id,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size) {
         return ResponseEntity.ok(materiaPrimaService.listarMovimientos(page, size, id));
     }
 
+    /**
+     * Las materias primas bajo mínimos. Acotada a propósito: es una lista de
+     * trabajo, y el total exacto lo da {@code /stock-bajo/conteo}.
+     */
     @GetMapping("/stock-bajo")
     @PreAuthorize("hasAuthority('materia_prima:ver')")
-    public ResponseEntity<java.util.List<MateriaPrimaResponseDTO>> stockBajo() {
-        return ResponseEntity.ok(materiaPrimaService.listarStockBajo());
+    public ResponseEntity<java.util.List<MateriaPrimaResponseDTO>> stockBajo(
+            @RequestParam(name = "limite", defaultValue = "200") int limite) {
+        return ResponseEntity.ok(materiaPrimaService.listarStockBajo(limite));
+    }
+
+    /** Solo cuántas hay. Es lo que necesita un aviso, y cuesta una consulta. */
+    @GetMapping("/stock-bajo/conteo")
+    @PreAuthorize("hasAuthority('materia_prima:ver')")
+    public ResponseEntity<Long> conteoStockBajo() {
+        return ResponseEntity.ok(materiaPrimaService.contarStockBajo());
     }
 
     @PutMapping("/{id}/stock-minimo")
     @PreAuthorize("hasAuthority('materia_prima:editar')")
     public ResponseEntity<MateriaPrimaResponseDTO> actualizarStockMinimo(
-            @PathVariable Integer id,
+            @PathVariable(name = "id") Integer id,
             @RequestBody java.util.Map<String, java.math.BigDecimal> body) {
         return ResponseEntity.ok(materiaPrimaService.actualizarStockMinimo(id, body.get("stockMinimo")));
     }

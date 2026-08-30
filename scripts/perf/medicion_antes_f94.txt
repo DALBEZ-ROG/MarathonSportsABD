@@ -1,0 +1,46 @@
+Clientes · lista                                85 ms  200
+Clientes · filtro nombre                       216 ms  200
+Clientes · filtro estado                       154 ms  200
+Clientes · buscador pedido                      25 ms  200
+Productos · lista                               86 ms  200
+Productos · filtro nombre                      175 ms  200
+Productos · buscador pedido                     24 ms  200
+Proveedores · lista                             74 ms  200
+Proveedores · filtro nombre                    871 ms  200
+Usuarios · lista                                94 ms  200
+Usuarios · filtro nombre                       173 ms  200
+Pedidos · lista                                511 ms  200
+Pedidos · filtro estado                        445 ms  200
+Pedidos · busqueda                             723 ms  200
+Pedidos · especiales                           162 ms  200
+Inventario · lista                             470 ms  200
+Inventario · busqueda                          716 ms  200
+Inventario · stock bajo                       9722 ms  200 <-- LENTO
+Comprobantes · lista                           105 ms  200
+Comprobantes · filtro numero                   422 ms  200
+Ordenes compra · lista                         469 ms  200
+Ordenes compra · filtro estado                 448 ms  200
+Ordenes compra · busqueda                    16143 ms  200 <-- LENTO
+Materia prima · lista                           80 ms  200
+Materia prima · filtro nombre                  467 ms  200
+Materia prima · stock bajo                   10244 ms  200 <-- LENTO
+Produccion · lista                             474 ms  200
+Produccion · filtro estado                     433 ms  200
+Devoluciones · lista                           883 ms  200
+Devoluciones · filtro estado                    92 ms  200
+Dev. proveedor · lista                         498 ms  200
+Facturas compra · lista                         87 ms  200
+Cuentas por pagar · lista                     1300 ms  200 <-- LENTO
+Cuentas por pagar · filtro estado               23 ms  200
+Auditoria · cambios                             91 ms  200
+Auditoria · cambios filtrados                  103 ms  200
+Auditoria · historial inventario               507 ms  200
+Auditoria · log acciones                        88 ms  200
+Auditoria · log por modulo                      87 ms  200
+Tablero · resumen                              366 ms  200
+Tablero · kpis                                1444 ms  200 <-- LENTO
+Tablero · ventas por dia                        25 ms  200
+Tablero · top productos                       1391 ms  200 <-- LENTO
+Tablero · pedidos por estado                   104 ms  200
+Picking · pendientes                           101 ms  200
+Empaque · listos                               248 ms  200

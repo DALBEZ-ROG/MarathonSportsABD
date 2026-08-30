@@ -124,10 +124,23 @@ public class InventarioService {
      * respuestas distintas —116 aqui, 220 en el tablero— porque el tablero si
      * usaba {@code stock_minimo}. Ahora las dos pantallas cuentan lo mismo.
      */
-    public List<InventarioResponseDTO> stockBajo() {
-        return inventarioRepository.findBajoMinimo().stream()
+    public List<InventarioResponseDTO> stockBajo(int limite) {
+        int tope = Math.min(Math.max(limite, 1), 500);
+        return inventarioRepository
+                .findBajoMinimo(org.springframework.data.domain.PageRequest.of(0, tope)).stream()
                 .map(this::toInventarioDTO)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Cuántas referencias hay bajo mínimos. Solo el número (F94).
+     *
+     * <p>Es lo único que la pantalla de Inventario usaba de {@link #stockBajo}:
+     * pinta un aviso con la cantidad. Se estaban descargando 50.153 registros
+     * completos para enseñar un número.
+     */
+    public long contarStockBajo() {
+        return inventarioRepository.contarProductosStockBajo();
     }
 
     @Transactional

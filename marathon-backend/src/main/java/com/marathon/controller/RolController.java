@@ -38,7 +38,7 @@ public class RolController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('roles:ver')")
-    public ResponseEntity<RolResponseDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<RolResponseDTO> obtener(@PathVariable(name = "id") Integer id) {
         return ResponseEntity.ok(rolService.obtener(id));
     }
 
@@ -50,14 +50,14 @@ public class RolController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('roles:editar')")
-    public ResponseEntity<RolResponseDTO> actualizar(@PathVariable Integer id,
+    public ResponseEntity<RolResponseDTO> actualizar(@PathVariable(name = "id") Integer id,
                                                       @Valid @RequestBody RolRequestDTO dto) {
         return ResponseEntity.ok(rolService.actualizar(id, dto));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('roles:eliminar')")
-    public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
+    public ResponseEntity<Void> eliminar(@PathVariable(name = "id") Integer id) {
         rolService.eliminar(id);
         return ResponseEntity.noContent().build();
     }

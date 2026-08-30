@@ -75,7 +75,8 @@ public class OrdenCompraService {
         // encontrar un registro concreto entre miles habia que pasar paginas.
         Page<OrdenCompra> result = ordenCompraRepository.buscar(
                 Filtros.vacioComoNulo(estado), idProveedor,
-                Filtros.vacioComoNulo(busqueda), pageable);
+                Filtros.textoSiNoEsNumero(busqueda),
+                Filtros.numeroDeDocumento(busqueda), pageable);
 
         List<OrdenCompraResponseDTO> content = result.getContent().stream()
                 .map(oc -> toDTO(oc, false))

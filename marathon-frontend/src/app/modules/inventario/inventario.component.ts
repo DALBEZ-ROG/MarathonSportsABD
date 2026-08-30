@@ -77,8 +77,8 @@ interface PageResponse<T> {
   template: `
     <div class="crud-container">
       <!-- Stock bajo alert -->
-      <div class="alert-banner" *ngIf="stockBajo.length > 0">
-        <strong class="inline-icon-text"><app-icon name="warning" [size]="16"/> Alerta de Stock Bajo:</strong> {{stockBajo.length}} referencia(s) en o por debajo de su stock mínimo
+      <div class="alert-banner" *ngIf="stockBajoTotal > 0">
+        <strong class="inline-icon-text"><app-icon name="warning" [size]="16"/> Alerta de Stock Bajo:</strong> {{stockBajoTotal | number}} referencia(s) en o por debajo de su stock mínimo
       </div>
 
       <!--
@@ -426,7 +426,8 @@ interface PageResponse<T> {
 export class InventarioComponent implements OnInit {
   data: Inventario[] = [];
   bodegas: Bodega[] = [];
-  stockBajo: Inventario[] = [];
+  /** Cuantas referencias estan bajo minimo. Solo el numero (F94). */
+  stockBajoTotal = 0;
   loading = false;
   /**
    * Motivo del fallo de carga, o null si la carga fue bien (D6).
@@ -616,9 +617,18 @@ export class InventarioComponent implements OnInit {
     });
   }
 
+  /**
+   * F94: pide el NÚMERO, no las filas.
+   *
+   * El aviso de arriba solo enseña «N referencias bajo mínimo», y para eso se
+   * estaban descargando las 50.153 filas completas — nueve segundos y medio de
+   * espera para pintar una cifra. `/stock-bajo/conteo` devuelve solo el total,
+   * resuelto contra un índice parcial.
+   */
   cargarStockBajo() {
-    this.http.get<Inventario[]>(`${this.apiUrl}/inventario/stock-bajo`).subscribe({
-      next: res => { this.stockBajo = res; }
+    this.http.get<number>(`${this.apiUrl}/inventario/stock-bajo/conteo`).subscribe({
+      next: n => { this.stockBajoTotal = n ?? 0; },
+      error: () => { this.stockBajoTotal = 0; }
     });
   }
 

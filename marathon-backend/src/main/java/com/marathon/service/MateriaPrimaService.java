@@ -188,11 +188,34 @@ public class MateriaPrimaService {
                 result.getTotalPages(), result.getNumber(), result.getSize());
     }
 
-    public List<MateriaPrimaResponseDTO> listarStockBajo() {
-        // F51 (D-41): un informe que cambia de orden en cada carga no se puede leer.
-        return materiaPrimaRepository.findAll(Sort.by(Sort.Direction.ASC, "nombre")).stream()
-                .filter(mp -> mp.getStockMinimo() != null && mp.getStockMinimo().compareTo(BigDecimal.ZERO) > 0
-                        && mp.getStockActual().compareTo(mp.getStockMinimo()) <= 0)
+    /**
+     * Cuántas materias primas hay bajo mínimos. Solo el número.
+     *
+     * <p>Es lo que necesita un aviso, y cuesta una consulta contra un índice
+     * parcial en lugar de traerse las filas.
+     */
+    public long contarStockBajo() {
+        return materiaPrimaRepository.contarBajoMinimo();
+    }
+
+    /**
+     * Las materias primas bajo mínimos, en orden y ACOTADAS.
+     *
+     * <p>F94: el filtro se hace en la base, no en Java. Lo anterior era
+     * {@code findAll()} + {@code .filter()}, que con 1,5 millones de filas es
+     * traerse la tabla entera al servidor —10 segundos— para quedarse con unas
+     * pocas.
+     *
+     * <p>El tope existe porque esto es una LISTA DE TRABAJO: quien la abre va a
+     * reponer, y nadie repone diez mil referencias de una sentada. Devolver
+     * todas era además lo que hacía que la pantalla tardara en pintar. El total
+     * real se pide aparte con {@link #contarStockBajo()}, así que el número del
+     * aviso sigue siendo exacto aunque la lista esté recortada.
+     */
+    public List<MateriaPrimaResponseDTO> listarStockBajo(int limite) {
+        int tope = Math.min(Math.max(limite, 1), 500);
+        return materiaPrimaRepository
+                .findBajoMinimo(org.springframework.data.domain.PageRequest.of(0, tope)).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }

@@ -35,10 +35,10 @@ public class BodegaController {
     @GetMapping
     @PreAuthorize("hasAuthority('bodegas:ver')")
     public ResponseEntity<PageResponseDTO<BodegaResponseDTO>> listar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String nombre,
-            @RequestParam(required = false) String estado) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "nombre", required = false) String nombre,
+            @RequestParam(name = "estado", required = false) String estado) {
         return ResponseEntity.ok(bodegaService.listar(page, size, nombre, estado));
     }
 
@@ -50,7 +50,7 @@ public class BodegaController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('bodegas:ver')")
-    public ResponseEntity<BodegaResponseDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<BodegaResponseDTO> obtener(@PathVariable(name = "id") Integer id) {
         return ResponseEntity.ok(bodegaService.obtener(id));
     }
 
@@ -62,14 +62,14 @@ public class BodegaController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('bodegas:editar')")
-    public ResponseEntity<BodegaResponseDTO> actualizar(@PathVariable Integer id,
+    public ResponseEntity<BodegaResponseDTO> actualizar(@PathVariable(name = "id") Integer id,
                                                          @Valid @RequestBody BodegaRequestDTO dto) {
         return ResponseEntity.ok(bodegaService.actualizar(id, dto));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('bodegas:eliminar')")
-    public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
+    public ResponseEntity<Void> eliminar(@PathVariable(name = "id") Integer id) {
         bodegaService.eliminar(id);
         return ResponseEntity.noContent().build();
     }

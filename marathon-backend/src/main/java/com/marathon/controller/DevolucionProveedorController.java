@@ -39,25 +39,25 @@ public class DevolucionProveedorController {
     @GetMapping("/items-disponibles")
     @PreAuthorize("hasAuthority('devoluciones_proveedor:ver')")
     public ResponseEntity<List<ItemDefectuosoDisponibleDTO>> itemsDisponibles(
-            @RequestParam(required = false) Integer idProveedor,
-            @RequestParam(required = false) String busqueda) {
+            @RequestParam(name = "idProveedor", required = false) Integer idProveedor,
+            @RequestParam(name = "busqueda", required = false) String busqueda) {
         return ResponseEntity.ok(service.listarItemsDefectuososDisponibles(idProveedor));
     }
 
     @GetMapping
     @PreAuthorize("hasAuthority('devoluciones_proveedor:ver')")
     public ResponseEntity<PageResponseDTO<DevolucionProveedorResponseDTO>> listar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String estado,
-            @RequestParam(required = false) Integer idProveedor,
-            @RequestParam(required = false) String busqueda) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "estado", required = false) String estado,
+            @RequestParam(name = "idProveedor", required = false) Integer idProveedor,
+            @RequestParam(name = "busqueda", required = false) String busqueda) {
         return ResponseEntity.ok(service.listar(page, size, estado, idProveedor, busqueda));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('devoluciones_proveedor:ver')")
-    public ResponseEntity<DevolucionProveedorResponseDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<DevolucionProveedorResponseDTO> obtener(@PathVariable(name = "id") Integer id) {
         return ResponseEntity.ok(service.obtener(id));
     }
 
@@ -74,7 +74,7 @@ public class DevolucionProveedorController {
     @PutMapping("/{id}/estado")
     @PreAuthorize("hasAuthority('devoluciones_proveedor:resolver')")
     public ResponseEntity<DevolucionProveedorResponseDTO> cambiarEstado(
-            @PathVariable Integer id,
+            @PathVariable(name = "id") Integer id,
             @RequestBody Map<String, String> body,
             Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
@@ -84,7 +84,7 @@ public class DevolucionProveedorController {
     @PostMapping("/{id}/resolver")
     @PreAuthorize("hasAuthority('devoluciones_proveedor:resolver')")
     public ResponseEntity<DevolucionProveedorResponseDTO> resolver(
-            @PathVariable Integer id,
+            @PathVariable(name = "id") Integer id,
             @Valid @RequestBody ResolucionDevolucionDTO dto,
             Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();

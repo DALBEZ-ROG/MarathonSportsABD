@@ -43,23 +43,35 @@ public class InventarioController {
     @GetMapping
     @PreAuthorize("hasAuthority('inventario:ver')")
     public ResponseEntity<PageResponseDTO<InventarioResponseDTO>> listar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) Integer idBodega,
-            @RequestParam(required = false) String busqueda) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "idBodega", required = false) Integer idBodega,
+            @RequestParam(name = "busqueda", required = false) String busqueda) {
         return ResponseEntity.ok(inventarioService.listar(page, size, idBodega, busqueda));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('inventario:ver')")
-    public ResponseEntity<InventarioResponseDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<InventarioResponseDTO> obtener(@PathVariable(name = "id") Integer id) {
         return ResponseEntity.ok(inventarioService.obtener(id));
     }
 
+    /**
+     * Las referencias bajo mínimos. Acotada a propósito: es una lista de
+     * trabajo, y el total exacto lo da {@code /stock-bajo/conteo}.
+     */
     @GetMapping("/stock-bajo")
     @PreAuthorize("hasAuthority('inventario:ver')")
-    public ResponseEntity<List<InventarioResponseDTO>> stockBajo() {
-        return ResponseEntity.ok(inventarioService.stockBajo());
+    public ResponseEntity<List<InventarioResponseDTO>> stockBajo(
+            @RequestParam(name = "limite", defaultValue = "200") int limite) {
+        return ResponseEntity.ok(inventarioService.stockBajo(limite));
+    }
+
+    /** Solo cuántas hay. Es lo que necesita el aviso de la pantalla (F94). */
+    @GetMapping("/stock-bajo/conteo")
+    @PreAuthorize("hasAuthority('inventario:ver')")
+    public ResponseEntity<Long> conteoStockBajo() {
+        return ResponseEntity.ok(inventarioService.contarStockBajo());
     }
 
     // ------------------------------------------------------------------
@@ -86,7 +98,7 @@ public class InventarioController {
     /** Las reservas activas de un pedido concreto. */
     @GetMapping("/reservas/pedido/{idPedido}")
     @PreAuthorize("hasAuthority('inventario:ver')")
-    public ResponseEntity<List<ReservaStockResponseDTO>> reservasDePedido(@PathVariable Integer idPedido) {
+    public ResponseEntity<List<ReservaStockResponseDTO>> reservasDePedido(@PathVariable(name = "idPedido") Integer idPedido) {
         return ResponseEntity.ok(reservaStockService.activasDe(idPedido));
     }
 
@@ -97,7 +109,7 @@ public class InventarioController {
      */
     @GetMapping("/disponible/{idProducto}")
     @PreAuthorize("hasAuthority('inventario:ver')")
-    public ResponseEntity<Map<String, Integer>> disponible(@PathVariable Integer idProducto) {
+    public ResponseEntity<Map<String, Integer>> disponible(@PathVariable(name = "idProducto") Integer idProducto) {
         return ResponseEntity.ok(Map.of(
                 "stockTotal", reservaStockService.stockTotal(idProducto),
                 "reservado", reservaStockService.reservado(idProducto),
@@ -111,7 +123,7 @@ public class InventarioController {
     @PostMapping("/reservas/{idReserva}/liberar")
     @PreAuthorize("hasAuthority('inventario:editar')")
     public ResponseEntity<ReservaStockResponseDTO> liberarReserva(
-            @PathVariable Integer idReserva,
+            @PathVariable(name = "idReserva") Integer idReserva,
             @RequestBody(required = false) Map<String, String> cuerpo) {
         String motivo = cuerpo != null ? cuerpo.get("motivo") : null;
         return ResponseEntity.ok(reservaStockService.aDTO(
@@ -121,16 +133,16 @@ public class InventarioController {
     @GetMapping("/{idProducto}/{idBodega}/movimientos")
     @PreAuthorize("hasAuthority('inventario:ver')")
     public ResponseEntity<PageResponseDTO<MovimientoResponseDTO>> listarMovimientos(
-            @PathVariable Integer idProducto,
-            @PathVariable Integer idBodega,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @PathVariable(name = "idProducto") Integer idProducto,
+            @PathVariable(name = "idBodega") Integer idBodega,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size) {
         return ResponseEntity.ok(inventarioService.listarMovimientos(idProducto, idBodega, page, size));
     }
 
     @GetMapping("/{idInventario}/historial")
     @PreAuthorize("hasAuthority('inventario:ver')")
-    public ResponseEntity<List<HistorialResponseDTO>> listarHistorial(@PathVariable Integer idInventario) {
+    public ResponseEntity<List<HistorialResponseDTO>> listarHistorial(@PathVariable(name = "idInventario") Integer idInventario) {
         return ResponseEntity.ok(inventarioService.listarHistorial(idInventario));
     }
 

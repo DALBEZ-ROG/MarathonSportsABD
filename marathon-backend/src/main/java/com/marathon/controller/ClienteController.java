@@ -35,10 +35,10 @@ public class ClienteController {
     @GetMapping
     @PreAuthorize("hasAuthority('clientes:ver')")
     public ResponseEntity<PageResponseDTO<ClienteResponseDTO>> listar(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String nombre,
-            @RequestParam(required = false) String estado) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "nombre", required = false) String nombre,
+            @RequestParam(name = "estado", required = false) String estado) {
         return ResponseEntity.ok(clienteService.listar(page, size, nombre, estado));
     }
 
@@ -66,7 +66,7 @@ public class ClienteController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('clientes:ver')")
-    public ResponseEntity<ClienteResponseDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<ClienteResponseDTO> obtener(@PathVariable(name = "id") Integer id) {
         return ResponseEntity.ok(clienteService.obtener(id));
     }
 
@@ -78,14 +78,14 @@ public class ClienteController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('clientes:editar')")
-    public ResponseEntity<ClienteResponseDTO> actualizar(@PathVariable Integer id,
+    public ResponseEntity<ClienteResponseDTO> actualizar(@PathVariable(name = "id") Integer id,
                                                           @Valid @RequestBody ClienteRequestDTO dto) {
         return ResponseEntity.ok(clienteService.actualizar(id, dto));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('clientes:eliminar')")
-    public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
+    public ResponseEntity<Void> eliminar(@PathVariable(name = "id") Integer id) {
         clienteService.eliminar(id);
         return ResponseEntity.noContent().build();
     }
