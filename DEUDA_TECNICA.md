@@ -694,6 +694,11 @@ de sobra.
 
 ### Cómo se arregla
 
+> Al hacerlo, dos cosas que ya costaron una corrección en la F93 y volverán a
+> aparecer: buscar por **palabras** y no por la frase entera (ver abajo), y el
+> `LIMIT` dentro con el `ORDER BY` fuera.
+
+
 La pieza ya está hecha: `app-searchable-select` acepta `[remoto]="true"` y
 `(buscar)`. Filtra la base, aplica un respiro de 250 ms y pinta lo que llegue.
 Para cada pantalla de la tabla hace falta:
@@ -721,3 +726,22 @@ filtrar fila a fila. Medido sobre `cliente` con `%mar%`:
 | `SELECT * FROM (WHERE ... LIMIT 20) ORDER BY apellido` | **23 ms** |
 
 Ordenar las veinte que salen, no el millón y medio del que salen.
+
+### Buscar por palabras, no por la frase
+
+Un `ILIKE '%lo que se escribio%'` exige que las palabras estén **juntas, en ese
+orden y en la misma columna**. Eso hace que la búsqueda falle en los dos casos
+más normales:
+
+| Se escribe | Qué pasaba | Por qué |
+|---|---|---|
+| `maria cedeno` | 0 resultados | el nombre está en `nombre` y el apellido en `apellido`; ninguna columna contiene la frase |
+| `force air` | 0 resultados | el producto se llama «… AIR FORCE …», con las palabras al revés |
+
+La forma correcta es partir lo escrito en palabras y exigir que **todas**
+aparezcan, cada una en cualquiera de las columnas buscables. Así `maria cedeno`,
+`cedeno maria` y `ced mar` encuentran a la misma persona.
+
+Está implementado en `ClienteService.buscarParaSelector` y en
+`ProductoService.buscarParaSelector`. Cualquier buscador nuevo debería copiarlo
+de ahí en vez de volver a escribir un `LIKE` de una sola pieza.

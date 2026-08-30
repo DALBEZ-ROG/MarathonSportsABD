@@ -38,6 +38,10 @@ import com.marathon.repository.UnidadMedidaRepository;
 @Service
 public class ProductoService {
 
+    /** Para el SQL nativo del buscador (F93). Ver buscarParaSelector. */
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
+
     private final ProductoRepository productoRepository;
     private final CategoriaRepository categoriaRepository;
     private final UnidadMedidaRepository unidadMedidaRepository;
@@ -61,6 +65,75 @@ public class ProductoService {
         this.productoProveedorRepository = productoProveedorRepository;
         this.listaMaterialesRepository = listaMaterialesRepository;
         this.logService = logService;
+    }
+
+    /**
+     * Buscador para los selectores (F93).
+     *
+     * <p>Aparte de {@link #listar} a proposito, por dos razones:
+     *
+     * <p><b>Busca por PALABRAS, no por la frase entera.</b> El filtro de
+     * {@code listar} pregunta si el nombre contiene la frase tal cual, y con
+     * nombres como «ZAP NIK HQ1966-001 AIR FORCE 1 0 8» eso significa que
+     * escribir «air force» funciona pero «force air» no, y «nike» tampoco
+     * porque en el catalogo pone «NIK». Aqui cada palabra tiene que aparecer, en
+     * cualquier orden y en cualquier parte del nombre o del codigo.
+     *
+     * <p><b>No cuenta el total.</b> {@code listar} devuelve una pagina con
+     * {@code totalElements}, y ese {@code count(*)} sobre 1,5 millones de filas
+     * son 160 ms que un desplegable no necesita para nada: nadie lee «hay
+     * 150.024 coincidencias» en una lista de veinte.
+     */
+    public List<ProductoResponseDTO> buscarParaSelector(String texto, int limite) {
+        String q = texto != null ? texto.trim() : "";
+        int tope = Math.min(Math.max(limite, 1), 50);
+
+        String[] palabras = q.isEmpty() ? new String[0] : q.split("\\s+");
+        int cuantas = Math.min(palabras.length, 5);
+
+        // Solo se busca por `nombre`. La tabla NO tiene columna `codigo`: el
+        // «PROD-000001» que enseña la pantalla lo compone toDTO() a partir del
+        // id, asi que no hay nada contra lo que comparar en la base. Y el precio
+        // esta en `precio`, no en `precio_venta`, que es el nombre del campo del
+        // DTO, no el de la columna.
+        StringBuilder condiciones = new StringBuilder();
+        for (int i = 1; i <= cuantas; i++) {
+            condiciones.append(" AND p.nombre ILIKE ?").append(i);
+        }
+
+        // LIMIT DENTRO, ORDER BY FUERA. Con el ORDER BY pegado al WHERE, el
+        // planificador descarta el indice de trigramas y ordena todo el conjunto
+        // que coincide antes de quedarse con veinte: medido con 'zap adi', dos
+        // palabras muy comunes, 3.633 ms. Ordenando solo las veinte que salen,
+        // 40 ms. Es exactamente el mismo tropiezo que en el buscador de cliente,
+        // y por eso esta escrito igual en los dos sitios.
+        jakarta.persistence.Query consulta = entityManager.createNativeQuery(
+            "SELECT * FROM ("
+          + "  SELECT p.id_producto, p.nombre, p.precio, p.estado "
+          + "  FROM producto p WHERE p.estado = 'activo'"
+          + condiciones
+          + "  LIMIT ?" + (cuantas + 1)
+          + ") t ORDER BY t.nombre");
+        for (int i = 0; i < cuantas; i++) {
+            consulta.setParameter(i + 1, "%" + palabras[i] + "%");
+        }
+        consulta.setParameter(cuantas + 1, tope);
+
+        List<ProductoResponseDTO> encontrados = new java.util.ArrayList<>();
+        for (Object fila : consulta.getResultList()) {
+            Object[] f = (Object[]) fila;
+            ProductoResponseDTO dto = new ProductoResponseDTO();
+            int id = ((Number) f[0]).intValue();
+            dto.setIdProducto(id);
+            // El mismo formato que toDTO(), para que el selector y la ficha
+            // enseñen el mismo codigo.
+            dto.setCodigo(String.format("PROD-%06d", id));
+            dto.setNombre((String) f[1]);
+            dto.setPrecioVenta((BigDecimal) f[2]);
+            dto.setEstado((String) f[3]);
+            encontrados.add(dto);
+        }
+        return encontrados;
     }
 
     public PageResponseDTO<ProductoResponseDTO> listar(int page, int size, String nombre, String estado,

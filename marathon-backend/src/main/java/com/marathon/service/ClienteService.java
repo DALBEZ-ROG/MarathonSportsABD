@@ -126,17 +126,38 @@ public class ClienteService {
         // ClienteRepository.listarActivosSinContacto: el selector solo pinta el
         // nombre, y descifrar para no mostrar nada es caro y ademas es tocar
         // datos personales sin motivo.
+        // BUSCA POR PALABRAS, no por la frase entera.
+        //
+        // Escribir «maria cedeno» no devolvia NADA, y es lo primero que hace
+        // cualquiera. La consulta preguntaba si alguna columna contenia la
+        // frase completa —nombre ILIKE '%maria cedeno%'— y el nombre esta en
+        // una columna y el apellido en otra: ninguna de las dos la contiene.
+        //
+        // Ahora cada palabra tiene que aparecer en el nombre O en el apellido,
+        // y todas tienen que aparecer. Asi «maria cedeno», «cedeno maria» y
+        // «ced mar» encuentran a la misma persona.
+        String[] palabras = q.isEmpty() ? new String[0] : q.split("\\s+");
+        // Cinco palabras es de sobra para un nombre; mas solo anaden trabajo.
+        int cuantas = Math.min(palabras.length, 5);
+
+        StringBuilder condiciones = new StringBuilder();
+        for (int i = 1; i <= cuantas; i++) {
+            condiciones.append(" AND (c.nombre ILIKE ?").append(i)
+                       .append(" OR c.apellido ILIKE ?").append(i).append(")");
+        }
+
         jakarta.persistence.Query consulta = entityManager.createNativeQuery(
             "SELECT * FROM ("
           + "  SELECT c.id_cliente, c.nombre, c.apellido, c.estado, ci.id_ciudad, ci.nombre AS ciudad "
           + "  FROM cliente c JOIN ciudad ci ON ci.id_ciudad = c.id_ciudad "
-          + "  WHERE c.estado = 'activo' "
-          + "    AND (?2 = 1 OR c.nombre ILIKE ?1 OR c.apellido ILIKE ?1) "
-          + "  LIMIT ?3"
+          + "  WHERE c.estado = 'activo'"
+          + condiciones
+          + "  LIMIT ?" + (cuantas + 1)
           + ") t ORDER BY t.apellido, t.nombre");
-        consulta.setParameter(1, "%" + q + "%");
-        consulta.setParameter(2, q.isEmpty() ? 1 : 0);
-        consulta.setParameter(3, tope);
+        for (int i = 0; i < cuantas; i++) {
+            consulta.setParameter(i + 1, "%" + palabras[i] + "%");
+        }
+        consulta.setParameter(cuantas + 1, tope);
 
         List<ClienteResponseDTO> encontrados = new java.util.ArrayList<>();
         for (Object fila : consulta.getResultList()) {

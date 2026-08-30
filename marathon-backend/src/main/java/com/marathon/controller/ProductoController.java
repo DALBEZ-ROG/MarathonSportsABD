@@ -1,5 +1,7 @@
 package com.marathon.controller;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -41,6 +43,21 @@ public class ProductoController {
             @RequestParam(required = false) String origen,
             @RequestParam(required = false) Integer idProveedor) {
         return ResponseEntity.ok(productoService.listar(page, size, nombre, estado, idCategoria, origen, idProveedor));
+    }
+
+    /**
+     * Buscador de producto para los selectores (F93).
+     *
+     * <p>Busca por PALABRAS y no cuenta el total. Va antes de {@code /{id}} en
+     * el fichero por claridad, no por necesidad: Spring da prioridad a la ruta
+     * literal sobre la variable, asi que /buscar nunca se confunde con un id.
+     */
+    @GetMapping("/buscar")
+    @PreAuthorize("hasAuthority('productos:ver')")
+    public ResponseEntity<List<ProductoResponseDTO>> buscar(
+            @RequestParam(name = "q", required = false, defaultValue = "") String q,
+            @RequestParam(name = "limite", defaultValue = "20") int limite) {
+        return ResponseEntity.ok(productoService.buscarParaSelector(q, limite));
     }
 
     @GetMapping("/{id}")

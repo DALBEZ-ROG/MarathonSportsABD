@@ -464,12 +464,20 @@ export class PedidoNuevoComponent implements OnInit {
     });
   }
 
+  /**
+   * Usa /productos/buscar y no el filtro `nombre` del listado general.
+   *
+   * <p>El listado busca la frase entera dentro del nombre, y con nombres como
+   * «ZAP NIK HQ1966-001 AIR FORCE 1 0 8» eso hace que «air force» encuentre y
+   * «force air» no. El buscador nuevo pide que aparezcan todas las palabras, en
+   * cualquier orden, y además no cuenta el total — ese `count(*)` sobre
+   * 1,5 millones de filas eran 160 ms para un número que nadie mira.
+   */
   cargarProductos(q: string = '') {
     this.buscandoProductos = true;
-    const filtros: Record<string, string | number> = { page: 0, size: 20, estado: 'activo' };
-    if (q) { filtros['nombre'] = q; }
-    this.crud.listar<Producto>('productos', filtros).subscribe({
-      next: res => { this.productos = res.content; this.buscandoProductos = false; },
+    const params = new HttpParams().set('q', q).set('limite', 20);
+    this.http.get<Producto[]>(`${environment.apiUrl}/productos/buscar`, { params }).subscribe({
+      next: res => { this.productos = res; this.buscandoProductos = false; },
       error: () => { this.productos = []; this.buscandoProductos = false; }
     });
   }
@@ -805,10 +813,11 @@ export class PedidoNuevoComponent implements OnInit {
     // que es de lo que iba todo esto.
     const nombres = nombresProducto.slice(0, 100);
     for (const nombre of nombres) {
-      peticiones.push(this.crud
-        .listar<Producto>('productos', { page: 0, size: 10, estado: 'activo', nombre })
-        .pipe(tap(res => this.candidatosProducto.push(...res.content)),
-              catchError(() => of({ content: [] as Producto[] } as any))));
+      peticiones.push(this.http
+        .get<Producto[]>(`${environment.apiUrl}/productos/buscar`,
+                         { params: new HttpParams().set('q', nombre).set('limite', 10) })
+        .pipe(tap(res => this.candidatosProducto.push(...res)),
+              catchError(() => of([] as Producto[]))));
     }
 
     if (peticiones.length === 0) { seguir(); return; }

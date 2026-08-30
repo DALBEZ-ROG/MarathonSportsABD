@@ -157,13 +157,33 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
     if (this.labelKey.includes(',')) return this.labelKey.split(',').map(k => item[k.trim()]).filter(Boolean).join(' ');
     return String(item[this.labelKey] ?? item);
   }
+  /**
+   * Lo último que se pidió al servidor. `null` = todavía no se ha pedido nada.
+   *
+   * <p>Es lo que decide si al abrir hay que volver a consultar, y arregla un
+   * fallo que se veía al meter el SEGUNDO producto de un pedido: la condición
+   * era «pide sólo si la lista está vacía», así que tras la primera búsqueda la
+   * lista ya no estaba vacía y el desplegable se quedaba enseñando los
+   * resultados de la búsqueda anterior — con la caja de texto en blanco, que es
+   * lo que lo hacía desconcertante. Parecía que no cargaba el catálogo.
+   */
+  private ultimaPedida: string | null = null;
+
   abrir(): void {
     if (this.disabled) { return; }
     this.abierto = true;
     this.indiceActivo = -1;
-    // En remoto, al abrir sin haber escrito todavía no hay nada que enseñar.
-    // Se pide la primera tanda una sola vez.
-    if (this.remoto && this._items.length === 0) { this.buscar.emit(this.busqueda.trim()); }
+    if (!this.remoto) { return; }
+    // Se consulta si lo que hay en la caja no es lo que se pidió la última vez.
+    // Con la caja vacía tras elegir algo, eso vuelve a traer la lista general;
+    // reabrir sin tocar nada no gasta una consulta.
+    const q = this.busqueda.trim();
+    if (this.ultimaPedida !== q) { this.pedir(q); }
+  }
+
+  private pedir(q: string): void {
+    this.ultimaPedida = q;
+    this.buscar.emit(q);
   }
   alternar(): void { this.abierto ? this.cerrar() : this.abrir(); }
 
@@ -176,7 +196,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
     // de millón y medio de filas, y sólo importa la última.
     clearTimeout(this.temporizador);
     const q = this.busqueda.trim();
-    this.temporizador = setTimeout(() => this.buscar.emit(q), 250);
+    this.temporizador = setTimeout(() => this.pedir(q), 250);
   }
   seleccionar(item: any): void {
     const valor = this.valueKey ? item[this.valueKey] : item;
