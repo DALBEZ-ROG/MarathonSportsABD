@@ -653,3 +653,71 @@ abiertos, y el `pg_ctl stop` del final se queda esperando.)
 ## Riesgo conocido que se asume
 
 **El asistente IA ejecuta SQL generado por un modelo de lenguaje.** La mitigación es la validación SELECT-only (rechaza INSERT/UPDATE/DELETE/DROP/TRUNCATE/ALTER/CREATE) más el límite de 500 filas. Es una mitigación razonable, no una garantía formal: un endurecimiento real pasaría por ejecutar con un rol de PostgreSQL de solo lectura sobre vistas específicas, en lugar de filtrar la cadena SQL. Queda documentado como riesgo aceptado y no como problema resuelto.
+
+---
+
+## F93 — Selectores que se traen catálogos enteros al navegador
+
+**Cerrado en `/pedidos/nuevo`. Sigue abierto en otras pantallas**, y conviene
+saber dónde antes de que vuelva a morder.
+
+### El patrón
+
+Una pantalla precarga un catálogo completo y el buscador filtra en el navegador.
+Con miles de filas es razonable; con las tablas al millón y medio de la F91 deja
+de serlo de dos formas distintas:
+
+1. **Se cuelga**, si el endpoint no tiene tope. Era el caso de
+   `/clientes/activos`: **299 MB y 1.439.823 filas en una respuesta**.
+2. **Miente**, si el endpoint tiene tope. Un `size=1000` sobre 1.500.000
+   productos deja el 99,93 % del catálogo fuera del desplegable, y no hay ningún
+   aviso: la lista simplemente no los contiene.
+
+El segundo es peor, porque no se nota. Nadie reporta «no me deja elegir este
+producto» — se asume que no existe.
+
+### Lo que queda con `size=1000` sobre tablas grandes
+
+| Pantalla | Carga | Tabla | Riesgo |
+|---|---|---|---|
+| `inventario` | `productos?size=1000` | 1,5 M | sólo se pueden filtrar 1.000 |
+| `auditoria` (historial) | `productos?size=1000` | 1,5 M | ídem, es un filtro |
+| `compras/orden-compra-nueva` | `productos?size=1000` por proveedor | 1,5 M | **no se puede comprar fuera de esas 1.000** |
+| `compras/orden-compra-nueva` | `proveedores?size=1000` | 1,5 M | ídem |
+| `compras/ordenes-compra` | `proveedores?size=1000` | 1,5 M | filtro |
+| `productos` | `proveedores?size=1000` | 1,5 M | al asignar proveedor |
+| `produccion/*` | `productos?origen=fabricado&size=1000` | acotado | bajo |
+
+Los catálogos pequeños (`ciudades`, `categorias`, `unidades-medida`, `bodegas`,
+`transportistas`) no entran aquí: son decenas de filas y `size=1000` los cubre
+de sobra.
+
+### Cómo se arregla
+
+La pieza ya está hecha: `app-searchable-select` acepta `[remoto]="true"` y
+`(buscar)`. Filtra la base, aplica un respiro de 250 ms y pinta lo que llegue.
+Para cada pantalla de la tabla hace falta:
+
+1. un endpoint de búsqueda con tope (como `/api/clientes/buscar`), o reutilizar
+   el filtro `nombre` que ya tienen `/productos` y `/proveedores`;
+2. cambiar la precarga por una llamada al `(buscar)`;
+3. **índices de trigramas** sobre la columna que se busca — sin ellos la
+   búsqueda por `%texto%` es un barrido secuencial. Los de `cliente` y
+   `producto` los crea `fase93_buscadores_del_pedido.sql`; `proveedor` y
+   `materia_prima` no los tienen todavía.
+
+**Prioridad:** `orden-compra-nueva` es la siguiente, y es la más grave de las que
+quedan — ahí el tope no limita una búsqueda, limita **qué se puede comprar**.
+
+### La trampa del ORDER BY, que hay que recordar al hacer las demás
+
+El índice de trigramas se pierde si la consulta lleva `ORDER BY` sobre otra
+columna con `LIMIT`: el planificador prefiere recorrer el índice ordenado y
+filtrar fila a fila. Medido sobre `cliente` con `%mar%`:
+
+| Consulta | Tiempo |
+|---|--:|
+| `WHERE ... ORDER BY apellido LIMIT 20` | 3.746 ms |
+| `SELECT * FROM (WHERE ... LIMIT 20) ORDER BY apellido` | **23 ms** |
+
+Ordenar las veinte que salen, no el millón y medio del que salen.

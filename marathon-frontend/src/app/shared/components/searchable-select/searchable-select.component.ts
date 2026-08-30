@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, forwardRef, HostListener, Input } from '@angular/core';
+import { Component, DoCheck, ElementRef, EventEmitter, forwardRef, HostListener, Input, OnDestroy, Output } from '@angular/core';
 import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from '@angular/forms';
 
 @Component({
@@ -16,8 +16,10 @@ import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from '@angular/f
       <div class="options" *ngIf="abierto">
         <button type="button" *ngFor="let item of opcionesVisibles; let i = index" [class.active]="i === indiceActivo"
           (mousedown)="$event.preventDefault()" (click)="seleccionar(item)">{{ etiqueta(item) }}</button>
-        <p class="empty" *ngIf="opcionesFiltradas.length === 0">Sin coincidencias</p>
-        <p class="more" *ngIf="opcionesFiltradas.length > limite">Escriba más letras para precisar la búsqueda</p>
+        <p class="empty" *ngIf="buscando">Buscando…</p>
+        <p class="empty" *ngIf="!buscando && totalFiltradas === 0">Sin coincidencias</p>
+        <p class="more" *ngIf="!buscando && remoto && totalFiltradas >= limite">Hay más: escriba unas letras más para precisar</p>
+        <p class="more" *ngIf="!buscando && !remoto && totalFiltradas > limite">Escriba más letras para precisar la búsqueda</p>
       </div>
     </div>
   `,
@@ -48,8 +50,28 @@ import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from '@angular/f
     .disabled { opacity: .6; }
   `]
 })
-export class SearchableSelectComponent implements ControlValueAccessor {
-  @Input() items: any[] = [];
+export class SearchableSelectComponent implements ControlValueAccessor, OnDestroy, DoCheck {
+  /**
+   * F93: el filtrado dejó de ser un getter llamado desde la plantilla.
+   *
+   * Lo era, y con listas grandes es una trampa doble. Angular evalúa las
+   * expresiones de la plantilla en CADA ciclo de detección de cambios —no solo
+   * al escribir— y el getter recorría la lista entera normalizando acentos
+   * cadena por cadena. Con los 1,4 millones de clientes que servía
+   * `/clientes/activos`, eso son 1,4 millones de `normalize('NFD')` más una
+   * expresión regular por tecla pulsada, por movimiento de ratón y por
+   * cualquier otra cosa que disparase un ciclo. El navegador se colgaba.
+   *
+   * Ahora el resultado se calcula UNA vez, cuando cambia lo escrito o la lista,
+   * y la plantilla lee un array ya hecho.
+   */
+  private _items: any[] = [];
+  @Input() set items(valor: any[]) {
+    this._items = valor ?? [];
+    this.recalcular();
+  }
+  get items(): any[] { return this._items; }
+
   @Input() labelKey = 'nombre';
   @Input() valueKey = '';
   @Input() placeholder = 'Escriba para buscar...';
@@ -63,28 +85,106 @@ export class SearchableSelectComponent implements ControlValueAccessor {
    * activo sobre una lista vacia solo invita a escribir en balde.
    */
   @Input() disabled = false;
+
+  /**
+   * Modo remoto: filtra la BASE, no el navegador.
+   *
+   * <p>Con `[remoto]="true"` el componente no filtra nada por su cuenta: emite
+   * lo escrito por `(buscar)` con un respiro de 250 ms y pinta lo que el padre
+   * le devuelva en `items`. Es obligatorio para cualquier catálogo que pueda
+   * pasar de unos miles de filas — traerse la lista entera al navegador para
+   * filtrarla ahí es lo que colgaba «Pedido nuevo» (F93).
+   */
+  @Input() remoto = false;
+  @Output() buscar = new EventEmitter<string>();
+  /** Lo pone el padre mientras la petición está en vuelo. */
+  @Input() buscando = false;
+
   indiceActivo = -1;
+  opcionesVisibles: any[] = [];
+  totalFiltradas = 0;
+
   private onChange: (value: any) => void = () => {};
   private onTouched: () => void = () => {};
+  private temporizador?: ReturnType<typeof setTimeout>;
 
   constructor(private elementRef: ElementRef<HTMLElement>) {}
 
-  get opcionesFiltradas(): any[] {
-    const q = this.normalizar(this.busqueda);
-    return q ? this.items.filter(item => this.normalizar(this.etiqueta(item)).includes(q)) : this.items;
+  ngOnDestroy(): void {
+    clearTimeout(this.temporizador);
   }
-  get opcionesVisibles(): any[] { return this.opcionesFiltradas.slice(0, this.limite); }
+
+  /**
+   * Red de seguridad para quien modifique el array EN SITIO.
+   *
+   * <p>El recálculo se dispara al asignar `items`, pero una pantalla que haga
+   * `this.productos.push(...)` sin reasignar no pasa por el setter, y la lista
+   * se quedaría congelada. Comparar dos longitudes en cada ciclo cuesta nada
+   * —que es justo lo contrario de lo que costaba filtrar aquí— y evita que la
+   * optimización rompa una pantalla que hoy funciona.
+   */
+  private largoVisto = -1;
+  ngDoCheck(): void {
+    if (this._items.length !== this.largoVisto) {
+      this.largoVisto = this._items.length;
+      this.recalcular();
+    }
+  }
+
+  /**
+   * Rehace la lista visible. Se llama al escribir y al llegar items nuevos.
+   *
+   * <p>En modo remoto NO se vuelve a filtrar: lo que llega ya viene filtrado
+   * por la base, y volver a pasarle el filtro local escondería resultados
+   * legítimos — por ejemplo una búsqueda por documento, que no está en la
+   * etiqueta que se pinta.
+   */
+  private recalcular(): void {
+    if (this.remoto) {
+      this.totalFiltradas = this._items.length;
+      this.opcionesVisibles = this._items.slice(0, this.limite);
+      return;
+    }
+    const q = this.normalizar(this.busqueda);
+    const filtradas = q
+      ? this._items.filter(item => this.normalizar(this.etiqueta(item)).includes(q))
+      : this._items;
+    this.totalFiltradas = filtradas.length;
+    this.opcionesVisibles = filtradas.slice(0, this.limite);
+  }
   etiqueta(item: any): string {
     if (!item) return '';
     if (this.labelKey.includes(',')) return this.labelKey.split(',').map(k => item[k.trim()]).filter(Boolean).join(' ');
     return String(item[this.labelKey] ?? item);
   }
-  abrir(): void { if (!this.disabled) { this.abierto = true; this.indiceActivo = -1; } }
+  abrir(): void {
+    if (this.disabled) { return; }
+    this.abierto = true;
+    this.indiceActivo = -1;
+    // En remoto, al abrir sin haber escrito todavía no hay nada que enseñar.
+    // Se pide la primera tanda una sola vez.
+    if (this.remoto && this._items.length === 0) { this.buscar.emit(this.busqueda.trim()); }
+  }
   alternar(): void { this.abierto ? this.cerrar() : this.abrir(); }
-  alEscribir(): void { this.onChange(null); this.abierto = true; this.indiceActivo = -1; }
+
+  alEscribir(): void {
+    this.onChange(null);
+    this.abierto = true;
+    this.indiceActivo = -1;
+    if (!this.remoto) { this.recalcular(); return; }
+    // 250 ms de respiro: sin esto, «Rodríguez» son diez consultas a una tabla
+    // de millón y medio de filas, y sólo importa la última.
+    clearTimeout(this.temporizador);
+    const q = this.busqueda.trim();
+    this.temporizador = setTimeout(() => this.buscar.emit(q), 250);
+  }
   seleccionar(item: any): void {
     const valor = this.valueKey ? item[this.valueKey] : item;
-    this.busqueda = this.etiqueta(item); this.onChange(valor); this.onTouched(); this.cerrar();
+    this.busqueda = this.etiqueta(item);
+    // Al elegir ya no hay búsqueda pendiente: si quedara una en el temporizador,
+    // llegaría después y reemplazaría la lista sin motivo.
+    clearTimeout(this.temporizador);
+    this.onChange(valor); this.onTouched(); this.cerrar();
   }
   alTeclado(event: KeyboardEvent): void {
     const opciones = this.opcionesVisibles;
@@ -111,9 +211,9 @@ export class SearchableSelectComponent implements ControlValueAccessor {
    * limpiar.
    */
   writeValue(value: any): void {
-    const item = this.items.find(opcion => this.valueKey ? opcion?.[this.valueKey] === value : opcion === value);
-    if (item) { this.busqueda = this.etiqueta(item); return; }
-    if (!this.abierto) { this.busqueda = ''; }
+    const item = this._items.find(opcion => this.valueKey ? opcion?.[this.valueKey] === value : opcion === value);
+    if (item) { this.busqueda = this.etiqueta(item); this.recalcular(); return; }
+    if (!this.abierto) { this.busqueda = ''; this.recalcular(); }
   }
   registerOnChange(fn: (value: any) => void): void { this.onChange = fn; }
   registerOnTouched(fn: () => void): void { this.onTouched = fn; }

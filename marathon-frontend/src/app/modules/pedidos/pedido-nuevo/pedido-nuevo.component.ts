@@ -2,8 +2,10 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import * as XLSX from 'xlsx';
+import { Observable, forkJoin, of } from 'rxjs';
+import { catchError, tap } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 import { CrudService } from '../../../core/services/crud.service';
 import { AppIconComponent } from '../../../shared/components/icon/icon.component';
@@ -67,8 +69,10 @@ interface ExcelImportPendiente {
         <div class="form-row">
           <div class="form-group">
             <label>Cliente *</label>
+            <!-- F93: [remoto] — filtra la base, no el navegador. Ver cargarClientes(). -->
             <app-searchable-select [(ngModel)]="idCliente" name="idCliente" [items]="clientes"
-              labelKey="nombre,apellido" valueKey="idCliente" placeholder="Escriba el nombre del cliente..."/>
+              labelKey="nombre,apellido" valueKey="idCliente" placeholder="Escriba el nombre del cliente..."
+              [remoto]="true" [buscando]="buscandoClientes" (buscar)="cargarClientes($event)"/>
           </div>
           <div class="form-group">
             <label>Observaciones</label>
@@ -113,6 +117,7 @@ interface ExcelImportPendiente {
             <label>Producto</label>
             <app-searchable-select [(ngModel)]="selectedProducto" name="producto" [items]="productos"
               labelKey="nombre" placeholder="Escriba el nombre del producto..."
+              [remoto]="true" [buscando]="buscandoProductos" (buscar)="cargarProductos($event)"
               (ngModelChange)="onProductoElegido()"/>
           </div>
           <div class="form-group flex-1">
@@ -427,20 +432,45 @@ export class PedidoNuevoComponent implements OnInit {
 
   constructor(private http: HttpClient, private router: Router, private crud: CrudService) {}
 
+  buscandoClientes = false;
+  buscandoProductos = false;
+
   ngOnInit() {
-    this.cargarClientes();
-    this.cargarProductos();
+    // F93: ya NO se precargan las dos listas al abrir la pantalla.
+    //
+    // Se hacía, y era lo que colgaba el equipo. `/clientes/activos` devolvía la
+    // lista COMPLETA para que filtrara el navegador: con las 4.620 filas de
+    // cuando se escribió era razonable, pero con el millón y medio de la F91
+    // son 299 MB de JSON que hay que descargar, parsear y convertir en objetos
+    // antes de que la pantalla responda a nada.
+    //
+    // Los dos buscadores piden ahora lo que se escribe y reciben 20 filas. El
+    // primer `(buscar)` lo lanza el propio componente al abrir el desplegable,
+    // así que abrir la pantalla no pide NADA.
+    //
+    // Efecto secundario que no es menor: el buscador de producto se traía las
+    // primeras 500 filas de un catálogo de 1.500.000. El 99,97 % de los
+    // productos era imposible de elegir desde aquí, y no había forma de darse
+    // cuenta — la lista simplemente no los contenía.
   }
 
-  cargarClientes() {
-    this.http.get<Cliente[]>(`${environment.apiUrl}/clientes/activos`).subscribe({
-      next: res => { this.clientes = res; }
+  /** Las 20 primeras coincidencias en la base. El componente aplica el respiro. */
+  cargarClientes(q: string = '') {
+    this.buscandoClientes = true;
+    const params = new HttpParams().set('q', q).set('limite', 20);
+    this.http.get<Cliente[]>(`${environment.apiUrl}/clientes/buscar`, { params }).subscribe({
+      next: res => { this.clientes = res; this.buscandoClientes = false; },
+      error: () => { this.clientes = []; this.buscandoClientes = false; }
     });
   }
 
-  cargarProductos() {
-    this.crud.listar<Producto>('productos', { page: 0, size: 500, estado: 'activo' }).subscribe({
-      next: res => { this.productos = res.content; }
+  cargarProductos(q: string = '') {
+    this.buscandoProductos = true;
+    const filtros: Record<string, string | number> = { page: 0, size: 20, estado: 'activo' };
+    if (q) { filtros['nombre'] = q; }
+    this.crud.listar<Producto>('productos', filtros).subscribe({
+      next: res => { this.productos = res.content; this.buscandoProductos = false; },
+      error: () => { this.productos = []; this.buscandoProductos = false; }
     });
   }
 
@@ -569,7 +599,12 @@ export class PedidoNuevoComponent implements OnInit {
         const wb = XLSX.read(new Uint8Array(buffer), { type: 'array' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, { header: 1, defval: '' });
-        this.prepararImportacionExcel(rows);
+        // F93: antes de resolver nombres hay que traerse los candidatos.
+        // Hasta ahora se buscaban contra las listas que la pantalla precargaba;
+        // ya no se precargan, y ademas el producto solo tenia las primeras 500
+        // filas de 1.500.000 — cualquier producto fuera de esas 500 se
+        // importaba como «no encontrado» sin que nada lo explicara.
+        this.resolverCatalogoDelExcel(rows, () => this.prepararImportacionExcel(rows));
       } catch {
         this.formError = 'El archivo Excel no tiene un formato válido';
       }
@@ -738,17 +773,88 @@ export class PedidoNuevoComponent implements OnInit {
     return this.normalizarCampo(valor).replace(/\s+/g, ' ');
   }
 
+  /**
+   * Candidatos traídos de la base para resolver los nombres de un Excel (F93).
+   *
+   * <p>Son listas pequeñas y de usar y tirar: una búsqueda por cada nombre
+   * distinto que aparece en el archivo. Antes esto se resolvía contra las
+   * listas que la pantalla precargaba enteras, que es justo lo que había que
+   * dejar de hacer.
+   */
+  private candidatosCliente: Cliente[] = [];
+  private candidatosProducto: Producto[] = [];
+
+  /** Pide a la base los candidatos de cada nombre del Excel y luego sigue. */
+  private resolverCatalogoDelExcel(rows: (string | number | null)[][], seguir: () => void): void {
+    const { nombreCliente, nombresProducto } = this.nombresDelExcel(rows);
+
+    const peticiones: Observable<unknown>[] = [];
+    this.candidatosCliente = [];
+    this.candidatosProducto = [];
+
+    if (nombreCliente) {
+      peticiones.push(this.http
+        .get<Cliente[]>(`${environment.apiUrl}/clientes/buscar`,
+                        { params: new HttpParams().set('q', nombreCliente).set('limite', 25) })
+        .pipe(tap(res => this.candidatosCliente.push(...res)),
+              catchError(() => of([]))));
+    }
+
+    // Un tope, por si alguien suelta un Excel de mil líneas: son mil consultas
+    // y el navegador solo abre seis a la vez. Se avisa en lugar de colgarse,
+    // que es de lo que iba todo esto.
+    const nombres = nombresProducto.slice(0, 100);
+    for (const nombre of nombres) {
+      peticiones.push(this.crud
+        .listar<Producto>('productos', { page: 0, size: 10, estado: 'activo', nombre })
+        .pipe(tap(res => this.candidatosProducto.push(...res.content)),
+              catchError(() => of({ content: [] as Producto[] } as any))));
+    }
+
+    if (peticiones.length === 0) { seguir(); return; }
+
+    this.formError = '';
+    forkJoin(peticiones).subscribe({
+      next: () => seguir(),
+      error: () => { this.formError = 'No se pudo consultar el catálogo para importar el Excel.'; }
+    });
+  }
+
+  /** Los nombres distintos que hay que resolver: el cliente y cada producto. */
+  private nombresDelExcel(rows: (string | number | null)[][]): { nombreCliente: string; nombresProducto: string[] } {
+    let nombreCliente = '';
+    const productos = new Set<string>();
+    let filaProductos = -1;
+
+    for (let i = 0; i < rows.length; i++) {
+      const fila = rows[i] ?? [];
+      const col0 = this.normalizarCampo(this.celdaTexto(fila[0]));
+      if (this.esEncabezadoProductos(col0)) { filaProductos = i + 1; break; }
+      if (this.resolverCampo(col0) === 'cliente' || this.resolverCampo(col0) === 'nombre_cliente') {
+        nombreCliente = this.celdaTexto(fila[1]);
+      }
+    }
+
+    if (filaProductos >= 0) {
+      for (let i = filaProductos; i < rows.length; i++) {
+        const nombre = this.celdaTexto((rows[i] ?? [])[0]);
+        if (nombre) { productos.add(nombre); }
+      }
+    }
+    return { nombreCliente, nombresProducto: [...productos] };
+  }
+
   private buscarClientePorNombre(texto: string): Cliente | undefined {
     const q = this.normalizarTexto(texto);
     if (!q) return undefined;
 
-    const exacto = this.clientes.find(c =>
+    const exacto = this.candidatosCliente.find(c =>
       this.normalizarTexto(`${c.nombre} ${c.apellido}`) === q ||
       this.normalizarTexto(`${c.apellido} ${c.nombre}`) === q
     );
     if (exacto) return exacto;
 
-    return this.clientes.find(c => {
+    return this.candidatosCliente.find(c => {
       const nombreCompleto = this.normalizarTexto(`${c.nombre} ${c.apellido}`);
       return nombreCompleto.includes(q) || q.includes(nombreCompleto);
     });
@@ -758,16 +864,16 @@ export class PedidoNuevoComponent implements OnInit {
     const q = this.normalizarTexto(texto);
     if (!q) return undefined;
 
-    const exacto = this.productos.find(p => this.normalizarTexto(p.nombre) === q);
+    const exacto = this.candidatosProducto.find(p => this.normalizarTexto(p.nombre) === q);
     if (exacto) return exacto;
 
-    const parcial = this.productos.filter(p => {
+    const parcial = this.candidatosProducto.filter(p => {
       const nombre = this.normalizarTexto(p.nombre);
       return nombre.includes(q) || q.includes(nombre);
     });
     if (parcial.length === 1) return parcial[0];
 
-    return this.productos.find(p => this.normalizarTexto(p.nombre).startsWith(q));
+    return this.candidatosProducto.find(p => this.normalizarTexto(p.nombre).startsWith(q));
   }
 
   private celdaTexto(valor: string | number | null | undefined): string {

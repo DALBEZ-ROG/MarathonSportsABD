@@ -48,6 +48,22 @@ public class ClienteController {
         return ResponseEntity.ok(clienteService.listarActivos());
     }
 
+    /**
+     * Buscador de cliente para los selectores (F93).
+     *
+     * <p>Es lo que hay que usar desde un desplegable. {@code /activos} devuelve
+     * la lista COMPLETA, y con el millon y medio de clientes de la F91 eso son
+     * 299 MB en una respuesta: el navegador se queda inservible descargandolos,
+     * parseandolos y despues recorriendolos en cada tecla.
+     */
+    @GetMapping("/buscar")
+    @PreAuthorize("hasAuthority('clientes:ver')")
+    public ResponseEntity<List<ClienteResponseDTO>> buscar(
+            @RequestParam(name = "q", required = false, defaultValue = "") String q,
+            @RequestParam(name = "limite", defaultValue = "20") int limite) {
+        return ResponseEntity.ok(clienteService.buscarParaSelector(q, limite));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('clientes:ver')")
     public ResponseEntity<ClienteResponseDTO> obtener(@PathVariable Integer id) {

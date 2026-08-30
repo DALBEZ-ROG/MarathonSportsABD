@@ -56,4 +56,12 @@ public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
     @Query("SELECT c.idCliente, c.nombre, c.apellido, c.estado, ci.idCiudad, ci.nombre "
          + "FROM Cliente c JOIN c.ciudad ci WHERE c.estado = :estado ORDER BY c.apellido ASC")
     List<Object[]> listarActivosSinContacto(@Param("estado") String estado);
+
+    // El buscador de «Pedido nuevo» (F93) NO esta aqui: vive en
+    // ClienteService.buscarParaSelector, con EntityManager. Es SQL nativo, y
+    // declararlo como @Query(nativeQuery = true) hace que Spring Data se lo pase
+    // a JSqlParser para analizarlo — y en este proyecto esa combinacion revienta
+    // el arranque con un NoSuchMethodError entre spring-data-jpa 3.2.2 y
+    // jsqlparser 4.9. Es la misma razon por la que LogService y
+    // AuditoriaCambiosService usan EntityManager para su SQL nativo.
 }

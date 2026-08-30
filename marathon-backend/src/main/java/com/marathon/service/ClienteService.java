@@ -43,6 +43,10 @@ public class ClienteService {
         this.cifradoService = cifradoService;
     }
 
+    /** Para el SQL nativo del buscador (F93). Ver buscarParaSelector. */
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
+
     public PageResponseDTO<ClienteResponseDTO> listar(int page, int size, String nombre, String estado) {
         // F51 (D-41): el ORDEN es obligatorio en una lista paginada.
         // Sin ORDER BY, PostgreSQL devuelve las filas en el orden del monton, y
@@ -87,17 +91,70 @@ public class ClienteService {
      */
     public List<ClienteResponseDTO> listarActivos() {
         return clienteRepository.listarActivosSinContacto("activo").stream()
-                .map(fila -> {
-                    ClienteResponseDTO dto = new ClienteResponseDTO();
-                    dto.setIdCliente((Integer) fila[0]);
-                    dto.setNombre((String) fila[1]);
-                    dto.setApellido((String) fila[2]);
-                    dto.setEstado((String) fila[3]);
-                    dto.setIdCiudad((Integer) fila[4]);
-                    dto.setCiudadNombre((String) fila[5]);
-                    return dto;
-                })
+                .map(this::filaAClienteDTO)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Las N primeras coincidencias para un buscador (F93).
+     *
+     * <p>Es lo que usa «Pedido nuevo» en lugar de {@link #listarActivos}. Ese
+     * otro sigue existiendo porque hay pantallas que de verdad quieren la lista
+     * entera, pero <b>no debe usarse desde un selector</b>: con el millon y
+     * medio de clientes de la F91 devuelve 299 MB y cuelga el navegador.
+     *
+     * <p>El limite se topa en 50. No es desconfianza del cliente: un desplegable
+     * que ofrece mas de una pantalla de opciones no ayuda a elegir, y cada fila
+     * de mas es trabajo que la base hace para nada.
+     */
+    public List<ClienteResponseDTO> buscarParaSelector(String texto, int limite) {
+        String q = texto != null ? texto.trim() : "";
+        int tope = Math.min(Math.max(limite, 1), 50);
+
+        // El LIMIT va DENTRO de la subconsulta y el ORDER BY FUERA, y no es un
+        // capricho de estilo. Escrito de la forma natural
+        // —WHERE ... ORDER BY apellido LIMIT 20— el planificador descarta los
+        // indices de trigramas de la F93 y recorre el indice ordenado filtrando
+        // fila a fila: sobre '%mar%' descartaba 134.797 filas antes de juntar 20
+        // y tardaba 3.746 ms. Ordenando solo las veinte que salen, 23 ms.
+        //
+        // Con la caja vacia (?2 = 1) se devuelven las primeras sin filtrar: al
+        // abrir el desplegable sin escribir nada tiene que verse algo, o parece
+        // que no hay clientes.
+        //
+        // No se seleccionan los campos cifrados, por lo mismo que explica
+        // ClienteRepository.listarActivosSinContacto: el selector solo pinta el
+        // nombre, y descifrar para no mostrar nada es caro y ademas es tocar
+        // datos personales sin motivo.
+        jakarta.persistence.Query consulta = entityManager.createNativeQuery(
+            "SELECT * FROM ("
+          + "  SELECT c.id_cliente, c.nombre, c.apellido, c.estado, ci.id_ciudad, ci.nombre AS ciudad "
+          + "  FROM cliente c JOIN ciudad ci ON ci.id_ciudad = c.id_ciudad "
+          + "  WHERE c.estado = 'activo' "
+          + "    AND (?2 = 1 OR c.nombre ILIKE ?1 OR c.apellido ILIKE ?1) "
+          + "  LIMIT ?3"
+          + ") t ORDER BY t.apellido, t.nombre");
+        consulta.setParameter(1, "%" + q + "%");
+        consulta.setParameter(2, q.isEmpty() ? 1 : 0);
+        consulta.setParameter(3, tope);
+
+        List<ClienteResponseDTO> encontrados = new java.util.ArrayList<>();
+        for (Object fila : consulta.getResultList()) {
+            encontrados.add(filaAClienteDTO((Object[]) fila));
+        }
+        return encontrados;
+    }
+
+    /** idCliente, nombre, apellido, estado, idCiudad, nombreCiudad. */
+    private ClienteResponseDTO filaAClienteDTO(Object[] fila) {
+        ClienteResponseDTO dto = new ClienteResponseDTO();
+        dto.setIdCliente(((Number) fila[0]).intValue());
+        dto.setNombre((String) fila[1]);
+        dto.setApellido((String) fila[2]);
+        dto.setEstado((String) fila[3]);
+        dto.setIdCiudad(fila[4] != null ? ((Number) fila[4]).intValue() : null);
+        dto.setCiudadNombre((String) fila[5]);
+        return dto;
     }
 
     @Transactional
