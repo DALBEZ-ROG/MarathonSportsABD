@@ -43,16 +43,22 @@ public interface OrdenProduccionRepository extends JpaRepository<OrdenProduccion
                                                   @Param("idProducto") Integer idProducto);
 
     /** Listado con filtros y busqueda por numero de orden o producto (F54). */
+    // F94 — DOS consultas. Ver la nota larga en OrdenCompraRepository.
     @Query("SELECT o FROM OrdenProduccion o WHERE "
          + "(:estado IS NULL OR o.estado = :estado) "
          + "AND (:idProducto IS NULL OR o.producto.idProducto = :idProducto) "
-         + "AND (:numero IS NULL OR o.idOrdenProduccion = :numero) "
-         + "AND (:texto IS NULL OR EXISTS ("
-         + "     SELECT 1 FROM Producto pr WHERE pr = o.producto"
-         + "       AND LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%'))))")
-    Page<OrdenProduccion> buscar(@Param("estado") String estado,
-                                 @Param("idProducto") Integer idProducto,
-                                 @Param("texto") String texto,
-                                 @Param("numero") Long numero,
-                                 Pageable pageable);
+         + "AND (:numero IS NULL OR o.idOrdenProduccion = :numero)")
+    Page<OrdenProduccion> buscarSinTexto(@Param("estado") String estado,
+                                         @Param("idProducto") Integer idProducto,
+                                         @Param("numero") Long numero,
+                                         Pageable pageable);
+
+    @Query("SELECT o FROM OrdenProduccion o JOIN o.producto pr WHERE "
+         + "(:estado IS NULL OR o.estado = :estado) "
+         + "AND (:idProducto IS NULL OR pr.idProducto = :idProducto) "
+         + "AND LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%'))")
+    Page<OrdenProduccion> buscarConTexto(@Param("estado") String estado,
+                                         @Param("idProducto") Integer idProducto,
+                                         @Param("texto") String texto,
+                                         Pageable pageable);
 }

@@ -49,31 +49,42 @@ public interface CuentaPorPagarRepository extends JpaRepository<CuentaPorPagar, 
     List<CuentaPorPagar> deProveedorEnEstados(@Param("idProveedor") Integer idProveedor,
                                               @Param("estados") List<String> estados);
 
-    /** Listado con filtros y busqueda por proveedor o numero de factura (F54). */
+    // =====================================================================
+    // F94 — DOS consultas. Esta era la más cara del sistema.
+    // =====================================================================
+    // El proveedor de una cuenta por pagar está a tres saltos:
+    // cuenta -> factura -> orden -> proveedor. Nombrarlo en el WHERE encadena
+    // los tres joins en el FROM y se pagan SIEMPRE, también al abrir la
+    // pantalla sin buscar nada: 1.127 ms solo el recuento de la paginación.
+    // Ver la nota larga en OrdenCompraRepository sobre por qué no basta con
+    // convertirlos en EXISTS.
+
+    /** Sin texto: no se nombra la factura ni el proveedor, así que no hay uniones. */
     @Query("SELECT c FROM CuentaPorPagar c WHERE "
          + "(:estado IS NULL OR c.estado = :estado) "
-         // También EXISTS. Nombrar `c.facturaCompra.ordenCompra.proveedor` aquí
-         // encadenaba los tres joins en el FROM aunque el filtro viniera vacío,
-         // que es como se abre la pantalla: 845 ms solo el count. Convertir el
-         // filtro de texto no bastó porque este seguía arrastrándolos.
-         + "AND (:idProveedor IS NULL OR EXISTS ("
-         + "     SELECT 1 FROM FacturaCompra f2 WHERE f2 = c.facturaCompra "
-         + "       AND f2.ordenCompra.proveedor.idProveedor = :idProveedor)) "
-         + "AND (:numero IS NULL OR c.idCuentaPagar = :numero) "
-         // F94 — EXISTS. Era la consulta más cara del sistema: nombrar
-         // `c.facturaCompra.ordenCompra.proveedor.nombre` encadena TRES joins
-         // (factura, orden, proveedor) en el FROM, y se pagaban siempre, también
-         // al abrir la pantalla sin buscar nada. Medido, el count solo:
-         //     con los tres joins ... 1.127 ms
-         //     con EXISTS ...........    43 ms
-         + "AND (:texto IS NULL OR EXISTS ("
-         + "     SELECT 1 FROM FacturaCompra f WHERE f = c.facturaCompra AND ("
-         + "         LOWER(f.numeroFacturaProveedor) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')) "
-         + "      OR EXISTS (SELECT 1 FROM Proveedor pr WHERE pr = f.ordenCompra.proveedor "
-         + "                   AND LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%'))))))")
-    Page<CuentaPorPagar> buscar(@Param("estado") String estado,
-                                @Param("idProveedor") Integer idProveedor,
-                                @Param("texto") String texto,
-                                @Param("numero") Long numero,
-                                Pageable pageable);
+         + "AND (:numero IS NULL OR c.idCuentaPagar = :numero)")
+    Page<CuentaPorPagar> buscarSinTexto(@Param("estado") String estado,
+                                        @Param("numero") Long numero,
+                                        Pageable pageable);
+
+    /** Filtro por proveedor: las tres uniones hacen falta, y son explícitas. */
+    @Query("SELECT c FROM CuentaPorPagar c "
+         + "JOIN c.facturaCompra f JOIN f.ordenCompra o JOIN o.proveedor pr WHERE "
+         + "(:estado IS NULL OR c.estado = :estado) "
+         + "AND pr.idProveedor = :idProveedor")
+    Page<CuentaPorPagar> buscarPorProveedor(@Param("estado") String estado,
+                                            @Param("idProveedor") Integer idProveedor,
+                                            Pageable pageable);
+
+    /** Búsqueda por nombre de proveedor o número de factura del proveedor. */
+    @Query("SELECT c FROM CuentaPorPagar c "
+         + "JOIN c.facturaCompra f JOIN f.ordenCompra o JOIN o.proveedor pr WHERE "
+         + "(:estado IS NULL OR c.estado = :estado) "
+         + "AND (:idProveedor IS NULL OR pr.idProveedor = :idProveedor) "
+         + "AND (LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')) "
+         + "  OR LOWER(f.numeroFacturaProveedor) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))")
+    Page<CuentaPorPagar> buscarConTexto(@Param("estado") String estado,
+                                        @Param("idProveedor") Integer idProveedor,
+                                        @Param("texto") String texto,
+                                        Pageable pageable);
 }

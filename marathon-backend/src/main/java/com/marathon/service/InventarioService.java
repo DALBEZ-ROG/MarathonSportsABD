@@ -99,8 +99,11 @@ public class InventarioService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "idInventario"));
         // F54: buscar por producto. Sin esto, con miles de filas, saber cuanto
         // queda de un articulo era recorrer paginas.
-        Page<Inventario> result = inventarioRepository.buscar(
-                idBodega, Filtros.vacioComoNulo(busqueda), pageable);
+        // F94: dos consultas, y aqui se elige. Ver OrdenCompraRepository.
+        String texto = Filtros.vacioComoNulo(busqueda);
+        Page<Inventario> result = texto != null
+                ? inventarioRepository.buscarConTexto(idBodega, texto, pageable)
+                : inventarioRepository.buscarSinTexto(idBodega, pageable);
 
         List<InventarioResponseDTO> content = result.getContent().stream()
                 .map(this::toInventarioDTO)

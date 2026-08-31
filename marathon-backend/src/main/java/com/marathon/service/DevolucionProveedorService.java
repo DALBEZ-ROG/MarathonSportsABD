@@ -238,9 +238,11 @@ public class DevolucionProveedorService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "idDevolucionProv"));
         // F54: busqueda por texto, sin la cual encontrar un registro concreto
         // entre miles era pasar paginas una a una.
-        Page<DevolucionProveedor> result = devolucionRepository.buscar(
-                Filtros.vacioComoNulo(estado), idProveedor, Filtros.textoSiNoEsNumero(busqueda),
-                Filtros.numeroDeDocumento(busqueda), pageable);
+        String texto = Filtros.textoSiNoEsNumero(busqueda);
+        Page<DevolucionProveedor> result = texto != null
+                ? devolucionRepository.buscarConTexto(Filtros.vacioComoNulo(estado), idProveedor, texto, pageable)
+                : devolucionRepository.buscarSinTexto(Filtros.vacioComoNulo(estado), idProveedor,
+                        Filtros.numeroDeDocumento(busqueda), pageable);
 
         List<DevolucionProveedorResponseDTO> content = result.getContent().stream()
                 .map(this::toDTO).collect(Collectors.toList());

@@ -59,6 +59,32 @@ public class IAService {
     }
 
     /** El proveedor configurado, o vacio si el nombre no corresponde a ninguno. */
+    /**
+     * Traducciones ya hechas: pregunta en minúsculas -> respuesta cruda del modelo.
+     *
+     * <p>Se guarda la TRADUCCIÓN, no el resultado. Los datos se vuelven a
+     * consultar en cada pregunta, así que nadie ve una cifra vieja; lo único que
+     * se ahorra es volver a pedirle al modelo que traduzca una frase idéntica.
+     *
+     * <p>El tope existe porque esto vive en memoria del proceso y no debe crecer
+     * sin límite. Al llenarse se vacía entero: es una caché de conveniencia, no
+     * un índice, y un desalojo fino no compensa la complejidad.
+     */
+    private static final int MAX_TRADUCCIONES = 200;
+
+    private final java.util.Map<String, String> traducciones =
+            java.util.Collections.synchronizedMap(new java.util.LinkedHashMap<>());
+
+    private void recordarTraduccion(String clave, String respuesta) {
+        if (clave == null || clave.isEmpty() || respuesta == null) {
+            return;
+        }
+        if (traducciones.size() >= MAX_TRADUCCIONES) {
+            traducciones.clear();
+        }
+        traducciones.put(clave, respuesta);
+    }
+
     private java.util.Optional<ProveedorIA> proveedor() {
         return proveedores.stream()
                 .filter(p -> p.nombre().equalsIgnoreCase(proveedorElegido))
@@ -93,9 +119,30 @@ public class IAService {
 
         // 2 y 3. Preguntarle. Lo unico que vuelve es texto: interpretarlo,
         // validarlo y ejecutarlo es cosa de aqui, y no cambia con el proveedor.
+        //
+        // F94: si esta misma pregunta ya se tradujo hace poco, se reutiliza el
+        // SQL en vez de volver a preguntar.
+        //
+        // POR QUE. La llamada a Google es lo que domina el tiempo del asistente,
+        // y NO ES ESTABLE: midiendo la misma pregunta doce veces salieron desde
+        // 0,28 s hasta 57 s. Eso no se arregla desde aqui — pero repetirla sí se
+        // puede evitar. Y se repite mucho: quien prueba el asistente hace la
+        // misma pregunta varias veces, y las preguntas de ejemplo de la pantalla
+        // las pulsa todo el mundo.
+        //
+        // Se recuerda la TRADUCCION (pregunta -> SQL), no el resultado: los
+        // datos se vuelven a consultar siempre, asi que la respuesta nunca es
+        // vieja. Lo unico que se ahorra es volver a pedirle al modelo que
+        // traduzca una frase que ya tradujo.
         String rawResponse;
+        String clave = pregunta == null ? "" : pregunta.trim().toLowerCase();
+        String recordado = traducciones.get(clave);
+        if (recordado != null) {
+            rawResponse = recordado;
+        } else {
         try {
             rawResponse = proveedor.preguntar(iaContextService.getSchemaContext(), pregunta);
+            recordarTraduccion(clave, rawResponse);
         } catch (Exception e) {
             log.warn("Fallo al hablar con el proveedor {}", proveedor.nombre(), e);
             response.setError(e instanceof IllegalStateException && e.getMessage() != null
@@ -103,6 +150,7 @@ public class IAService {
                     : "No se pudo hablar con el asistente. Vuelve a intentarlo.");
             response.setTimestamp(LocalDateTime.now());
             return response;
+        }
         }
 
         // 4. Parsear la respuesta de Anthropic

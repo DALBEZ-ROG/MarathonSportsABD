@@ -27,16 +27,18 @@ public interface InventarioRepository extends JpaRepository<Inventario, Integer>
      */
     // F94 — EXISTS, para que producto y bodega no entren en el FROM cuando no se
     // está buscando por texto. Ver la nota larga en PedidoRepository.buscar.
+    // F94 — DOS consultas. Ver la nota larga en OrdenCompraRepository.
     @Query("SELECT i FROM Inventario i WHERE "
-         + "(:idBodega IS NULL OR i.bodega.idBodega = :idBodega) "
-         + "AND (:texto IS NULL "
-         + "     OR EXISTS (SELECT 1 FROM Producto pr WHERE pr = i.producto "
-         + "                  AND LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%'))) "
-         + "     OR EXISTS (SELECT 1 FROM Bodega bo WHERE bo = i.bodega "
-         + "                  AND LOWER(bo.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%'))))")
-    Page<Inventario> buscar(@Param("idBodega") Integer idBodega,
-                            @Param("texto") String texto,
-                            Pageable pageable);
+         + "(:idBodega IS NULL OR i.bodega.idBodega = :idBodega)")
+    Page<Inventario> buscarSinTexto(@Param("idBodega") Integer idBodega, Pageable pageable);
+
+    @Query("SELECT i FROM Inventario i JOIN i.producto pr JOIN i.bodega bo WHERE "
+         + "(:idBodega IS NULL OR bo.idBodega = :idBodega) "
+         + "AND (LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')) "
+         + "  OR LOWER(bo.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))")
+    Page<Inventario> buscarConTexto(@Param("idBodega") Integer idBodega,
+                                    @Param("texto") String texto,
+                                    Pageable pageable);
 
     List<Inventario> findByProductoIdProducto(Integer idProducto);
 

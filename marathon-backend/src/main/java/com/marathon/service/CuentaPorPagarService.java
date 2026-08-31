@@ -73,9 +73,19 @@ public class CuentaPorPagarService {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "idCuentaPagar"));
         // F54: busqueda por proveedor o numero de factura del proveedor.
-        Page<CuentaPorPagar> result = cuentaRepository.buscar(
-                Filtros.vacioComoNulo(estado), idProveedor, Filtros.textoSiNoEsNumero(busqueda),
-                Filtros.numeroDeDocumento(busqueda), pageable);
+        // F94: tres consultas segun lo que se pida. Llegar al proveedor son tres
+        // saltos (cuenta -> factura -> orden -> proveedor); las uniones solo se
+        // hacen cuando de verdad hacen falta. Ver OrdenCompraRepository.
+        String texto = Filtros.textoSiNoEsNumero(busqueda);
+        String est = Filtros.vacioComoNulo(estado);
+        Page<CuentaPorPagar> result;
+        if (texto != null) {
+            result = cuentaRepository.buscarConTexto(est, idProveedor, texto, pageable);
+        } else if (idProveedor != null) {
+            result = cuentaRepository.buscarPorProveedor(est, idProveedor, pageable);
+        } else {
+            result = cuentaRepository.buscarSinTexto(est, Filtros.numeroDeDocumento(busqueda), pageable);
+        }
 
         List<CuentaPorPagarResponseDTO> content = result.getContent().stream()
                 .map(c -> toDTO(c, false))

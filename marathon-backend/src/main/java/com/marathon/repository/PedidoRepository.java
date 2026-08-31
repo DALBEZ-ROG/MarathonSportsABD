@@ -81,21 +81,30 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
     // ejecuta si `:texto` trae algo, y cuando lo trae usa el índice de
     // trigramas. Es el mismo resultado por nueve veces menos trabajo, y explica
     // el medio segundo que costaba abrir casi cualquier listado.
+    /** Sin búsqueda por texto: no se nombra el cliente, así que no hay unión. */
     @Query("SELECT p FROM Pedido p WHERE "
          + "(:estado IS NULL OR p.estado = :estado) "
          + "AND p.fechaPedido >= :desde "
          + "AND p.fechaPedido <= :hasta "
-         + "AND (:numero IS NULL OR p.idPedido = :numero) "
-         + "AND (:texto IS NULL OR EXISTS ("
-         + "     SELECT 1 FROM Cliente c WHERE c = p.cliente AND ("
-         + "         LOWER(c.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')) "
-         + "      OR LOWER(c.apellido) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))))")
-    Page<Pedido> buscar(@Param("estado") String estado,
-                        @Param("desde") LocalDateTime desde,
-                        @Param("hasta") LocalDateTime hasta,
-                        @Param("texto") String texto,
-                        @Param("numero") Long numero,
-                        Pageable pageable);
+         + "AND (:numero IS NULL OR p.idPedido = :numero)")
+    Page<Pedido> buscarSinTexto(@Param("estado") String estado,
+                                @Param("desde") LocalDateTime desde,
+                                @Param("hasta") LocalDateTime hasta,
+                                @Param("numero") Long numero,
+                                Pageable pageable);
+
+    /** Con búsqueda por nombre de cliente: unión explícita, que da el hash join. */
+    @Query("SELECT p FROM Pedido p JOIN p.cliente c WHERE "
+         + "(:estado IS NULL OR p.estado = :estado) "
+         + "AND p.fechaPedido >= :desde "
+         + "AND p.fechaPedido <= :hasta "
+         + "AND (LOWER(c.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')) "
+         + "  OR LOWER(c.apellido) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))")
+    Page<Pedido> buscarConTexto(@Param("estado") String estado,
+                                @Param("desde") LocalDateTime desde,
+                                @Param("hasta") LocalDateTime hasta,
+                                @Param("texto") String texto,
+                                Pageable pageable);
 
     Page<Pedido> findByClienteIdCliente(Integer idCliente, Pageable pageable);
 

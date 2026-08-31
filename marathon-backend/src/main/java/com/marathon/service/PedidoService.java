@@ -91,9 +91,12 @@ public class PedidoService {
         // F54: las cuatro ramas if/else que habia aqui no admitian buscar. Con
         // 230.000 pedidos, encontrar uno era pasar paginas. Ahora es una sola
         // consulta con todos los filtros opcionales.
-        Page<Pedido> result = pedidoRepository.buscar(
-                Filtros.vacioComoNulo(estado), desde, hasta, Filtros.textoSiNoEsNumero(busqueda),
-                Filtros.numeroDeDocumento(busqueda), pageable);
+        // F94: dos consultas, y aqui se elige. Ver OrdenCompraRepository.
+        String texto = Filtros.textoSiNoEsNumero(busqueda);
+        Page<Pedido> result = texto != null
+                ? pedidoRepository.buscarConTexto(Filtros.vacioComoNulo(estado), desde, hasta, texto, pageable)
+                : pedidoRepository.buscarSinTexto(Filtros.vacioComoNulo(estado), desde, hasta,
+                        Filtros.numeroDeDocumento(busqueda), pageable);
 
         List<PedidoResponseDTO> content = result.getContent().stream()
                 .map(this::toDTO)

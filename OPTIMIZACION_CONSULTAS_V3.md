@@ -206,3 +206,110 @@ Se puede cerrar del todo topando el recuento («más de 10.000» en vez de la ci
 exacta), que lo dejaría en milisegundos. No se ha hecho porque cambia lo que la
 pantalla enseña, y esa es una decisión de producto, no de rendimiento. Queda
 apuntado por si algún día molesta.
+
+---
+
+## 6. Segunda vuelta: lo que la comprobación por roles destapó
+
+La primera tanda se midió con el banco de pantallas. Al pasar después
+`scripts/perf/comprobar_sistema.sh` —que recorre lo que hace **cada rol**—
+apareció un caso de **15,7 segundos** que el banco no veía: buscar «distribu» en
+Órdenes de compra.
+
+La diferencia era el término. El banco buscaba `OC-`, que casa con poquísimas
+filas; `distribu` casa con **1.498.108 de 1.499.977**. Un buscador hay que
+medirlo con algo que encuentre mucho, no con algo que no encuentre nada. El
+banco tenía un punto ciego, y lo tenía yo al escribirlo.
+
+### El `EXISTS` mejoraba un caso y arruinaba el otro
+
+El plan lo dijo entero:
+
+```
+Seq Scan on orden_compra
+  Filter: EXISTS(SubPlan 1)
+    ->  Index Scan using proveedor_pkey on proveedor
+```
+
+Un **subplan correlacionado**: recorrer 1,5 millones de órdenes y, por cada una,
+ir a buscar su proveedor. Medido sobre esa misma consulta:
+
+| Forma | Sin filtro de texto | Con filtro que casa con mucho |
+|---|--:|--:|
+| `JOIN` | 396 ms | 581 ms |
+| `EXISTS` | **42 ms** | **15.924 ms** |
+| dos consultas | **42 ms** | **581 ms** |
+
+Ninguna forma sirve para los dos casos. La respuesta no era encontrar la
+expresión mágica: era **dejar de buscarla** y escribir dos consultas, con el
+servicio eligiendo. Es más código y es lo correcto — cada una recibe el plan que
+le conviene.
+
+Se aplicó a los siete listados con buscador: pedidos, órdenes de compra,
+producción, devoluciones, devoluciones a proveedor, inventario y cuentas por
+pagar.
+
+### Resultado, buscando términos que casan con más de un millón de filas
+
+| Buscador | Coincidencias | Después |
+|---|--:|--:|
+| Órdenes de compra · proveedor | 1.498.108 | 620 ms |
+| Dev. a proveedor · proveedor | 1.499.719 | 679 ms |
+| Cuentas por pagar · proveedor | 1.498.312 | 1.570 ms |
+| Inventario · producto | 149.800 | 688 ms |
+| Devoluciones · cliente | 74.989 | 511 ms |
+| Pedidos · cliente | 73.596 | 327 ms |
+| Producción · producto | 249.915 | 218 ms |
+
+Y el tablero de manufactura, que hacía una decena de agregados
+`WHERE estado='completada' AND fecha_fin >= …` sin índice por esa pareja:
+**1.174 ms → 290 ms**.
+
+### La comprobación por roles, entera
+
+`scripts/perf/comprobar_sistema.sh` recorre 38 pantallas con los seis usuarios
+reales y comprueba a la vez que responden, que traen lo que deben y que tardan
+menos de un segundo.
+
+    37 bien · 1 por encima de 1000 ms · 0 fallando
+
+El que pasa del segundo es la **primera** carga del tablero tras arrancar, antes
+de que su memoria de 20 s tenga nada. La segunda son 7 ms.
+
+---
+
+## 7. El asistente de IA
+
+Se midió y se tocó, pero **no se pudo verificar de extremo a extremo**, y hay que
+decirlo: las mediciones de latencia agotaron la cuota diaria de la clave.
+
+### Lo que se midió
+
+- **La llamada a Google domina y no es estable.** Doce medidas de la misma
+  pregunta: de **0,28 s a 57 s**. Eso no se arregla desde aquí.
+- Se probó `thinkingConfig: {thinkingLevel: "LOW"}` para acortar la
+  deliberación del modelo. Con esa varianza **los datos no lo respaldan** (media
+  6,25 s frente a 18,98 s, a favor de dejarlo como está), así que **no se
+  cambió**. Cambiarlo habría sido fe, no medición.
+- **El SQL que escribe el modelo sí era mejorable**: para «los 5 productos más
+  vendidos» generaba un `GROUP BY p.id_producto, p.nombre` que une producto
+  (1,5 M) a cada línea antes de agrupar — **2,9 s** de los 10 s totales.
+
+### Lo que se cambió
+
+1. **El contexto le dice ahora que la base es grande** y le da siete reglas
+   concretas: agrupar por id y no por nombre, poner siempre `LIMIT`, no usar
+   `SELECT *`, buscar solo por las columnas indexadas, comparar identificadores
+   como números, meter el `LIMIT` en subconsulta cuando el `ORDER BY` va por
+   otra columna, y preferir contar a listar.
+2. **Memoria de traducciones**: si alguien repite una pregunta idéntica, se
+   reutiliza el SQL en vez de volver a llamar a Google. Se recuerda la
+   *traducción*, no el resultado: **los datos se vuelven a consultar siempre**,
+   así que nadie ve una cifra vieja.
+
+### Lo que hay que saber, y no es menor
+
+**El plan gratuito de Gemini permite 20 preguntas al día** para
+`gemini-3.6-flash`. No es una limitación del sistema, es de la clave. Está
+anotado en DEMO_CHECKLIST.md, porque en una demostración es exactamente el tipo
+de cosa que falla en el peor momento.

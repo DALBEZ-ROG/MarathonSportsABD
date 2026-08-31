@@ -498,9 +498,11 @@ public class OrdenProduccionService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "idOrdenProduccion"));
         // F54: busqueda por texto, sin la cual encontrar un registro concreto
         // entre miles era pasar paginas una a una.
-        Page<OrdenProduccion> result = ordenRepository.buscar(
-                Filtros.vacioComoNulo(estado), idProducto, Filtros.textoSiNoEsNumero(busqueda),
-                Filtros.numeroDeDocumento(busqueda), pageable);
+        String texto = Filtros.textoSiNoEsNumero(busqueda);
+        Page<OrdenProduccion> result = texto != null
+                ? ordenRepository.buscarConTexto(Filtros.vacioComoNulo(estado), idProducto, texto, pageable)
+                : ordenRepository.buscarSinTexto(Filtros.vacioComoNulo(estado), idProducto,
+                        Filtros.numeroDeDocumento(busqueda), pageable);
         List<OrdenProduccionResponseDTO> content = result.getContent().stream()
                 .map(o -> toDTO(o, false))
                 .collect(Collectors.toList());

@@ -26,15 +26,21 @@ public interface SolicitudDevolucionRepository extends JpaRepository<SolicitudDe
          // join. Se deja tal cual — lo que hay que evitar es nombrar columnas
          // que vivan en la otra tabla, como `s.pedido.cliente.nombre`.
          + "AND (:idPedido IS NULL OR s.pedido.idPedido = :idPedido) "
-         + "AND (:numero IS NULL OR s.idSolicitud = :numero OR s.pedido.idPedido = :numero) "
-         // F94 — EXISTS. Ver la nota larga en PedidoRepository.buscar.
-         + "AND (:texto IS NULL OR EXISTS ("
-         + "     SELECT 1 FROM Cliente c WHERE c = s.pedido.cliente AND ("
-         + "         LOWER(c.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')) "
-         + "      OR LOWER(c.apellido) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))))")
-    Page<SolicitudDevolucion> buscar(@Param("estado") String estado,
-                                     @Param("idPedido") Integer idPedido,
-                                     @Param("texto") String texto,
-                                     @Param("numero") Long numero,
-                                     Pageable pageable);
+         + "AND (:numero IS NULL OR s.idSolicitud = :numero OR s.pedido.idPedido = :numero)")
+    Page<SolicitudDevolucion> buscarSinTexto(@Param("estado") String estado,
+                                             @Param("idPedido") Integer idPedido,
+                                             @Param("numero") Long numero,
+                                             Pageable pageable);
+
+    // F94 — la variante con texto une pedido y cliente de forma explícita.
+    // Ver la nota larga en OrdenCompraRepository.
+    @Query("SELECT s FROM SolicitudDevolucion s JOIN s.pedido p JOIN p.cliente c WHERE "
+         + "(:estado IS NULL OR s.estado = :estado) "
+         + "AND (:idPedido IS NULL OR p.idPedido = :idPedido) "
+         + "AND (LOWER(c.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')) "
+         + "  OR LOWER(c.apellido) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))")
+    Page<SolicitudDevolucion> buscarConTexto(@Param("estado") String estado,
+                                             @Param("idPedido") Integer idPedido,
+                                             @Param("texto") String texto,
+                                             Pageable pageable);
 }

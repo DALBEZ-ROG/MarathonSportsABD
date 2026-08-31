@@ -202,7 +202,13 @@ UPDATE orden_produccion SET costo_materia_prima = 1 WHERE id_orden_produccion = 
   - "¿Cuántas órdenes de producción se completaron?"
 - [ ] Señalar la mitigación de riesgo: el servicio **valida que el SQL generado sea solo SELECT** y limita a 500 filas. Se documenta explícitamente como riesgo conocido: se ejecuta SQL generado por IA.
 
-> Requiere API key de Anthropic en `application-local.properties`. Si no está configurada, saltar esta parte.
+> Requiere la clave de Gemini en `application-local.properties`. Si no está configurada, saltar esta parte.
+>
+> **OJO CON LA CUOTA.** El plan gratuito de Gemini permite **20 preguntas al día**
+> por modelo. Si alguien estuvo probando el asistente esa mañana, en la demo
+> responde «Se agotó la cuota». Comprobarlo ANTES haciendo una pregunta, y no
+> gastar el resto en ensayos. El error se ve en la propia pantalla, así que no
+> hay sorpresa silenciosa — pero sí un hueco en el guion.
 
 ### Auditoría
 - [ ] **Auditoría → Rastro por usuario** → elegir a `admin@marathon.com` y enseñar de una sola pantalla en qué módulos trabajó, qué datos cambió y qué stock movió durante la demo

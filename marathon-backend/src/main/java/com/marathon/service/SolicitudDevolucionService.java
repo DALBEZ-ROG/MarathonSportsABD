@@ -143,9 +143,11 @@ public class SolicitudDevolucionService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "idSolicitud"));
         // F54: busqueda por texto, sin la cual encontrar un registro concreto
         // entre miles era pasar paginas una a una.
-        Page<SolicitudDevolucion> result = solicitudRepository.buscar(
-                Filtros.vacioComoNulo(estado), idPedido, Filtros.textoSiNoEsNumero(busqueda),
-                Filtros.numeroDeDocumento(busqueda), pageable);
+        String texto = Filtros.textoSiNoEsNumero(busqueda);
+        Page<SolicitudDevolucion> result = texto != null
+                ? solicitudRepository.buscarConTexto(Filtros.vacioComoNulo(estado), idPedido, texto, pageable)
+                : solicitudRepository.buscarSinTexto(Filtros.vacioComoNulo(estado), idPedido,
+                        Filtros.numeroDeDocumento(busqueda), pageable);
 
         List<SolicitudDevolucionResponseDTO> content = result.getContent().stream()
                 .map(this::toDTO).collect(Collectors.toList());

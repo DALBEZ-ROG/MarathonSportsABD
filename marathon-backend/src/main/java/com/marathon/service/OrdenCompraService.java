@@ -73,10 +73,16 @@ public class OrdenCompraService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "idOrdenCompra"));
         // F54: busqueda por texto. Antes solo habia desplegables, y para
         // encontrar un registro concreto entre miles habia que pasar paginas.
-        Page<OrdenCompra> result = ordenCompraRepository.buscar(
-                Filtros.vacioComoNulo(estado), idProveedor,
-                Filtros.textoSiNoEsNumero(busqueda),
-                Filtros.numeroDeDocumento(busqueda), pageable);
+        // F94: dos consultas, y el servicio elige. Con texto hace falta unir
+        // proveedor; sin texto, unir es trabajo para nada. Ver la nota larga en
+        // OrdenCompraRepository.
+        String texto = Filtros.textoSiNoEsNumero(busqueda);
+        Page<OrdenCompra> result = texto != null
+                ? ordenCompraRepository.buscarConTexto(
+                        Filtros.vacioComoNulo(estado), idProveedor, texto, pageable)
+                : ordenCompraRepository.buscarSinTexto(
+                        Filtros.vacioComoNulo(estado), idProveedor,
+                        Filtros.numeroDeDocumento(busqueda), pageable);
 
         List<OrdenCompraResponseDTO> content = result.getContent().stream()
                 .map(oc -> toDTO(oc, false))

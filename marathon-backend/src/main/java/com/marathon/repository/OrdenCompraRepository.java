@@ -25,16 +25,46 @@ public interface OrdenCompraRepository extends JpaRepository<OrdenCompra, Intege
      *
      * <p>El texto busca por numero de orden y por nombre del proveedor.
      */
+    // =====================================================================
+    // F94 — DOS consultas, y por qué no una
+    // =====================================================================
+    // Había una sola, con la condición del texto anulable por `:texto IS NULL`.
+    // Es cómodo de escribir y produce un plan malo en los dos casos, cada uno
+    // por un motivo distinto. Medido sobre 1,5 millones de órdenes:
+    //
+    //   Forma            Sin filtro de texto   Con filtro que casa con mucho
+    //   ---------------  -------------------   -----------------------------
+    //   JOIN                       396 ms                 581 ms
+    //   EXISTS                      42 ms              15.924 ms  (!)
+    //   dos consultas               42 ms                 581 ms
+    //
+    // El JOIN se paga aunque no se busque nada, porque une igual. Y el EXISTS,
+    // que arregla eso, se convierte en un subplan CORRELACIONADO: PostgreSQL
+    // recorre las 1,5 millones de órdenes y por cada una consulta el proveedor.
+    // Se ve en el plan: «Seq Scan on orden_compra / Filter: EXISTS(SubPlan 1)».
+    //
+    // Ninguna forma es buena para los dos casos, así que hay dos consultas y el
+    // servicio elige. Es más código y es lo correcto: cada una recibe el plan
+    // que le conviene — sin unión cuando no hay nada que unir, y un hash join
+    // cuando de verdad hay que cruzar las dos tablas.
+
+    /** Sin búsqueda por texto: no se nombra `proveedor`, así que no hay unión. */
     @Query("SELECT o FROM OrdenCompra o WHERE "
          + "(:estado IS NULL OR o.estado = :estado) "
          + "AND (:idProveedor IS NULL OR o.proveedor.idProveedor = :idProveedor) "
-         + "AND (:numero IS NULL OR o.idOrdenCompra = :numero) "
-         + "AND (:texto IS NULL OR EXISTS ("
-         + "     SELECT 1 FROM Proveedor pr WHERE pr = o.proveedor"
-         + "       AND LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%'))))")
-    Page<OrdenCompra> buscar(@Param("estado") String estado,
-                             @Param("idProveedor") Integer idProveedor,
-                             @Param("texto") String texto,
-                             @Param("numero") Long numero,
-                             Pageable pageable);
+         + "AND (:numero IS NULL OR o.idOrdenCompra = :numero)")
+    Page<OrdenCompra> buscarSinTexto(@Param("estado") String estado,
+                                     @Param("idProveedor") Integer idProveedor,
+                                     @Param("numero") Long numero,
+                                     Pageable pageable);
+
+    /** Con búsqueda por texto: unión explícita, que es lo que da el hash join. */
+    @Query("SELECT o FROM OrdenCompra o JOIN o.proveedor pr WHERE "
+         + "(:estado IS NULL OR o.estado = :estado) "
+         + "AND (:idProveedor IS NULL OR pr.idProveedor = :idProveedor) "
+         + "AND LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%'))")
+    Page<OrdenCompra> buscarConTexto(@Param("estado") String estado,
+                                     @Param("idProveedor") Integer idProveedor,
+                                     @Param("texto") String texto,
+                                     Pageable pageable);
 }
