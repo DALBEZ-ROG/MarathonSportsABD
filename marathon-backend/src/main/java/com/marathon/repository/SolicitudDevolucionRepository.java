@@ -37,10 +37,19 @@ public interface SolicitudDevolucionRepository extends JpaRepository<SolicitudDe
     @Query("SELECT s FROM SolicitudDevolucion s JOIN s.pedido p JOIN p.cliente c WHERE "
          + "(:estado IS NULL OR s.estado = :estado) "
          + "AND (:idPedido IS NULL OR p.idPedido = :idPedido) "
-         + "AND (LOWER(c.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')) "
-         + "  OR LOWER(c.apellido) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))")
+         // F94d — por palabras, sobre nombre o apellido. Ver PedidoRepository.
+         + "AND (LOWER(c.nombre) LIKE LOWER(CONCAT('%', CAST(:p1 AS string), '%')) "
+         + "  OR LOWER(c.apellido) LIKE LOWER(CONCAT('%', CAST(:p1 AS string), '%'))) "
+         + "AND (:p2 IS NULL "
+         + "  OR LOWER(c.nombre) LIKE LOWER(CONCAT('%', CAST(:p2 AS string), '%')) "
+         + "  OR LOWER(c.apellido) LIKE LOWER(CONCAT('%', CAST(:p2 AS string), '%'))) "
+         + "AND (:p3 IS NULL "
+         + "  OR LOWER(c.nombre) LIKE LOWER(CONCAT('%', CAST(:p3 AS string), '%')) "
+         + "  OR LOWER(c.apellido) LIKE LOWER(CONCAT('%', CAST(:p3 AS string), '%')))")
     Page<SolicitudDevolucion> buscarConTexto(@Param("estado") String estado,
                                              @Param("idPedido") Integer idPedido,
-                                             @Param("texto") String texto,
+                                             @Param("p1") String p1,
+                                             @Param("p2") String p2,
+                                             @Param("p3") String p3,
                                              Pageable pageable);
 }

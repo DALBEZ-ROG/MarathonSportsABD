@@ -93,8 +93,9 @@ public class PedidoService {
         // consulta con todos los filtros opcionales.
         // F94: dos consultas, y aqui se elige. Ver OrdenCompraRepository.
         String texto = Filtros.textoSiNoEsNumero(busqueda);
+        String[] p = Filtros.palabras(texto);
         Page<Pedido> result = texto != null
-                ? pedidoRepository.buscarConTexto(Filtros.vacioComoNulo(estado), desde, hasta, texto, pageable)
+                ? pedidoRepository.buscarConTexto(Filtros.vacioComoNulo(estado), desde, hasta, p[0], p[1], p[2], pageable)
                 : pedidoRepository.buscarSinTexto(Filtros.vacioComoNulo(estado), desde, hasta,
                         Filtros.numeroDeDocumento(busqueda), pageable);
 

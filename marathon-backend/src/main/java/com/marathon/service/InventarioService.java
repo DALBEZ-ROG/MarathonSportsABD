@@ -101,8 +101,9 @@ public class InventarioService {
         // queda de un articulo era recorrer paginas.
         // F94: dos consultas, y aqui se elige. Ver OrdenCompraRepository.
         String texto = Filtros.vacioComoNulo(busqueda);
+        String[] p = Filtros.palabras(texto);
         Page<Inventario> result = texto != null
-                ? inventarioRepository.buscarConTexto(idBodega, texto, pageable)
+                ? inventarioRepository.buscarConTexto(idBodega, p[0], p[1], p[2], pageable)
                 : inventarioRepository.buscarSinTexto(idBodega, pageable);
 
         List<InventarioResponseDTO> content = result.getContent().stream()

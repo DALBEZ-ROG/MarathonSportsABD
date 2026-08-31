@@ -56,9 +56,14 @@ public interface OrdenProduccionRepository extends JpaRepository<OrdenProduccion
     @Query("SELECT o FROM OrdenProduccion o JOIN o.producto pr WHERE "
          + "(:estado IS NULL OR o.estado = :estado) "
          + "AND (:idProducto IS NULL OR pr.idProducto = :idProducto) "
-         + "AND LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%'))")
+         // F94d — por palabras. Ver Filtros.palabras().
+         + "AND LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:p1 AS string), '%')) "
+         + "AND (:p2 IS NULL OR LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:p2 AS string), '%'))) "
+         + "AND (:p3 IS NULL OR LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:p3 AS string), '%')))")
     Page<OrdenProduccion> buscarConTexto(@Param("estado") String estado,
                                          @Param("idProducto") Integer idProducto,
-                                         @Param("texto") String texto,
+                                         @Param("p1") String p1,
+                                         @Param("p2") String p2,
+                                         @Param("p3") String p3,
                                          Pageable pageable);
 }

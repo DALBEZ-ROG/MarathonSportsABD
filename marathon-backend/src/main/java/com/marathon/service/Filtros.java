@@ -108,4 +108,49 @@ public final class Filtros {
     public static String textoSiNoEsNumero(String busqueda) {
         return numeroDeDocumento(busqueda) != null ? null : vacioComoNulo(busqueda);
     }
+
+    /** Cuántas palabras admite un filtro de texto. Ver {@link #palabras}. */
+    public static final int MAX_PALABRAS = 3;
+
+    /**
+     * Parte lo escrito en palabras, para buscar por TODAS ellas (F94d).
+     *
+     * <p>Devuelve siempre un array de {@link #MAX_PALABRAS}, rellenando con
+     * {@code null} lo que sobre. Las consultas anulan cada posición nula con un
+     * {@code :p2 IS NULL OR …}, así que una sola palabra deja las otras dos
+     * condiciones sin efecto.
+     *
+     * <p><b>Por qué hace falta.</b> Un filtro que compara la frase entera exige
+     * que las palabras estén juntas, en ese orden y en la misma columna. Eso
+     * falla en los dos casos más normales:
+     *
+     * <pre>
+     *   «zapatilla nike» en Inventario ...... 0 resultados
+     *      (el producto se llama «Camiseta Nike Deportiva»)
+     *   «maria cedeno» en Pedidos ........... 0 resultados
+     *      (el nombre está en una columna y el apellido en otra)
+     * </pre>
+     *
+     * <p>Buscando por palabras, las dos encuentran, y en cualquier orden.
+     *
+     * <p><b>Por qué tres y no las que sean.</b> JPQL no admite un número
+     * variable de condiciones: o se escriben todas o se pasa a SQL nativo, y eso
+     * obligaría a renunciar a la paginación de Spring Data en siete pantallas.
+     * Tres palabras cubren «zapatilla nike hombre» o «maria cedeno gonzalez»,
+     * que es cuanto se teclea en un filtro; a partir de la cuarta, se ignora —
+     * y filtrar de menos devuelve de más, que es el lado seguro por el que
+     * equivocarse: el registro buscado sigue estando en la lista.
+     */
+    public static String[] palabras(String busqueda) {
+        String[] hueco = new String[MAX_PALABRAS];
+        String texto = vacioComoNulo(busqueda);
+        if (texto == null) {
+            return hueco;
+        }
+        String[] partes = texto.split("\\s+");
+        for (int i = 0; i < Math.min(partes.length, MAX_PALABRAS); i++) {
+            hueco[i] = partes[i];
+        }
+        return hueco;
+    }
 }

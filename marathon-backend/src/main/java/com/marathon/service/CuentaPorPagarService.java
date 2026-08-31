@@ -104,7 +104,17 @@ public class CuentaPorPagarService {
         String est = Filtros.vacioComoNulo(estado);
         Page<CuentaPorPagar> result;
         if (texto != null) {
-            result = cuentaRepository.buscarConTexto(est, idProveedor, texto, pageable);
+            // F94d: el término se distingue solo. Un número de factura lleva
+            // dígitos («FACM-0001497588»); un nombre de proveedor, no. Buscar
+            // las dos cosas a la vez con un OR entre dos tablas obliga a unir
+            // las cuatro enteras — es lo que en Inventario costaba 2,6 s.
+            if (texto.matches(".*\\d.*")) {
+                result = cuentaRepository.buscarPorNumeroFactura(est, texto, pageable);
+            } else {
+                String[] p = Filtros.palabras(texto);
+                result = cuentaRepository.buscarPorNombreProveedor(
+                        est, idProveedor, p[0], p[1], p[2], pageable);
+            }
         } else if (idProveedor != null) {
             result = cuentaRepository.buscarPorProveedor(est, idProveedor, pageable);
         } else {

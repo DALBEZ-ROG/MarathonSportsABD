@@ -98,7 +98,7 @@ interface PageResponse<T> {
         <h2>Inventario</h2>
         <div class="filters">
           <input type="text" [(ngModel)]="busqueda" (input)="onBuscar()"
-                 placeholder="Buscar por producto o bodega..." class="input-search"/>
+                 placeholder="Buscar por producto..." class="input-search"/>
           <select [(ngModel)]="filtroBodega" (change)="cargar()" class="select-filter">
             <option [ngValue]="null">Todas las bodegas</option>
             <option *ngFor="let b of bodegas" [ngValue]="b.idBodega">{{b.nombre}}</option>

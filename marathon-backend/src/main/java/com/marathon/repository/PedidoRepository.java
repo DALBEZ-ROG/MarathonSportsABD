@@ -98,12 +98,28 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
          + "(:estado IS NULL OR p.estado = :estado) "
          + "AND p.fechaPedido >= :desde "
          + "AND p.fechaPedido <= :hasta "
-         + "AND (LOWER(c.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')) "
-         + "  OR LOWER(c.apellido) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))")
+         // F94d — por PALABRAS. «maria cedeno» no encontraba nada: el nombre está
+         // en una columna y el apellido en otra, y ninguna contiene la frase
+         // entera. Cada palabra tiene que aparecer en una de las dos.
+         //
+         // Aquí el OR sí es indexable, a diferencia del de Inventario: las dos
+         // columnas son de la MISMA tabla, así que PostgreSQL puede combinar los
+         // dos índices de trigramas en un BitmapOr. El OR que no se puede
+         // resolver es el que mira dos tablas distintas.
+         + "AND (LOWER(c.nombre) LIKE LOWER(CONCAT('%', CAST(:p1 AS string), '%')) "
+         + "  OR LOWER(c.apellido) LIKE LOWER(CONCAT('%', CAST(:p1 AS string), '%'))) "
+         + "AND (:p2 IS NULL "
+         + "  OR LOWER(c.nombre) LIKE LOWER(CONCAT('%', CAST(:p2 AS string), '%')) "
+         + "  OR LOWER(c.apellido) LIKE LOWER(CONCAT('%', CAST(:p2 AS string), '%'))) "
+         + "AND (:p3 IS NULL "
+         + "  OR LOWER(c.nombre) LIKE LOWER(CONCAT('%', CAST(:p3 AS string), '%')) "
+         + "  OR LOWER(c.apellido) LIKE LOWER(CONCAT('%', CAST(:p3 AS string), '%')))")
     Page<Pedido> buscarConTexto(@Param("estado") String estado,
                                 @Param("desde") LocalDateTime desde,
                                 @Param("hasta") LocalDateTime hasta,
-                                @Param("texto") String texto,
+                                @Param("p1") String p1,
+                                @Param("p2") String p2,
+                                @Param("p3") String p3,
                                 Pageable pageable);
 
     Page<Pedido> findByClienteIdCliente(Integer idCliente, Pageable pageable);

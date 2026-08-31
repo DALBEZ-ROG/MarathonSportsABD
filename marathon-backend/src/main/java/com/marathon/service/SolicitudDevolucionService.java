@@ -144,8 +144,9 @@ public class SolicitudDevolucionService {
         // F54: busqueda por texto, sin la cual encontrar un registro concreto
         // entre miles era pasar paginas una a una.
         String texto = Filtros.textoSiNoEsNumero(busqueda);
+        String[] p = Filtros.palabras(texto);
         Page<SolicitudDevolucion> result = texto != null
-                ? solicitudRepository.buscarConTexto(Filtros.vacioComoNulo(estado), idPedido, texto, pageable)
+                ? solicitudRepository.buscarConTexto(Filtros.vacioComoNulo(estado), idPedido, p[0], p[1], p[2], pageable)
                 : solicitudRepository.buscarSinTexto(Filtros.vacioComoNulo(estado), idPedido,
                         Filtros.numeroDeDocumento(busqueda), pageable);
 

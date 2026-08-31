@@ -100,14 +100,39 @@ public interface CuentaPorPagarRepository extends JpaRepository<CuentaPorPagar, 
                                             Pageable pageable);
 
     /** Búsqueda por nombre de proveedor o número de factura del proveedor. */
+    // =====================================================================
+    // F94d — dos búsquedas separadas, no un OR entre dos tablas
+    // =====================================================================
+    // Se buscaba por nombre de proveedor O por número de factura con la misma
+    // condición. Un OR que mira DOS tablas distintas no se puede resolver con el
+    // índice de ninguna: obliga a unir las cuatro tablas enteras y filtrar
+    // después. Es lo mismo que pasaba en Inventario, medido allí en 2.598 ms
+    // frente a 56 ms.
+    //
+    // Y aquí se separan solas: un número de factura lleva dígitos
+    // («FACM-0001497588») y un nombre de proveedor no. El servicio mira lo
+    // escrito y llama a una o a otra. Ver CuentaPorPagarService.listar.
+
+    /** Por nombre de proveedor, palabra a palabra. */
     @Query("SELECT c FROM CuentaPorPagar c "
          + "JOIN c.facturaCompra f JOIN f.ordenCompra o JOIN o.proveedor pr WHERE "
          + "(:estado IS NULL OR c.estado = :estado) "
          + "AND (:idProveedor IS NULL OR pr.idProveedor = :idProveedor) "
-         + "AND (LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')) "
-         + "  OR LOWER(f.numeroFacturaProveedor) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))")
-    Page<CuentaPorPagar> buscarConTexto(@Param("estado") String estado,
-                                        @Param("idProveedor") Integer idProveedor,
-                                        @Param("texto") String texto,
-                                        Pageable pageable);
+         + "AND LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:p1 AS string), '%')) "
+         + "AND (:p2 IS NULL OR LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:p2 AS string), '%'))) "
+         + "AND (:p3 IS NULL OR LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:p3 AS string), '%')))")
+    Page<CuentaPorPagar> buscarPorNombreProveedor(@Param("estado") String estado,
+                                                  @Param("idProveedor") Integer idProveedor,
+                                                  @Param("p1") String p1,
+                                                  @Param("p2") String p2,
+                                                  @Param("p3") String p3,
+                                                  Pageable pageable);
+
+    /** Por número de factura del proveedor. Una sola tabla, un solo índice. */
+    @Query("SELECT c FROM CuentaPorPagar c JOIN c.facturaCompra f WHERE "
+         + "(:estado IS NULL OR c.estado = :estado) "
+         + "AND LOWER(f.numeroFacturaProveedor) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%'))")
+    Page<CuentaPorPagar> buscarPorNumeroFactura(@Param("estado") String estado,
+                                                @Param("texto") String texto,
+                                                Pageable pageable);
 }

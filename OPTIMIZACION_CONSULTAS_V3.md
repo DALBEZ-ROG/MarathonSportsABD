@@ -348,7 +348,7 @@ como `$46.127.575.251,8` — sin el último dígito ni los centavos, y sin ningu
 señal de que faltara nada. La letra se encoge ahora según lo larga que sea la
 cifra, y el valor íntegro queda en el `title`.
 
-### 8.3 Los filtros de lista siguen buscando la frase entera — PENDIENTE
+### 8.3 Los filtros de lista buscaban la frase entera — CORREGIDO en la F94d
 
 En Inventario, «zapatilla nike» no encuentra **nada**; «zapatilla» encuentra
 14.980 páginas. Es el mismo fallo que se corrigió en la F93b para los buscadores
@@ -389,3 +389,67 @@ Devoluciones a proveedor y Cuentas por pagar.
    comprobación de compilación** porque filtré la salida por `Error|error TS` y
    esbuild lo reporta de otra forma. Filtrar la salida de una compilación es una
    forma cómoda de no enterarse.
+
+---
+
+## 9. Los filtros de lista, por palabras (F94d)
+
+Cierra lo que quedaba abierto en §8.3. Los siete filtros con caja de texto buscan
+ahora por **palabras**, no por la frase entera: cada palabra tiene que aparecer,
+en cualquier orden.
+
+| Se escribe | Antes | Ahora |
+|---|--:|--:|
+| `camiseta nike` en Inventario | 0 | 149.799 |
+| `nike camiseta` (al revés) | 0 | 149.799 |
+| `maria cedeno` en Pedidos | 0 | 63.501 |
+| `cedeno maria` (al revés) | 0 | 63.501 |
+
+**Tres palabras, y no las que sean.** JPQL no admite un número variable de
+condiciones, así que o se escriben todas o se pasa a SQL nativo — y eso obligaría
+a renunciar a la paginación de Spring Data en siete pantallas. Tres cubren
+«camiseta nike deportiva»; a partir de la cuarta se ignora, que devuelve de más
+y no de menos: el registro buscado sigue en la lista.
+
+### El `OR` que sí se puede indexar y el que no
+
+Añadir las palabras hizo que Inventario pasara de 682 ms a **2.598 ms**, y el
+plan explicó por qué:
+
+```
+Hash Join
+  Join Filter: ((lower(pr.nombre) ~~ '%zapatilla%' OR lower(bo.nombre) ~~ '%zapatilla%')
+           AND (lower(pr.nombre) ~~ '%nike%'      OR lower(bo.nombre) ~~ '%nike%'))
+  Rows Removed by Join Filter: 500000
+```
+
+**Una condición que mira dos tablas distintas no se puede resolver con el índice
+de ninguna.** PostgreSQL une inventario con producto entero y filtra después.
+
+- `LOWER(c.nombre) OR LOWER(c.apellido)` — **misma tabla**: se resuelve con un
+  BitmapOr de los dos índices de trigramas. Se deja como está (Pedidos,
+  Devoluciones).
+- `LOWER(producto.nombre) OR LOWER(bodega.nombre)` — **dos tablas**: no hay
+  índice que valga.
+
+En Inventario se quitó la búsqueda por nombre de bodega: **2.598 ms → 56 ms**, y
+no se pierde nada porque filtrar por bodega ya lo hace el desplegable que está
+justo al lado, y de forma exacta. El texto del campo lo dice ahora: «Buscar por
+producto…».
+
+En Cuentas por pagar el término se distingue solo —un número de factura lleva
+dígitos («FACM-0001497588») y un nombre de proveedor no— así que el servicio
+llama a una consulta o a la otra, nunca a un `OR` entre las dos tablas.
+
+### Medido después
+
+| Caso | Tiempo |
+|---|--:|
+| Búsqueda selectiva (`nike distribucion 1489300`) | 20–80 ms |
+| Dos palabras que casan con 150.000 filas | ~420 ms |
+| Inventario, una a tres palabras | 190–500 ms |
+| Por número de factura | 23 ms |
+
+**El banco de las 46 pantallas: máximo 350 ms**, ninguna por encima de 400.
+Comprobación por roles: **36 bien · 0 fallando**; las dos que pasan del segundo
+son la primera llamada en frío, que esa comprobación no calienta a propósito.

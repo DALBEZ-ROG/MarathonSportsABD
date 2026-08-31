@@ -77,9 +77,10 @@ public class OrdenCompraService {
         // proveedor; sin texto, unir es trabajo para nada. Ver la nota larga en
         // OrdenCompraRepository.
         String texto = Filtros.textoSiNoEsNumero(busqueda);
+        String[] p = Filtros.palabras(texto);
         Page<OrdenCompra> result = texto != null
                 ? ordenCompraRepository.buscarConTexto(
-                        Filtros.vacioComoNulo(estado), idProveedor, texto, pageable)
+                        Filtros.vacioComoNulo(estado), idProveedor, p[0], p[1], p[2], pageable)
                 : ordenCompraRepository.buscarSinTexto(
                         Filtros.vacioComoNulo(estado), idProveedor,
                         Filtros.numeroDeDocumento(busqueda), pageable);

@@ -32,12 +32,36 @@ public interface InventarioRepository extends JpaRepository<Inventario, Integer>
          + "(:idBodega IS NULL OR i.bodega.idBodega = :idBodega)")
     Page<Inventario> buscarSinTexto(@Param("idBodega") Integer idBodega, Pageable pageable);
 
-    @Query("SELECT i FROM Inventario i JOIN i.producto pr JOIN i.bodega bo WHERE "
-         + "(:idBodega IS NULL OR bo.idBodega = :idBodega) "
-         + "AND (LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')) "
-         + "  OR LOWER(bo.nombre) LIKE LOWER(CONCAT('%', CAST(:texto AS string), '%')))")
+    // =====================================================================
+    // F94d — por PALABRAS, y solo sobre el producto
+    // =====================================================================
+    // Dos cambios, y el segundo es el que importa para el tiempo.
+    //
+    // 1) POR PALABRAS. «zapatilla nike» no encontraba nada, porque comparaba la
+    //    frase entera contra un nombre que nunca la contiene seguida. Ahora cada
+    //    palabra tiene que aparecer, en cualquier orden.
+    //
+    // 2) YA NO BUSCA POR NOMBRE DE BODEGA. El `OR bodega.nombre` impedía usar el
+    //    índice: una condición que mira DOS tablas no se puede resolver con el
+    //    índice de ninguna, así que PostgreSQL unía inventario con producto
+    //    entero —1,5 millones de filas— y filtraba después. Se ve en el plan:
+    //    «Hash Join / Rows Removed by Join Filter: 500000».
+    //
+    //        con  OR bodega ... 2.598 ms
+    //        sin  OR bodega ...    56 ms
+    //
+    //    Y no se pierde nada: filtrar por bodega ya lo hace el desplegable que
+    //    está justo al lado de la caja de texto, que además es exacto en vez de
+    //    por coincidencia parcial.
+    @Query("SELECT i FROM Inventario i JOIN i.producto pr WHERE "
+         + "(:idBodega IS NULL OR i.bodega.idBodega = :idBodega) "
+         + "AND LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:p1 AS string), '%')) "
+         + "AND (:p2 IS NULL OR LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:p2 AS string), '%'))) "
+         + "AND (:p3 IS NULL OR LOWER(pr.nombre) LIKE LOWER(CONCAT('%', CAST(:p3 AS string), '%')))")
     Page<Inventario> buscarConTexto(@Param("idBodega") Integer idBodega,
-                                    @Param("texto") String texto,
+                                    @Param("p1") String p1,
+                                    @Param("p2") String p2,
+                                    @Param("p3") String p3,
                                     Pageable pageable);
 
     List<Inventario> findByProductoIdProducto(Integer idProducto);
