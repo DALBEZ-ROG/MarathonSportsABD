@@ -37,6 +37,29 @@ public interface CuentaPorPagarRepository extends JpaRepository<CuentaPorPagar, 
          + "AND c.estado IN ('vigente','vencida')")
     BigDecimal totalAdeudadoPorProveedor(@Param("idProveedor") Integer idProveedor);
 
+    /**
+     * Cuántas cuentas vencidas hay y cuánto suman, LAS DOS COSAS EN LA BASE (F94c).
+     *
+     * <p><b>El aviso de la pantalla mentía.</b> Pedía
+     * {@code ?estado=vencida&size=1000} y sumaba en el navegador lo que llegara,
+     * pero enseñaba el {@code totalElements} del servidor como número de
+     * cuentas. Con 1.499.192 cuentas vencidas, el resultado era:
+     *
+     * <pre>
+     *   «1499192 cuenta(s) vencida(s) por un total de $43.950.118,75»
+     *   total real ................................ $46.124.820.094,14
+     * </pre>
+     *
+     * <p>El recuento correcto junto a la suma de las primeras mil filas, con
+     * aspecto de dato bueno. Subestimaba la deuda por un factor de mil, y con
+     * pocos datos no se notaba porque las mil filas eran todas.
+     *
+     * <p>Sumar es trabajo de la base. Devuelve {@code [cuantas, total]}.
+     */
+    @Query("SELECT COUNT(c), COALESCE(SUM(c.saldoPendiente), 0) "
+         + "FROM CuentaPorPagar c WHERE c.estado = 'vencida'")
+    Object[] resumenVencidas();
+
     @Query("SELECT COALESCE(SUM(c.saldoPendiente), 0) FROM CuentaPorPagar c WHERE c.estado IN ('vigente','vencida')")
     BigDecimal totalAdeudadoGlobal();
 

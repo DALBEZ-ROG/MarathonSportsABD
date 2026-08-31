@@ -33,7 +33,9 @@ import { Indicador } from '../../../core/services/dashboard.service';
       <div class="ind-body" *ngIf="ind.estado === 'ok' || ind.estado === 'parcial'">
         <div class="value-row">
           <span class="prefix" *ngIf="ind.unidad === '$'">$</span>
-          <span class="value">{{ valorFormateado }}</span>
+          <span class="value" [class.value-largo]="valorFormateado.length > 12"
+                              [class.value-muy-largo]="valorFormateado.length > 16"
+                              [title]="valorFormateado">{{ valorFormateado }}</span>
           <span class="suffix" *ngIf="ind.unidad === '%'">%</span>
           <span class="unit" *ngIf="ind.unidad && ind.unidad !== '$' && ind.unidad !== '%'">
             {{ ind.unidad }}
@@ -134,6 +136,18 @@ import { Indicador } from '../../../core/services/dashboard.service';
       font-size: clamp(1.7rem, 2.4vw, 2.3rem); font-weight: 700; line-height: 1.05;
       color: #f4f4f6; font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
     }
+    /* F94c — las cifras muy largas se salían de la tarjeta.
+       ────────────────────────────────────────────────────────────────
+       La tarjeta lleva overflow hidden, así que no se desbordaban: se
+       CORTABAN. «Cuentas por pagar vencidas» mostraba
+       «$46.127.575.251,8» sin el último dígito ni los centavos, y con
+       aspecto de cifra completa — que es lo peligroso, porque nadie
+       sospecha de un número que se lee bien.
+       Solo aparece con datos grandes: con la demo eran cinco dígitos y
+       sobraba sitio. Ahora la letra se encoge según lo larga que sea, y
+       el valor íntegro queda además en el atributo title. */
+    .value-largo     { font-size: clamp(1.35rem, 1.9vw, 1.8rem); }
+    .value-muy-largo { font-size: clamp(1.1rem, 1.5vw, 1.45rem); letter-spacing: -0.03em; }
     .prefix, .suffix { font-size: 1.2rem; font-weight: 600; color: #C9A84C; }
     .unit { font-size: .78rem; color: rgba(255,255,255,0.42); margin-left: .18rem; }
 

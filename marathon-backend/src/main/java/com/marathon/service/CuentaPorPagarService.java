@@ -54,6 +54,30 @@ public class CuentaPorPagarService {
         return false;
     }
 
+    /**
+     * Cuántas cuentas vencidas y cuánto suman (F94c).
+     *
+     * <p>Las dos cifras salen de la MISMA consulta a la base. La pantalla las
+     * calculaba a medias: el recuento del servidor y la suma de las primeras mil
+     * filas descargadas. Ver la nota en
+     * {@code CuentaPorPagarRepository.resumenVencidas()}.
+     *
+     * <p>Es solo lectura y no necesita transacción propia, a diferencia de
+     * {@link #listar}, que antes de listar marca las vencidas con un UPDATE.
+     */
+    public java.util.Map<String, Object> resumenVencidas() {
+        Object[] fila = cuentaRepository.resumenVencidas();
+        // La consulta devuelve una fila de dos columnas; segun la version,
+        // Hibernate la entrega como Object[2] o envuelta en otro Object[].
+        Object[] datos = (fila.length == 1 && fila[0] instanceof Object[] interior) ? interior : fila;
+        return java.util.Map.of(
+                "cuantas", ((Number) datos[0]).longValue(),
+                "total", datos[1] != null ? datos[1] : java.math.BigDecimal.ZERO);
+    }
+
+    // El @Transactional es de ESTE método, no del de arriba: antes de listar
+    // marca las cuentas vencidas con un UPDATE, y sin transacción Spring Data
+    // rechaza esa consulta con «Executing an update/delete query».
     @Transactional
     public PageResponseDTO<CuentaPorPagarResponseDTO> listar(int page, int size, String estado,
                                                               Integer idProveedor, String busqueda) {

@@ -313,3 +313,79 @@ decirlo: las mediciones de latencia agotaron la cuota diaria de la clave.
 `gemini-3.6-flash`. No es una limitación del sistema, es de la clave. Está
 anotado en DEMO_CHECKLIST.md, porque en una demostración es exactamente el tipo
 de cosa que falla en el peor momento.
+
+---
+
+## 8. El recorrido visual, y lo que solo se ve mirando la pantalla
+
+Con la extensión de Chrome reconectada, recorrido de las pantallas con el
+navegador. Tres hallazgos, dos de ellos **invisibles desde la API**.
+
+### 8.1 Cuentas por pagar enseñaba una cifra falsa
+
+El aviso rojo decía:
+
+```
+1499192 cuenta(s) vencida(s) por un total de $43.950.118,75
+```
+
+El total de verdad son **$46.124.820.094,14**. Subestimaba la deuda **mil veces**.
+
+La causa: el navegador pedía `?estado=vencida&size=1000`, sumaba en local lo que
+llegaba, y lo enseñaba junto al `totalElements` REAL del servidor. El recuento
+correcto al lado de la suma de mil filas, con aspecto de dato bueno.
+
+Con pocos datos no se notaba, porque las mil filas eran todas. Es el peor tipo de
+fallo: no se cae, no avisa, y lo que enseña se lee perfectamente.
+
+Ahora las dos cifras salen de la misma consulta
+(`GET /api/cuentas-por-pagar/resumen-vencidas`).
+
+### 8.2 Las cifras largas se cortaban en el tablero
+
+La tarjeta lleva `overflow: hidden`, así que `$46.127.575.251,85` se mostraba
+como `$46.127.575.251,8` — sin el último dígito ni los centavos, y sin ninguna
+señal de que faltara nada. La letra se encoge ahora según lo larga que sea la
+cifra, y el valor íntegro queda en el `title`.
+
+### 8.3 Los filtros de lista siguen buscando la frase entera — PENDIENTE
+
+En Inventario, «zapatilla nike» no encuentra **nada**; «zapatilla» encuentra
+14.980 páginas. Es el mismo fallo que se corrigió en la F93b para los buscadores
+de «Pedido nuevo», pero los **filtros de lista** se quedaron fuera.
+
+**No se ha corregido**, y la razón es de prudencia: son siete pantallas con siete
+consultas JPQL, y JPQL no admite un número variable de condiciones, así que hace
+falta o bien tres parámetros opcionales de palabra por consulta, o bien pasarlas
+a SQL nativo como se hizo con los buscadores. Cualquiera de las dos es un cambio
+que quiero medir con calma después, no meter al final de una sesión.
+
+Afecta a: Inventario, Pedidos, Órdenes de compra, Producción, Devoluciones,
+Devoluciones a proveedor y Cuentas por pagar.
+
+### 8.4 Lo que se comprobó y está bien
+
+- **Inventario**: el aviso de stock bajo enseña 50.153, cuadra con la base, y ya
+  no descarga 50.153 registros para pintar un número.
+- **Auditoría**: las cuatro pestañas. El rastro de `admin` sale con 19.932
+  acciones y 7.813 movimientos de stock; los cambios campo a campo con su
+  antes/después, la cuenta de PostgreSQL y el número de transacción.
+- El distintivo ámbar **«fuera de la app»** aparece donde debe: en los cambios
+  que hizo la propia migración por `psql`, no el sistema.
+- **Respaldos**: los tres puntos, con el purgado marcado «ya no está en disco» y
+  sin botón de restaurar. El botón de borrar, deshabilitado sin la frase.
+- **Pedido nuevo**: «cedeno maria» (al revés) encuentra a Maria Cedeno.
+- **Cero errores** en la consola del navegador en todo el recorrido.
+- Comprobación por roles: **37 bien · 0 fallando**.
+
+### 8.5 Dos equivocaciones propias, anotadas
+
+1. Al añadir el método del resumen lo inserté **entre un `@Transactional` y su
+   método**, así que la anotación pasó al método nuevo y `listar` se quedó sin
+   transacción. Resultado: «Executing an update/delete query» y un 500 en toda
+   la pantalla de Cuentas por pagar. Lo detectó la comprobación por roles, no yo.
+2. Puse comillas invertidas dentro de un comentario CSS que vive en una
+   plantilla de TypeScript, y eso corta la cadena. **No apareció en mi
+   comprobación de compilación** porque filtré la salida por `Error|error TS` y
+   esbuild lo reporta de otra forma. Filtrar la salida de una compilación es una
+   forma cómoda de no enterarse.

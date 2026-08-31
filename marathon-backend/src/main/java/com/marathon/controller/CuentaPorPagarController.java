@@ -33,6 +33,20 @@ public class CuentaPorPagarController {
         return ResponseEntity.ok(cuentaService.listar(page, size, estado, idProveedor, busqueda));
     }
 
+    /**
+     * Cuántas cuentas están vencidas y cuánto suman (F94c).
+     *
+     * <p>Lo pide el aviso rojo de la pantalla. Antes lo calculaba el navegador
+     * sumando las primeras mil filas y lo enseñaba como si fuera el total: con
+     * 1,5 millones de cuentas, decía 43 millones donde había 46 mil millones.
+     * Sumar es trabajo de la base.
+     */
+    @GetMapping("/resumen-vencidas")
+    @PreAuthorize("hasAuthority('cuentas_por_pagar:ver')")
+    public ResponseEntity<java.util.Map<String, Object>> resumenVencidas() {
+        return ResponseEntity.ok(cuentaService.resumenVencidas());
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('cuentas_por_pagar:ver')")
     public ResponseEntity<CuentaPorPagarResponseDTO> obtener(@PathVariable(name = "id") Integer id) {

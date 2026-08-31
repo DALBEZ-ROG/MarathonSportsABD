@@ -128,12 +128,24 @@ export class CuentasPorPagarComponent implements OnInit {
     });
   }
 
+  /**
+   * F94c: las dos cifras las da la BASE, no una suma en el navegador.
+   *
+   * Antes se pedían las primeras 1.000 cuentas vencidas, se sumaban aquí y ese
+   * resultado se enseñaba junto al recuento REAL del servidor. Con 1.499.192
+   * cuentas vencidas el aviso decía «1499192 cuenta(s) por un total de
+   * $43.950.118,75» cuando el total de verdad son $46.124.820.094,14: la suma
+   * de mil filas con aspecto de dato bueno, subestimando la deuda mil veces.
+   *
+   * Con pocos datos no se notaba, porque las mil filas eran todas.
+   */
   cargarResumenVencidas() {
-    this.api.get<any>('cuentas-por-pagar?estado=vencida&size=1000').subscribe({
+    this.api.get<any>('cuentas-por-pagar/resumen-vencidas').subscribe({
       next: (res: any) => {
-        this.cuentasVencidas = res.totalElements || 0;
-        this.totalVencido = (res.content || []).reduce((acc: number, c: any) => acc + (c.saldoPendiente || 0), 0);
-      }
+        this.cuentasVencidas = res?.cuantas ?? 0;
+        this.totalVencido = Number(res?.total ?? 0);
+      },
+      error: () => { this.cuentasVencidas = 0; this.totalVencido = 0; }
     });
   }
 
