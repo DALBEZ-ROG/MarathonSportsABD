@@ -48,6 +48,31 @@ public class ProveedorGemini implements ProveedorIA {
     /** Espera base entre intentos; crece con el numero de intento. */
     private static final long ESPERA_MS = 1500;
 
+    /**
+     * Lo maximo que puede tardar la pregunta entera, reintentos incluidos (F95).
+     *
+     * <p><b>Por que un presupuesto y no un plazo por intento.</b> Antes cada
+     * intento tenia sus propios 60 s y no habia limite al conjunto: tres
+     * intentos lentos sumaban mas de tres minutos de reloj de arena. Medido el
+     * 2026-09-01: 32,9 s de 503 + 2,6 s de 503 + 60 s agotados = 100 s para
+     * acabar sin respuesta.
+     *
+     * <p>Lo que se le puede pedir a alguien que espera es un numero, y ese
+     * numero es este. Cada intento usa lo que quede del presupuesto, nunca mas,
+     * asi que la pregunta termina —bien o mal— dentro del plazo.
+     *
+     * <p>90 s parece mucho y lo es, pero acortarlo cortaria respuestas buenas:
+     * una traduccion correcta ha tardado 57 s con Google saturado. Quien manda
+     * aqui es la latencia real de Google, no el gusto.
+     */
+    private static final long PRESUPUESTO_MS = 90_000;
+
+    /** Ningun intento suelto espera mas que esto, aunque sobre presupuesto. */
+    private static final long PLAZO_INTENTO_MS = 60_000;
+
+    /** Por debajo de esto no merece la pena empezar otro intento. */
+    private static final long MINIMO_PARA_REINTENTAR_MS = 8_000;
+
     @Value("${gemini.api.key:}")
     private String apiKey;
 
@@ -96,14 +121,38 @@ public class ProveedorGemini implements ProveedorIA {
      * por quien pregunta.
      *
      * <p>Se reintenta <b>solo</b> lo que tiene sentido reintentar: saturacion
-     * (503) y limite de ritmo (429). Una clave invalida o un modelo que no existe
-     * no mejoran esperando, y reintentarlos solo hace perder tiempo.
+     * (503), limite de ritmo (429) <b>y que se acabe el plazo</b>. Una clave
+     * invalida o un modelo que no existe no mejoran esperando, y reintentarlos
+     * solo hace perder tiempo.
+     *
+     * <p><b>F95 — el plazo agotado tambien es saturacion, y no se reintentaba.</b>
+     * Un plazo agotado no llega como {@link WebClientResponseException} sino como
+     * {@code TimeoutException} envuelta por Reactor, asi que se escapaba por
+     * fuera del bucle: el intento se perdia sin reintentar y, peor, el motivo se
+     * perdia con el. Quien preguntaba veia «No se pudo hablar con el asistente»
+     * —el mensaje de un fallo desconocido— cuando lo que pasaba era justo lo que
+     * este metodo sabe explicar: que el modelo esta saturado.
+     *
+     * <p>Es el mismo hecho contado de dos formas. Cuando Google va sobrecargado,
+     * unas veces contesta 503 enseguida y otras no contesta a tiempo; tratar una
+     * y no la otra era una distincion sin diferencia.
      */
     private String llamarConReintento(Map<String, Object> body) {
-        WebClientResponseException ultimo = null;
+        long limite = System.nanoTime() + PRESUPUESTO_MS * 1_000_000L;
+        RuntimeException ultimo = null;
         for (int intento = 1; intento <= INTENTOS; intento++) {
+            long queda = (limite - System.nanoTime()) / 1_000_000L;
+            if (queda < MINIMO_PARA_REINTENTAR_MS) {
+                break;   // no da tiempo a otro intento; se responde con lo ultimo que se supo
+            }
+            long plazo = Math.min(queda, PLAZO_INTENTO_MS);
+            // Cuanto tarda CADA intento. Sin esto, «el asistente tardo 95
+            // segundos» no distingue una llamada lenta de tres reintentos
+            // rapidos, y son dos problemas distintos: uno es Google yendo lento
+            // y el otro es Google rechazando la peticion una y otra vez.
+            long arranque = System.nanoTime();
             try {
-                return getWebClient().post()
+                String respuesta = getWebClient().post()
                         .uri(apiUrl + "/" + model + ":generateContent")
                         .header("X-goog-api-key", apiKey)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -112,25 +161,57 @@ public class ProveedorGemini implements ProveedorIA {
                         .bodyToMono(String.class)
                         // 30 s se quedaban cortos: el contexto del esquema es
                         // largo y la primera respuesta del dia tarda mas.
-                        .timeout(Duration.ofSeconds(60))
+                        .timeout(Duration.ofMillis(plazo))
                         .block();
+                log.info("Gemini contesto en {} ms (intento {}/{})",
+                         (System.nanoTime() - arranque) / 1_000_000, intento, INTENTOS);
+                return respuesta;
             } catch (WebClientResponseException e) {
                 int codigo = e.getStatusCode().value();
                 // El cuerpo del error de Google dice QUE pasa -clave invalida,
                 // modelo inexistente, cuota agotada- y "400 Bad Request" a secas
                 // no dice nada. Va al log del servidor, no al navegador.
-                log.warn("Gemini respondio {} al modelo {} (intento {}/{}): {}",
-                         e.getStatusCode(), model, intento, INTENTOS,
-                         e.getResponseBodyAsString());
-                boolean vaAMejorar = codigo == 503 || codigo == 429;
-                if (!vaAMejorar || intento == INTENTOS) {
+                log.warn("Gemini respondio {} al modelo {} tras {} ms (intento {}/{}): {}",
+                         e.getStatusCode(), model, (System.nanoTime() - arranque) / 1_000_000,
+                         intento, INTENTOS, e.getResponseBodyAsString());
+                if (codigo != 503 && codigo != 429) {
                     throw new IllegalStateException(mensajeDeGoogle(e), e);
                 }
-                ultimo = e;
-                esperar(ESPERA_MS * intento);
+                ultimo = new IllegalStateException(mensajeDeGoogle(e), e);
+            } catch (RuntimeException e) {
+                if (!esPlazoAgotado(e)) {
+                    throw e;
+                }
+                log.warn("Gemini no contesto en {} ms al modelo {} (intento {}/{})",
+                         plazo, model, intento, INTENTOS);
+                ultimo = new IllegalStateException(
+                        "El modelo tardo demasiado en contestar. Suele ser saturacion pasajera: "
+                        + "vuelve a intentarlo en un minuto.", e);
+            }
+            if (intento < INTENTOS) {
+                esperar(Math.min(ESPERA_MS * intento,
+                                 Math.max(0, (limite - System.nanoTime()) / 1_000_000L)));
             }
         }
-        throw new IllegalStateException(mensajeDeGoogle(ultimo));
+        throw ultimo != null ? ultimo
+                : new IllegalStateException("El modelo esta saturado en este momento. "
+                        + "Vuelve a intentarlo en un minuto.");
+    }
+
+    /**
+     * Si la excepcion es «se acabo el plazo», mirando tambien lo que envuelve.
+     *
+     * <p>Reactor no propaga la {@code TimeoutException} tal cual: la envuelve en
+     * una {@code ReactiveException} suya. Preguntar por el tipo de la de fuera
+     * daba siempre que no, que es como este caso se colaba.
+     */
+    static boolean esPlazoAgotado(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause() == t ? null : t.getCause()) {
+            if (t instanceof java.util.concurrent.TimeoutException) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void esperar(long ms) {

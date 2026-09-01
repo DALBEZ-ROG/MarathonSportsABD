@@ -131,6 +131,8 @@ import { AuthService } from '../../../core/services/auth.service';
           </div>
 
           <div class="m-pensando" *ngIf="a.cargando"><span></span><span></span><span></span></div>
+          <!-- F95: los tres puntitos solos no distinguen «va lento» de «se colgo». -->
+          <p class="m-demora" *ngIf="a.cargando && a.demorado">El modelo va lento ahora mismo. Sigo esperando…</p>
         </div>
 
         <form class="p-pie" (ngSubmit)="enviar()">
@@ -235,6 +237,8 @@ import { AuthService } from '../../../core/services/auth.service';
     .m-tabla td.num { text-align: right; font-variant-numeric: tabular-nums; }
     .m-mas { margin: .4rem 0 0; font-size: .72rem; color: var(--ms-text-muted); }
     .m-mas a { color: var(--ms-gold); }
+
+    .m-demora { margin: .2rem 0 0 .2rem; font-size: .78rem; color: var(--ms-text-muted); }
 
     .m-pensando { display: flex; gap: .25rem; padding: .3rem .2rem; }
     .m-pensando span {

@@ -52,6 +52,33 @@ export class AsistenteService {
   ejemplos: string[] = [];
   cargando = false;
 
+  /**
+   * Si la espera ya se está haciendo larga (F95).
+   *
+   * <p>Traducir la pregunta la hace Google, y su latencia **no es estable**:
+   * midiendo la misma pregunta salieron desde 0,28 s hasta 57 s, y con el modelo
+   * saturado la petición puede consumir los 90 s de plazo del servidor. Un
+   * «Pensando la consulta…» quieto durante minuto y medio no se distingue de un
+   * sistema colgado, y quien mira la pantalla cierra o vuelve a pulsar.
+   *
+   * <p>Así que a los 15 s el texto cambia y dice la verdad: sigue esperando, y
+   * el que tarda es el modelo. No acelera nada; evita que parezca averiado.
+   */
+  demorado = false;
+
+  private avisoDemora: ReturnType<typeof setTimeout> | null = null;
+
+  private empezarEspera(): void {
+    this.demorado = false;
+    if (this.avisoDemora) { clearTimeout(this.avisoDemora); }
+    this.avisoDemora = setTimeout(() => { this.demorado = true; }, 15000);
+  }
+
+  private terminarEspera(): void {
+    if (this.avisoDemora) { clearTimeout(this.avisoDemora); this.avisoDemora = null; }
+    this.demorado = false;
+  }
+
   /** Si el módulo está encendido. Se pregunta antes de dejar escribir. */
   estado: 'comprobando' | 'encendido' | 'apagado' = 'comprobando';
 
@@ -134,6 +161,7 @@ export class AsistenteService {
 
     this.mensajes.push({ tipo: 'usuario', texto: limpio });
     this.cargando = true;
+    this.empezarEspera();
     this.hayQueBajar = true;
     this.guardar();
 
@@ -141,6 +169,7 @@ export class AsistenteService {
       next: res => {
         this.mensajes.push({ tipo: 'ia', respuesta: res, mostrarSql: false });
         this.cargando = false;
+        this.terminarEspera();
         this.hayQueBajar = true;
         this.guardar();
       },
@@ -164,6 +193,7 @@ export class AsistenteService {
           }
         });
         this.cargando = false;
+        this.terminarEspera();
         this.hayQueBajar = true;
         this.guardar();
       }

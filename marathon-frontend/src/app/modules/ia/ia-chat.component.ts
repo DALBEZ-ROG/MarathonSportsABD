@@ -155,7 +155,10 @@ import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
           <div class="msg-row" *ngIf="cargando">
             <div class="bubble bubble-ia">
-              <span class="spinner"></span> Pensando la consulta…
+              <span class="spinner"></span>
+              <span *ngIf="!a.demorado">Pensando la consulta…</span>
+              <!-- F95: a los 15 s deja de parecer colgado y dice quién tarda. -->
+              <span *ngIf="a.demorado">El modelo va lento ahora mismo. Sigo esperando…</span>
             </div>
           </div>
         </div>

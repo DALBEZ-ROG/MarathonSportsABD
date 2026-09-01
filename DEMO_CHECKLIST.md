@@ -209,6 +209,19 @@ UPDATE orden_produccion SET costo_materia_prima = 1 WHERE id_orden_produccion = 
 > responde «Se agotó la cuota». Comprobarlo ANTES haciendo una pregunta, y no
 > gastar el resto en ensayos. El error se ve en la propia pantalla, así que no
 > hay sorpresa silenciosa — pero sí un hueco en el guion.
+>
+> **Y OJO CON EL TIEMPO.** Quien traduce la pregunta es Google, y su latencia no
+> es estable ni depende de nosotros. Medido el 2026-09-01 en cuatro preguntas
+> reales: **6 s, 23 s, 40 s y 95 s**. Con el modelo saturado puede agotar los
+> **90 s de plazo** y contestar que no pudo. A los 15 s la pantalla lo avisa
+> («El modelo va lento ahora mismo. Sigo esperando…») para que no parezca
+> colgado, pero conviene decirlo en voz alta antes de pulsar.
+>
+> **El truco que sí funciona:** repetir una pregunta ya hecha es **instantáneo**
+> (medido: 95 s → 0,18 s). El sistema recuerda la traducción, no el resultado,
+> así que los datos se vuelven a consultar y la cifra sigue siendo la de ahora.
+> Si se ensaya una pregunta antes de la demo, esa misma pregunta en la demo sale
+> al momento.
 
 ### Auditoría
 - [ ] **Auditoría → Rastro por usuario** → elegir a `admin@marathon.com` y enseñar de una sola pantalla en qué módulos trabajó, qué datos cambió y qué stock movió durante la demo

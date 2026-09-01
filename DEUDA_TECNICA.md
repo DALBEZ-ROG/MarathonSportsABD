@@ -745,3 +745,124 @@ aparezcan, cada una en cualquiera de las columnas buscables. Así `maria cedeno`
 Está implementado en `ClienteService.buscarParaSelector` y en
 `ProductoService.buscarParaSelector`. Cualquier buscador nuevo debería copiarlo
 de ahí en vez de volver a escribir un `LIKE` de una sola pieza.
+
+---
+
+## Fase 95 — Lo que se vio al comprobar el asistente (2026-09-01)
+
+Esta fase no empezó como fase. Quedaba pendiente de la F94b una sola cosa —
+verificar el asistente de IA de extremo a extremo, que no se pudo hacer porque
+la cuota diaria de Gemini estaba agotada— y al hacerla aparecieron tres cosas
+que no se buscaban. Se anotan aquí las tres, porque las tres tienen la misma
+forma: **algo estaba roto y el sistema no lo decía**.
+
+### 1. La suite de pruebas llevaba rota desde la F92, y nadie se enteró
+
+`mvn test` da **209 pruebas, 0 fallos**. Pero antes de arreglar nada daba
+**161 errores**, todos con el mismo motivo:
+
+```
+Schema-validation: missing table [control.operacion]
+```
+
+La F92 creó el esquema `control` y el script se aplicó **solo a
+`mod_venta_inve`**. La base de pruebas se quedó sin él y, como el perfil de
+pruebas usa `ddl-auto=validate`, Hibernate compara las entidades con el esquema
+**antes de ejecutar nada**: el contexto de Spring no arranca, y con él caen de
+golpe todas las pruebas que lo necesitan.
+
+Lo grave no es la omisión, que se arregla en un minuto:
+
+```bash
+psql -p 5433 -U postgres -d mod_venta_inve_test -f marathon-backend/sql/fase92_control_respaldos.sql
+```
+
+Lo grave es que **estuvo roto tres fases enteras** —F93, F94, F94b/c/d— sin que
+saltara nada. Un fallo al *cargar el contexto* se parece muchísimo a «no tengo
+el entorno montado en este equipo», y se lee por encima. La red de seguridad
+existía y funcionaba; simplemente no se corrió.
+
+**Regla nueva:** toda migración que toque el esquema se aplica a **las dos**
+bases, y se corre `mvn test` después. Las dos cosas, no una. Anotado también en
+`application-test.properties`, que es donde se va a mirar.
+
+### 2. Un plazo agotado no se reintentaba, y se contaba como fallo desconocido
+
+Medido el 2026-09-01 con Gemini saturado:
+
+```
+intento 1/3 → 503 «high demand»  tras 32.932 ms
+intento 2/3 → 503 «high demand»  tras  2.623 ms
+intento 3/3 → sin respuesta en 60.000 ms
+                                 ─────────────
+total                            ~100 s, y ninguna respuesta
+```
+
+Y lo que veía quien preguntaba: **«No se pudo hablar con el asistente. Vuelve a
+intentarlo.»** — el mensaje de un fallo del que no se sabe nada. Pero sí se
+sabía: el modelo estaba saturado, que es exactamente lo que
+`ProveedorGemini.mensajeDeGoogle` sabe explicar para un 503.
+
+Se colaba porque Reactor no propaga la `TimeoutException` tal cual: **la
+envuelve** en una excepción suya. El `catch (WebClientResponseException)` del
+bucle de reintento no la veía pasar, así que el intento se perdía sin reintentar
+y el motivo se perdía con él.
+
+Es el mismo hecho contado de dos maneras. Cuando Google va sobrecargado, unas
+veces contesta 503 enseguida y otras no contesta a tiempo; tratar una y no la
+otra era una distinción sin diferencia.
+
+Arreglado en `ProveedorGemini`:
+
+- el plazo agotado **se reintenta**, como el 503 y el 429;
+- se reconoce recorriendo la **cadena de causas**, no el tipo de la de fuera;
+- hay un **presupuesto de 90 s para la pregunta entera**, reintentos incluidos,
+  en vez de 60 s por intento sin límite al conjunto. Cada intento usa lo que
+  quede, así que la pregunta termina —bien o mal— dentro del plazo;
+- y al agotarse, el mensaje dice la verdad: que el modelo tardó demasiado y que
+  suele ser pasajero.
+
+Cubierto por `ProveedorGeminiTest` (5 pruebas), incluida la excepción envuelta
+tal como aparece en el log, que es la que se escapaba.
+
+### 3. El servidor no dejaba rastro de nada de esto
+
+Todo lo anterior se descubrió porque se añadió `logging.file.name` a la
+configuración local. Hasta entonces el backend **solo escribía en la consola de
+la ventana que lo arrancó**: el cuerpo del error de Google —que `ProveedorGemini`
+sí registraba— se perdía con esa ventana. Se estaba diagnosticando a ciegas.
+
+Está en `application-local.properties` (gitignored) y el fichero lo cubre
+`*.log` del `.gitignore`. **Conviene ponerlo en cualquier equipo donde se vaya a
+mirar por qué algo falla.**
+
+### Lo que NO es un problema, aunque lo parezca
+
+`scripts/perf/comprobar_sistema.sh` marca 5 pantallas por encima de 1.000 ms.
+No es una regresión: ese banco mide **una sola llamada en frío** por caso. Las
+mismas rutas medidas en caliente:
+
+| Pantalla | 1.ª llamada | en caliente |
+|---|--:|--:|
+| Tablero · indicadores | 2.189 ms | 7 ms |
+| Órdenes · buscar proveedor | 1.931 ms | 603 ms |
+| Pedidos · buscar por cliente | 1.605 ms | 338 ms |
+| Análisis del negocio | 1.266 ms | 414 ms |
+| Proveedores · filtrar | 1.067 ms | 201 ms |
+
+El banco de las 46 pantallas —que mide la segunda— da **376 ms el peor caso**,
+igual que en la F94. Los dos números son ciertos y miden cosas distintas.
+
+**Matiz honesto sobre el tablero:** el «1.444 → 7 ms» de la F94 es el número
+**con la memoria de 20 s caliente**. En frío la misma consulta tarda **772 ms**.
+Sigue siendo menos de la mitad que antes, pero no es 200 veces menos, y quien
+abre el tablero por la mañana paga los 772 ms.
+
+### Pendiente
+
+- **Rotar la clave de Gemini.** Sigue pendiente desde el 2026-08-29.
+- **Los 772 ms del tablero en frío.** La memoria de 20 s tapa el síntoma para
+  quien recarga seguido, no para quien llega.
+- Aplicar a `mod_venta_inve_test` los índices de la F93/F94 (no afectan a
+  `ddl-auto=validate`, así que no rompen nada; es por tener las dos bases
+  iguales de verdad).
