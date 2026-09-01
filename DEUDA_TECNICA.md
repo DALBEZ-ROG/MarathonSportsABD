@@ -860,9 +860,27 @@ abre el tablero por la mañana paga los 772 ms.
 
 ### Pendiente
 
-- **Rotar la clave de Gemini.** Sigue pendiente desde el 2026-08-29.
+- **Rotar la clave de Gemini.** Sigue pendiente desde el 2026-08-29. Decisión
+  del dueño el 2026-09-01: se deja para más adelante a sabiendas.
 - **Los 772 ms del tablero en frío.** La memoria de 20 s tapa el síntoma para
   quien recarga seguido, no para quien llega.
-- Aplicar a `mod_venta_inve_test` los índices de la F93/F94 (no afectan a
-  `ddl-auto=validate`, así que no rompen nada; es por tener las dos bases
-  iguales de verdad).
+
+### Las dos bases, ya iguales (2026-09-01)
+
+Aplicados también a `mod_venta_inve_test` los scripts de la F93 y la F94
+(`fase93_buscadores_del_pedido`, `fase94_indices_de_busqueda`,
+`fase94b_indices_sobre_lower`, `fase94c_indices_sobre_upper`,
+`fase94d_indice_manufactura`). No hacían falta para que las pruebas pasaran
+—`ddl-auto=validate` no mira índices— pero «las dos bases están iguales» tiene
+que ser verdad o no sirve de nada decirlo.
+
+Comprobado comparando las dos, no suponiéndolo:
+
+| | producción | pruebas |
+|---|--:|--:|
+| índices en `public` + `control` | 192 | **192** |
+| columnas | 355 | **355** |
+| `pg_trgm` | sí | **sí** |
+
+`diff` de ambos listados: sin diferencias en ninguna de las dos direcciones.
+Suite después de aplicarlos: **209 pruebas, 0 fallos**.
